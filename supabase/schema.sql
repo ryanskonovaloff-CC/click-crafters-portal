@@ -1,0 +1,207 @@
+create extension if not exists pgcrypto;
+
+create type public.user_role as enum ('admin', 'client_admin', 'client_viewer');
+
+create table public.clients (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  industry text,
+  status text not null default 'active',
+  last_updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  full_name text,
+  role public.user_role not null default 'client_viewer',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.client_users (
+  client_id uuid not null references public.clients(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (client_id, user_id)
+);
+
+create table public.daily_performance (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  date date not null,
+  platform text not null check (platform in ('Google Ads', 'Meta Ads')),
+  spend numeric(12,2) not null default 0,
+  revenue numeric(12,2) not null default 0,
+  conversions integer not null default 0,
+  clicks integer not null default 0,
+  impressions integer not null default 0,
+  created_at timestamptz not null default now(),
+  unique (client_id, date, platform)
+);
+
+create table public.campaign_performance (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  period_start date not null,
+  period_end date not null,
+  platform text not null check (platform in ('Google Ads', 'Meta Ads')),
+  campaign_name text not null,
+  spend numeric(12,2) not null default 0,
+  revenue numeric(12,2) not null default 0,
+  conversions integer not null default 0,
+  clicks integer not null default 0,
+  impressions integer not null default 0,
+  wasted_spend numeric(12,2) not null default 0,
+  ctr numeric generated always as (case when impressions > 0 then round((clicks::numeric / impressions::numeric) * 100, 2) else 0 end) stored,
+  cpc numeric generated always as (case when clicks > 0 then round(spend / clicks, 2) else 0 end) stored,
+  cpa numeric generated always as (case when conversions > 0 then round(spend / conversions, 2) else 0 end) stored,
+  roas numeric generated always as (case when spend > 0 then round(revenue / spend, 2) else 0 end) stored,
+  created_at timestamptz not null default now()
+);
+
+create table public.ad_performance (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  period_start date not null,
+  period_end date not null,
+  platform text not null check (platform in ('Google Ads', 'Meta Ads')),
+  campaign_name text not null,
+  ad_name text not null,
+  preview_url text,
+  spend numeric(12,2) not null default 0,
+  revenue numeric(12,2) not null default 0,
+  conversions integer not null default 0,
+  clicks integer not null default 0,
+  impressions integer not null default 0,
+  wasted_spend numeric(12,2) not null default 0,
+  ctr numeric generated always as (case when impressions > 0 then round((clicks::numeric / impressions::numeric) * 100, 2) else 0 end) stored,
+  cpc numeric generated always as (case when clicks > 0 then round(spend / clicks, 2) else 0 end) stored,
+  cpa numeric generated always as (case when conversions > 0 then round(spend / conversions, 2) else 0 end) stored,
+  roas numeric generated always as (case when spend > 0 then round(revenue / spend, 2) else 0 end) stored,
+  created_at timestamptz not null default now()
+);
+
+create table public.seo_performance (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  period_start date not null,
+  period_end date not null,
+  organic_clicks integer not null default 0,
+  organic_impressions integer not null default 0,
+  average_position numeric(5,2) not null default 0,
+  organic_sessions integer not null default 0,
+  organic_conversions integer not null default 0,
+  top_queries jsonb not null default '[]'::jsonb,
+  top_landing_pages jsonb not null default '[]'::jsonb,
+  technical_issues jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table public.reports (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  month text not null,
+  summary text not null,
+  wins text[] not null default '{}',
+  issues text[] not null default '{}',
+  actions_taken text[] not null default '{}',
+  next_steps text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  unique (client_id, month)
+);
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, email, full_name)
+  values (new.id, new.email, coalesce(new.raw_user_meta_data ->> 'full_name', new.email))
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function public.handle_new_user();
+
+create or replace function public.current_user_role()
+returns public.user_role
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role from public.profiles where id = auth.uid()
+$$;
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(public.current_user_role() = 'admin', false)
+$$;
+
+create or replace function public.can_access_client(target_client_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_admin()
+    or exists (
+      select 1
+      from public.client_users cu
+      where cu.client_id = target_client_id
+        and cu.user_id = auth.uid()
+    )
+$$;
+
+alter table public.clients enable row level security;
+alter table public.profiles enable row level security;
+alter table public.client_users enable row level security;
+alter table public.daily_performance enable row level security;
+alter table public.campaign_performance enable row level security;
+alter table public.ad_performance enable row level security;
+alter table public.seo_performance enable row level security;
+alter table public.reports enable row level security;
+
+create policy "Admins can manage clients" on public.clients for all using (public.is_admin()) with check (public.is_admin());
+create policy "Assigned users can read clients" on public.clients for select using (public.can_access_client(id));
+
+create policy "Users can read own profile" on public.profiles for select using (id = auth.uid() or public.is_admin());
+create policy "Admins can manage profiles" on public.profiles for all using (public.is_admin()) with check (public.is_admin());
+
+create policy "Admins can manage client users" on public.client_users for all using (public.is_admin()) with check (public.is_admin());
+create policy "Users can read own assignments" on public.client_users for select using (user_id = auth.uid() or public.is_admin());
+
+create policy "Read assigned daily performance" on public.daily_performance for select using (public.can_access_client(client_id));
+create policy "Admin manage daily performance" on public.daily_performance for all using (public.is_admin()) with check (public.is_admin());
+
+create policy "Read assigned campaign performance" on public.campaign_performance for select using (public.can_access_client(client_id));
+create policy "Admin manage campaign performance" on public.campaign_performance for all using (public.is_admin()) with check (public.is_admin());
+
+create policy "Read assigned ad performance" on public.ad_performance for select using (public.can_access_client(client_id));
+create policy "Admin manage ad performance" on public.ad_performance for all using (public.is_admin()) with check (public.is_admin());
+
+create policy "Read assigned seo performance" on public.seo_performance for select using (public.can_access_client(client_id));
+create policy "Admin manage seo performance" on public.seo_performance for all using (public.is_admin()) with check (public.is_admin());
+
+create policy "Read assigned reports" on public.reports for select using (public.can_access_client(client_id));
+create policy "Admin manage reports" on public.reports for all using (public.is_admin()) with check (public.is_admin());
+
+create index daily_performance_client_date_idx on public.daily_performance (client_id, date);
+create index campaign_performance_client_period_idx on public.campaign_performance (client_id, period_start, period_end);
+create index ad_performance_client_period_idx on public.ad_performance (client_id, period_start, period_end);
+create index seo_performance_client_period_idx on public.seo_performance (client_id, period_start, period_end);
+create index reports_client_month_idx on public.reports (client_id, month);
