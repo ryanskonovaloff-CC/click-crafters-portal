@@ -18,7 +18,7 @@ NEXT_PUBLIC_SITE_URL=https://portal.clickcrafters.click
 2. In SQL Editor, run `portal/supabase/schema.sql`.
 3. In SQL Editor, run `portal/supabase/seed.sql`.
 4. In Authentication settings, enable email/password. Enable magic link if desired.
-5. Add `https://portal.clickcrafters.click/auth/callback` to Auth redirect URLs.
+5. Add the portal redirect URLs to Supabase Auth.
 6. Create an admin user in Supabase Auth, then run:
 
 ```sql
@@ -41,6 +41,25 @@ where email = 'client@example.com';
 ```
 
 Row Level Security is enabled on all client data tables. Admins can read all clients. Client users can only read clients where a row exists in `client_users`.
+
+## Supabase Auth Redirect URLs
+
+Add these URLs in Supabase Auth settings:
+
+```text
+https://portal.clickcrafters.click/auth/callback
+https://portal.clickcrafters.click/update-password
+https://portal.clickcrafters.click/dashboard
+http://localhost:3000/auth/callback
+http://localhost:3000/update-password
+http://localhost:3000/dashboard
+```
+
+Password recovery emails should redirect to:
+
+```text
+https://portal.clickcrafters.click/auth/callback?next=/update-password
+```
 
 ## Build Commands
 
@@ -104,10 +123,12 @@ Add an `A` record for `portal.clickcrafters.click` pointing to the VPS IP addres
 2. Set the project root to `portal`.
 3. Add the environment variables above.
 4. Add `portal.clickcrafters.click` as a custom domain.
-5. Add the Vercel callback URL to Supabase Auth redirect URLs:
+5. Add the Vercel callback and password reset URLs to Supabase Auth redirect URLs:
 
 ```text
 https://portal.clickcrafters.click/auth/callback
+https://portal.clickcrafters.click/update-password
+https://portal.clickcrafters.click/dashboard
 ```
 
 This option avoids changing the existing NGINX configuration for `www.clickcrafters.click`.
