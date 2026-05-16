@@ -12,10 +12,18 @@ import type {
 } from "@/lib/types";
 
 const rangeLabels: Record<DateRangeKey, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  last3: "Last 3 days",
+  last7: "Last 7 days",
+  last14: "Last 14 days",
   mtd: "Month to date",
   last30: "Last 30 days",
-  last_month: "Last month"
+  last_month: "Last month",
+  custom: "Custom range"
 };
+
+const validRangeKeys: DateRangeKey[] = ["today", "yesterday", "last3", "last7", "last14", "mtd", "last30", "last_month", "custom"];
 
 function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -31,15 +39,57 @@ function startOfMonth(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
 
-export function getDateRange(key: string | undefined): DateRange {
-  const rangeKey = key === "last30" || key === "last_month" ? key : "mtd";
+function isIsoDate(value: string | undefined) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value ?? "");
+}
+
+export function getDateRange(key: string | undefined, customStart?: string, customEnd?: string): DateRange {
+  const rangeKey = validRangeKeys.includes(key as DateRangeKey) ? key as DateRangeKey : "last7";
   const today = new Date();
   const end = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
   let start: Date;
   let previousStart: Date;
   let previousEnd: Date;
 
-  if (rangeKey === "last30") {
+  if (rangeKey === "custom" && isIsoDate(customStart) && isIsoDate(customEnd)) {
+    const startDate = new Date(`${customStart}T00:00:00Z`);
+    const endDate = new Date(`${customEnd}T00:00:00Z`);
+    start = startDate <= endDate ? startDate : endDate;
+    const normalizedEnd = startDate <= endDate ? endDate : startDate;
+    const daysInRange = Math.max(1, Math.round((normalizedEnd.getTime() - start.getTime()) / 86400000) + 1);
+    previousEnd = addDays(start, -1);
+    previousStart = addDays(previousEnd, -(daysInRange - 1));
+    return {
+      key: rangeKey,
+      label: rangeLabels[rangeKey],
+      start: isoDate(start),
+      end: isoDate(normalizedEnd),
+      previousStart: isoDate(previousStart),
+      previousEnd: isoDate(previousEnd)
+    };
+  }
+
+  if (rangeKey === "today") {
+    start = end;
+    previousEnd = addDays(start, -1);
+    previousStart = previousEnd;
+  } else if (rangeKey === "yesterday") {
+    start = addDays(end, -1);
+    previousEnd = addDays(start, -1);
+    previousStart = previousEnd;
+  } else if (rangeKey === "last3") {
+    start = addDays(end, -2);
+    previousEnd = addDays(start, -1);
+    previousStart = addDays(previousEnd, -2);
+  } else if (rangeKey === "last7") {
+    start = addDays(end, -6);
+    previousEnd = addDays(start, -1);
+    previousStart = addDays(previousEnd, -6);
+  } else if (rangeKey === "last14") {
+    start = addDays(end, -13);
+    previousEnd = addDays(start, -1);
+    previousStart = addDays(previousEnd, -13);
+  } else if (rangeKey === "last30") {
     start = addDays(end, -29);
     previousEnd = addDays(start, -1);
     previousStart = addDays(previousEnd, -29);
@@ -350,9 +400,9 @@ function mergeSeoTotals(primary: SeoTotals, fallback: SeoTotals): SeoTotals {
   };
 }
 
-export async function getPaidAdsDashboardData(rangeKey?: string) {
+export async function getPaidAdsDashboardData(rangeKey?: string, customStart?: string, customEnd?: string) {
   const { supabase, profile, client } = await getActiveClient();
-  const range = getDateRange(rangeKey);
+  const range = getDateRange(rangeKey, customStart, customEnd);
 
   if (!client) {
     return { profile, client, range, daily: [], previousDaily: [], totals: sumPaidPerformance([]), previousTotals: sumPaidPerformance([]), status: queryStatus(null, 0) };
@@ -375,9 +425,9 @@ export async function getPaidAdsDashboardData(rangeKey?: string) {
   };
 }
 
-export async function getSeoDashboardData(rangeKey?: string) {
+export async function getSeoDashboardData(rangeKey?: string, customStart?: string, customEnd?: string) {
   const { supabase, profile, client } = await getActiveClient();
-  const range = getDateRange(rangeKey);
+  const range = getDateRange(rangeKey, customStart, customEnd);
 
   if (!client) {
     return { profile, client, range, totals: emptySeoTotals(), topQueries: [], topPages: [], status: queryStatus(null, 0) };
@@ -426,10 +476,10 @@ export async function getSeoDashboardData(rangeKey?: string) {
   };
 }
 
-export async function getOverviewDashboardData(rangeKey?: string) {
+export async function getOverviewDashboardData(rangeKey?: string, customStart?: string, customEnd?: string) {
   const [paid, seo] = await Promise.all([
-    getPaidAdsDashboardData(rangeKey),
-    getSeoDashboardData(rangeKey)
+    getPaidAdsDashboardData(rangeKey, customStart, customEnd),
+    getSeoDashboardData(rangeKey, customStart, customEnd)
   ]);
 
   return {

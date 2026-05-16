@@ -1,16 +1,15 @@
-import Link from "next/link";
+import { DateRangePicker } from "@/components/date-range-picker";
 import { Badge, Card, StatCard, Table } from "@/components/ui";
 import { getSeoDashboardData } from "@/lib/data";
 import { compact, pct } from "@/lib/utils";
-import type { DateRangeKey } from "@/lib/types";
 
 type PageProps = {
-  searchParams?: Promise<{ range?: string }>;
+  searchParams?: Promise<{ range?: string; start?: string; end?: string }>;
 };
 
 export default async function SeoPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const { range, totals, topQueries, topPages, status } = await getSeoDashboardData(params?.range);
+  const { range, totals, topQueries, topPages, status } = await getSeoDashboardData(params?.range, params?.start, params?.end);
   const hasData = !status.error && !status.isEmpty;
   const tileState = status.error ? "error" : hasData ? "ready" : "empty";
 
@@ -22,7 +21,7 @@ export default async function SeoPage({ searchParams }: PageProps) {
           <h1 className="mt-3 text-3xl font-semibold tracking-normal">SEO Dashboard</h1>
           <p className="mt-2 text-sm text-white/50">{range.label}</p>
         </div>
-        <RangeLinks active={range.key} />
+        <DateRangePicker range={range} />
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -59,24 +58,6 @@ export default async function SeoPage({ searchParams }: PageProps) {
           )}
         </div>
       </Card>
-    </div>
-  );
-}
-
-function RangeLinks({ active }: { active: DateRangeKey }) {
-  const ranges: Array<{ key: DateRangeKey; label: string }> = [
-    { key: "mtd", label: "Month to date" },
-    { key: "last30", label: "Last 30 days" },
-    { key: "last_month", label: "Last month" }
-  ];
-
-  return (
-    <div className="inline-flex rounded-xl border border-border bg-black/30 p-1 text-sm">
-      {ranges.map((range) => (
-        <Link key={range.key} href={`/dashboard/seo?range=${range.key}`} className={range.key === active ? "rounded-lg bg-white/10 px-3 py-1.5 text-white" : "rounded-lg px-3 py-1.5 text-white/55 hover:text-white"}>
-          {range.label}
-        </Link>
-      ))}
     </div>
   );
 }

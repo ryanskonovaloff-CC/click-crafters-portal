@@ -31,7 +31,7 @@ export type DailyPerformance = {
   cpc: number | null;
 };
 
-export type DateRangeKey = "mtd" | "last30" | "last_month";
+export type DateRangeKey = "today" | "yesterday" | "last3" | "last7" | "last14" | "mtd" | "last30" | "last_month" | "custom";
 
 export type DateRange = {
   key: DateRangeKey;
