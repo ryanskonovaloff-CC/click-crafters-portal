@@ -1,7 +1,7 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { CampaignPerformance, DailyPerformance } from "@/lib/types";
+import { CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { DailyPerformance } from "@/lib/types";
 import { currency } from "@/lib/utils";
 
 function tooltipStyle() {
@@ -59,29 +59,6 @@ export function PlatformBreakdown({ data }: { data: DailyPerformance[] }) {
         <Tooltip contentStyle={tooltipStyle()} formatter={(value: number) => currency.format(value)} />
         <Legend />
       </PieChart>
-    </ResponsiveContainer>
-  );
-}
-
-export function CampaignComparison({ data }: { data: CampaignPerformance[] }) {
-  const chartData = data.slice(0, 6).map((item) => ({
-    name: item.campaign_name.replace("Press Burger ", ""),
-    spend: item.spend,
-    revenue: item.revenue,
-    conversions: item.conversions
-  }));
-
-  return (
-    <ResponsiveContainer width="100%" height={310}>
-      <BarChart data={chartData}>
-        <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-        <XAxis dataKey="name" tickLine={false} axisLine={false} />
-        <YAxis tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={tooltipStyle()} formatter={(value: number, name: string) => name === "conversions" ? value : currency.format(value)} />
-        <Legend />
-        <Bar dataKey="spend" fill="#ff6a1a" radius={[6, 6, 0, 0]} />
-        <Bar dataKey="revenue" fill="rgba(255,255,255,0.72)" radius={[6, 6, 0, 0]} />
-      </BarChart>
     </ResponsiveContainer>
   );
 }

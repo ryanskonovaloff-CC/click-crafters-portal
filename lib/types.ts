@@ -18,7 +18,31 @@ export type Client = {
 
 export type DailyPerformance = {
   date: string;
-  platform: "Google Ads" | "Meta Ads";
+  platform: string;
+  channel: string | null;
+  spend: number;
+  revenue: number;
+  conversions: number;
+  clicks: number;
+  impressions: number;
+  cpa: number | null;
+  roas: number | null;
+  ctr: number | null;
+  cpc: number | null;
+};
+
+export type DateRangeKey = "mtd" | "last30" | "last_month";
+
+export type DateRange = {
+  key: DateRangeKey;
+  label: string;
+  start: string;
+  end: string;
+  previousStart: string;
+  previousEnd: string;
+};
+
+export type MetricTotals = {
   spend: number;
   revenue: number;
   conversions: number;
@@ -26,30 +50,20 @@ export type DailyPerformance = {
   impressions: number;
 };
 
-export type CampaignPerformance = {
-  campaign_name: string;
-  platform: "Google Ads" | "Meta Ads";
-  spend: number;
-  revenue: number;
-  conversions: number;
-  clicks: number;
-  impressions: number;
-  wasted_spend: number;
+export type SeoTotals = {
+  organicClicks: number | null;
+  organicImpressions: number | null;
+  ctr: number | null;
+  averagePosition: number | null;
+  organicSessions: number | null;
+  organicConversions: number | null;
+  indexedPages: number | null;
+  technicalIssues: Array<string>;
 };
 
-export type AdPerformance = CampaignPerformance & {
-  ad_name: string;
-  preview_url: string | null;
-};
-
-export type SeoPerformance = {
-  organic_clicks: number;
-  organic_impressions: number;
-  average_position: number;
-  organic_sessions: number;
-  organic_conversions: number;
-  top_queries: Array<{ query: string; clicks: number; impressions: number; position: number }>;
-  top_landing_pages: Array<{ page: string; clicks: number; sessions: number; conversions: number }>;
+export type DashboardQueryStatus = {
+  error: string | null;
+  isEmpty: boolean;
 };
 
 export type Report = {

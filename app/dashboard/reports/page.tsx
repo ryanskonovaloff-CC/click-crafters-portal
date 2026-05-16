@@ -1,8 +1,8 @@
 import { Badge, Card } from "@/components/ui";
-import { getDashboardData } from "@/lib/data";
+import { getReportsData } from "@/lib/data";
 
 export default async function ReportsPage() {
-  const { reports } = await getDashboardData();
+  const { reports } = await getReportsData();
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

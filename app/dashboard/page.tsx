@@ -1,75 +1,125 @@
 import { CalendarDays } from "lucide-react";
-import { CampaignComparison, PlatformBreakdown, TrendChart } from "@/components/charts";
+import Link from "next/link";
+import { PlatformBreakdown, TrendChart } from "@/components/charts";
 import { LogoutButton } from "@/components/logout-button";
-import { Badge, Card, StatCard, Table } from "@/components/ui";
-import { getDashboardData } from "@/lib/data";
+import { Badge, Card, EmptyState, StatCard, Table } from "@/components/ui";
+import { getOverviewDashboardData, metricRatios, percentChange } from "@/lib/data";
 import { compact, currency, pct } from "@/lib/utils";
+import type { DailyPerformance, DateRangeKey } from "@/lib/types";
 
-export default async function DashboardPage() {
-  const { client, daily, campaigns } = await getDashboardData();
-  const totals = daily.reduce((acc, item) => ({
-    spend: acc.spend + item.spend,
-    revenue: acc.revenue + item.revenue,
-    conversions: acc.conversions + item.conversions,
-    clicks: acc.clicks + item.clicks,
-    impressions: acc.impressions + item.impressions
-  }), { spend: 0, revenue: 0, conversions: 0, clicks: 0, impressions: 0 });
+type PageProps = {
+  searchParams?: Promise<{ range?: string }>;
+};
 
-  const ctr = totals.impressions ? (totals.clicks / totals.impressions) * 100 : 0;
-  const cpc = totals.clicks ? totals.spend / totals.clicks : 0;
-  const cpa = totals.conversions ? totals.spend / totals.conversions : 0;
-  const roas = totals.spend ? totals.revenue / totals.spend : 0;
+export default async function DashboardPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const { client, range, paid, seo, performance } = await getOverviewDashboardData(params?.range);
+  const ratios = metricRatios(performance);
+  const paidRatios = metricRatios(paid.totals);
+  const previousPaidRatios = metricRatios(paid.previousTotals);
+  const hasPaidData = !paid.status.error && !paid.status.isEmpty;
+  const hasSeoData = !seo.status.error && !seo.status.isEmpty;
+  const tileState = paid.status.error ? "error" : hasPaidData ? "ready" : "empty";
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge>{client?.industry ?? "Demo client"}</Badge>
-            <Badge className="gap-1"><CalendarDays size={13} /> Month to date</Badge>
+            <Badge>{client?.industry ?? "No client"}</Badge>
+            <Badge className="gap-1"><CalendarDays size={13} /> {range.label}</Badge>
           </div>
           <h1 className="mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">{client?.name ?? "No client assigned"}</h1>
           <p className="mt-2 text-sm text-white/50">Last updated {client ? new Date(client.last_updated_at).toLocaleString() : "after setup"}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select className="rounded-xl border border-border bg-black/30 px-3 py-2 text-sm text-white/80 outline-none focus:border-accent/70">
-            <option>Month to date</option>
-            <option>Last 30 days</option>
-            <option>Last month</option>
-          </select>
+          <RangeLinks active={range.key} />
           <LogoutButton />
         </div>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="MTD Spend" value={currency.format(totals.spend)} />
-        <StatCard label="MTD Revenue" value={currency.format(totals.revenue)} />
-        <StatCard label="ROAS" value={`${roas.toFixed(2)}x`} />
-        <StatCard label="CPA" value={currency.format(cpa)} />
-        <StatCard label="Leads / Conversions" value={compact.format(totals.conversions)} />
-        <StatCard label="Clicks" value={compact.format(totals.clicks)} />
-        <StatCard label="Impressions" value={compact.format(totals.impressions)} />
-        <StatCard label="CTR / CPC" value={`${pct(ctr)} / ${currency.format(cpc)}`} />
+        <StatCard label="Total spend" value={hasPaidData ? currency.format(performance.spend) : "Unavailable"} helper={trendHelper("vs prior period", percentChange(paid.totals.spend, paid.previousTotals.spend))} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
+        <StatCard label="Total revenue" value={hasPaidData ? currency.format(performance.revenue) : "Unavailable"} helper={trendHelper("vs prior period", percentChange(paid.totals.revenue, paid.previousTotals.revenue))} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
+        <StatCard label="ROAS" value={paidRatios.roas === null ? "Unavailable" : `${paidRatios.roas.toFixed(2)}x`} helper={trendHelper("vs prior period", percentChange(paidRatios.roas, previousPaidRatios.roas))} state={paid.status.error ? "error" : paidRatios.roas === null ? "empty" : "ready"} />
+        <StatCard label="CPA" value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} state={tileState} />
+        <StatCard label="Leads / Conversions" value={hasPaidData ? compact.format(performance.conversions) : "Unavailable"} state={tileState} />
+        <StatCard label="Clicks" value={hasPaidData ? compact.format(performance.clicks) : "Unavailable"} state={tileState} />
+        <StatCard label="Impressions" value={hasPaidData ? compact.format(performance.impressions) : "Unavailable"} state={tileState} />
+        <StatCard label="CTR / CPC" value={ratios.ctr === null || ratios.cpc === null ? "Unavailable" : `${pct(ratios.ctr * 100)} / ${currency.format(ratios.cpc)}`} state={tileState} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card><h2 className="mb-4 text-lg font-semibold">Spend over time</h2><TrendChart data={daily} metric="spend" /></Card>
-        <Card><h2 className="mb-4 text-lg font-semibold">Conversions over time</h2><TrendChart data={daily} metric="conversions" /></Card>
-        <Card><h2 className="mb-4 text-lg font-semibold">Platform breakdown</h2><PlatformBreakdown data={daily} /></Card>
-        <Card><h2 className="mb-4 text-lg font-semibold">Campaign comparison</h2><CampaignComparison data={campaigns} /></Card>
+        <Card><h2 className="mb-4 text-lg font-semibold">Spend over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="spend" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-4 text-lg font-semibold">Conversions over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="conversions" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-4 text-lg font-semibold">Platform breakdown</h2>{hasPaidData ? <PlatformBreakdown data={paid.daily} /> : <EmptyState />}</Card>
+        <Card>
+          <h2 className="mb-4 text-lg font-semibold">Organic visibility</h2>
+          {hasSeoData ? (
+            <Table headers={["Metric", "Value"]} rows={[
+              ["Organic clicks", compact.format(seo.totals.organicClicks ?? 0)],
+              ["Organic impressions", compact.format(seo.totals.organicImpressions ?? 0)],
+              ["Organic sessions", seo.totals.organicSessions === null ? "Unavailable" : compact.format(seo.totals.organicSessions)],
+              ["Organic conversions", seo.totals.organicConversions === null ? "Unavailable" : compact.format(seo.totals.organicConversions)]
+            ]} />
+          ) : <EmptyState />}
+        </Card>
       </div>
 
       <Card>
-        <h2 className="mb-4 text-lg font-semibold">Top campaigns by spend</h2>
-        <Table headers={["Campaign", "Platform", "Spend", "Revenue", "Conv.", "ROAS"]} rows={campaigns.slice(0, 5).map((item) => [
-          item.campaign_name,
+        <h2 className="mb-4 text-lg font-semibold">Paid channel performance</h2>
+        <Table headers={["Platform", "Channel", "Spend", "Revenue", "Conv.", "ROAS"]} rows={channelRows(paid.daily).slice(0, 6).map((item) => [
           item.platform,
+          item.channel ?? "Unspecified",
           currency.format(item.spend),
           currency.format(item.revenue),
-          item.conversions,
-          `${(item.revenue / item.spend).toFixed(2)}x`
+          compact.format(item.conversions),
+          item.roas === null ? "Unavailable" : `${item.roas.toFixed(2)}x`
         ])} />
+      </Card>
+
+      <Card>
+        <h2 className="mb-4 text-lg font-semibold">Campaign performance</h2>
+        <EmptyState>No data available for this date range yet.</EmptyState>
       </Card>
     </div>
   );
+}
+
+function RangeLinks({ active }: { active: DateRangeKey }) {
+  const ranges: Array<{ key: DateRangeKey; label: string }> = [
+    { key: "mtd", label: "Month to date" },
+    { key: "last30", label: "Last 30 days" },
+    { key: "last_month", label: "Last month" }
+  ];
+
+  return (
+    <div className="inline-flex rounded-xl border border-border bg-black/30 p-1 text-sm">
+      {ranges.map((range) => (
+        <Link key={range.key} href={`/dashboard?range=${range.key}`} className={range.key === active ? "rounded-lg bg-white/10 px-3 py-1.5 text-white" : "rounded-lg px-3 py-1.5 text-white/55 hover:text-white"}>
+          {range.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function trendHelper(label: string, change: number | null) {
+  if (change === null) return undefined;
+  const sign = change > 0 ? "+" : "";
+  return `${sign}${change.toFixed(1)}% ${label}`;
+}
+
+function channelRows(rows: DailyPerformance[]) {
+  const byChannel = rows.reduce<Record<string, { platform: string; channel: string | null; spend: number; revenue: number; conversions: number; roas: number | null }>>((acc, row) => {
+    const key = `${row.platform}|${row.channel ?? ""}`;
+    acc[key] ??= { platform: row.platform, channel: row.channel, spend: 0, revenue: 0, conversions: 0, roas: null };
+    acc[key].spend += row.spend;
+    acc[key].revenue += row.revenue;
+    acc[key].conversions += row.conversions;
+    acc[key].roas = acc[key].spend > 0 ? acc[key].revenue / acc[key].spend : null;
+    return acc;
+  }, {});
+
+  return Object.values(byChannel).sort((a, b) => b.spend - a.spend);
 }
