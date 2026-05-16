@@ -44,7 +44,7 @@ function isIsoDate(value: string | undefined) {
 }
 
 export function getDateRange(key: string | undefined, customStart?: string, customEnd?: string): DateRange {
-  const rangeKey = validRangeKeys.includes(key as DateRangeKey) ? key as DateRangeKey : "last7";
+  const rangeKey = validRangeKeys.includes(key as DateRangeKey) ? key as DateRangeKey : "mtd";
   const today = new Date();
   const end = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
   let start: Date;

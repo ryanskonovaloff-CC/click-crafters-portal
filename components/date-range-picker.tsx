@@ -7,14 +7,10 @@ import type { DateRange, DateRangeKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const presets: Array<{ key: DateRangeKey; label: string; compact?: string }> = [
+  { key: "mtd", label: "Month to date", compact: "MTD" },
   { key: "today", label: "Today" },
   { key: "yesterday", label: "Yesterday" },
-  { key: "last3", label: "Last 3 days", compact: "Last 3" },
   { key: "last7", label: "Last 7 days", compact: "Last 7" },
-  { key: "last14", label: "Last 14 days" },
-  { key: "last30", label: "Last 30 days" },
-  { key: "mtd", label: "This month" },
-  { key: "last_month", label: "Last month" },
   { key: "custom", label: "Custom range" }
 ];
 
@@ -48,19 +44,18 @@ export function DateRangePicker({ range }: { range: DateRange }) {
 
   return (
     <div className="relative">
-      <div className="flex flex-wrap items-center rounded-xl border border-sky-400/45 bg-[#101721]/90 text-sm shadow-[0_0_40px_rgba(56,148,218,0.12)]">
-        <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex items-center gap-3 border-r border-white/10 px-4 py-3 font-mono text-base text-white/90">
-          <CalendarDays size={16} className="text-sky-300" />
+      <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-black/45 text-sm shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur">
+        <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex items-center gap-2.5 border-r border-white/10 px-3.5 py-2.5 font-mono text-sm text-white/90 transition hover:bg-white/[0.03]">
+          <CalendarDays size={16} className="text-accent" />
           {label}
           <ChevronDown size={16} className={cn("text-white/45 transition", open && "rotate-180")} />
         </button>
-        <span className="hidden border-r border-white/10 px-4 py-3 font-mono text-white/55 sm:inline">00 - 23</span>
         {presets.slice(0, 4).map((preset) => (
           <button
             key={preset.key}
             type="button"
             onClick={() => setRange(preset.key)}
-            className={cn("border-r border-white/10 px-4 py-3 font-semibold text-white/45 transition last:border-r-0 hover:text-white", range.key === preset.key && "bg-sky-400/20 text-sky-300")}
+            className={cn("border-r border-white/10 px-3.5 py-2.5 font-semibold text-white/48 transition last:border-r-0 hover:bg-white/[0.03] hover:text-white", range.key === preset.key && "bg-accent/15 text-accent")}
           >
             {preset.compact ?? preset.label}
           </button>
@@ -68,38 +63,38 @@ export function DateRangePicker({ range }: { range: DateRange }) {
       </div>
 
       {open ? (
-        <div className="absolute right-0 z-30 mt-3 w-[min(92vw,760px)] overflow-hidden rounded-xl border border-white/12 bg-[#202833] shadow-2xl">
-          <div className="grid md:grid-cols-[255px_1fr]">
-            <div className="border-r border-white/15 bg-[#161d26] py-3">
+        <div className="absolute right-0 z-30 mt-3 w-[min(92vw,460px)] overflow-hidden rounded-2xl border border-white/12 bg-[#0b0807]/95 shadow-[0_24px_80px_rgba(0,0,0,0.48)] backdrop-blur-xl">
+          <div>
+            <div className="border-b border-white/10 p-2">
               {presets.map((preset) => (
                 <button
                   key={preset.key}
                   type="button"
                   onClick={() => preset.key === "custom" ? setRange("custom", start, end) : setRange(preset.key)}
-                  className={cn("flex w-full items-center justify-between px-5 py-3 text-left text-sm text-white/62 transition hover:bg-white/5 hover:text-white", range.key === preset.key && "bg-sky-400 text-black hover:bg-sky-400 hover:text-black")}
+                  className={cn("flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-left text-sm text-white/64 transition hover:bg-white/5 hover:text-white", range.key === preset.key && "bg-accent/15 text-accent hover:bg-accent/15 hover:text-accent")}
                 >
                   {preset.label}
                   {range.key === preset.key ? <Check size={15} /> : null}
                 </button>
               ))}
             </div>
-            <div className="p-5">
+            <div className="p-4">
               <p className="text-xs uppercase tracking-[0.18em] text-white/40">Custom Range</p>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <label className="space-y-2 text-sm text-white/60">
                   <span>Start date</span>
-                  <input type="date" value={start} onChange={(event) => setStart(event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-mono text-white outline-none focus:border-sky-300" />
+                  <input type="date" value={start} onChange={(event) => setStart(event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/35 px-3 py-2 font-mono text-white outline-none focus:border-accent" />
                 </label>
                 <label className="space-y-2 text-sm text-white/60">
                   <span>End date</span>
-                  <input type="date" value={end} onChange={(event) => setEnd(event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-mono text-white outline-none focus:border-sky-300" />
+                  <input type="date" value={end} onChange={(event) => setEnd(event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/35 px-3 py-2 font-mono text-white outline-none focus:border-accent" />
                 </label>
               </div>
-              <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4">
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
                 <p className="font-mono text-sm text-white/70">{start} - {end}</p>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-white/10 bg-white px-4 py-2 text-sm font-semibold text-black">Cancel</button>
-                  <button type="button" onClick={applyCustom} className="rounded-lg border border-sky-300 bg-sky-400 px-4 py-2 text-sm font-semibold text-black">Apply</button>
+                  <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white">Cancel</button>
+                  <button type="button" onClick={applyCustom} className="rounded-lg border border-accent bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:bg-accent/90">Apply</button>
                 </div>
               </div>
             </div>
