@@ -34,7 +34,11 @@ export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric:
         <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
         <XAxis dataKey="date" tickLine={false} axisLine={false} />
         <YAxis tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={tooltipStyle()} formatter={(value: number) => metric === "spend" || metric === "cpa" ? currency.format(value) : value.toFixed(metric === "roas" ? 2 : 0)} />
+        <Tooltip contentStyle={tooltipStyle()} formatter={(value: number) => {
+          if (metric === "spend" || metric === "cpa") return currency.format(value);
+          if (metric === "roas") return `${value.toFixed(2)}x`;
+          return value.toFixed(0);
+        }} />
         <Line type="monotone" dataKey={metric} stroke="#ff6a1a" strokeWidth={2.5} dot={false} />
       </LineChart>
     </ResponsiveContainer>

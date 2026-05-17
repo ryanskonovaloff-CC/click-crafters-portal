@@ -51,7 +51,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card><h2 className="mb-4 text-lg font-semibold">Spend over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="spend" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-4 text-lg font-semibold">Conversions over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="conversions" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-4 text-lg font-semibold">ROAS over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="roas" /> : <EmptyState />}</Card>
         <Card><h2 className="mb-4 text-lg font-semibold">Platform breakdown</h2>{hasPaidData ? <PlatformBreakdown data={paid.daily} /> : <EmptyState />}</Card>
         <Card>
           <h2 className="mb-4 text-lg font-semibold">Organic visibility</h2>
