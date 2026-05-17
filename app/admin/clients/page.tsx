@@ -5,10 +5,10 @@ export default async function AdminClientsPage() {
   const { clients } = await getAdminData();
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-4 sm:space-y-6">
       <header>
         <Badge>Admin</Badge>
-        <h1 className="mt-3 text-3xl font-semibold tracking-normal">Clients</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl">Clients</h1>
       </header>
       <Card>
         <Table headers={["Client", "Slug", "Industry", "Status", "Last updated"]} rows={clients.map((client: any) => [

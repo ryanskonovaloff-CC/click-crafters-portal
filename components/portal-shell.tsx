@@ -40,9 +40,9 @@ export function PortalShell({ profile, children }: { profile: Profile; children:
 
   return (
     <div className="relative z-10 min-h-screen">
-      <div className="sticky top-0 z-40 border-b border-border bg-black/75 px-4 py-3 backdrop-blur lg:hidden">
-        <button type="button" onClick={() => setMobileOpen((value) => !value)} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-white">
-          <Menu size={17} />
+      <div className="sticky top-0 z-40 border-b border-border bg-black/75 px-4 py-2 backdrop-blur lg:hidden">
+        <button type="button" onClick={() => setMobileOpen((value) => !value)} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-2.5 py-1.5 text-sm text-white">
+          <Menu size={16} />
           Menu
         </button>
       </div>
@@ -52,10 +52,10 @@ export function PortalShell({ profile, children }: { profile: Profile; children:
         collapsed ? "lg:w-24" : "lg:w-80",
         mobileOpen ? "w-80 translate-x-0" : "w-80 -translate-x-full lg:translate-x-0"
       )}>
-        <div className="flex h-full flex-col overflow-y-auto px-5 py-5 shadow-[35px_0_120px_rgba(255,106,26,0.08)]">
+        <div className="flex h-full flex-col overflow-y-auto px-4 py-4 shadow-[35px_0_120px_rgba(255,106,26,0.08)] sm:px-5 sm:py-5">
           <div className={cn("flex items-center gap-4", collapsed && "lg:justify-center")}>
-            <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="grid size-14 place-items-center rounded-2xl border border-accent/55 bg-accentSoft text-accent shadow-[0_0_45px_rgba(255,106,26,0.16)]">
-              <Shield size={26} />
+            <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="grid size-12 place-items-center rounded-2xl border border-accent/55 bg-accentSoft text-accent shadow-[0_0_45px_rgba(255,106,26,0.16)] sm:size-14">
+              <Shield size={24} />
             </Link>
             <div className={cn("min-w-0 transition", collapsed && "lg:hidden")}>
               <p className="text-2xl font-black tracking-tight text-white">Click <span className="text-accent">Crafters</span></p>
@@ -66,12 +66,12 @@ export function PortalShell({ profile, children }: { profile: Profile; children:
             </button>
           </div>
 
-          <div className={cn("mt-10", collapsed && "lg:hidden")}>
+          <div className={cn("mt-7 sm:mt-10", collapsed && "lg:hidden")}>
             <p className="truncate text-lg font-bold text-white/85">{profile.full_name ?? profile.email}</p>
             <p className="mt-1 text-sm capitalize text-white/45">{profile.role.replace("_", " ")}</p>
           </div>
 
-          <nav className="mt-10 space-y-3">
+          <nav className="mt-7 space-y-2 sm:mt-10 sm:space-y-3">
             {nav.map((item) => (
               <NavItem key={item.href} item={item} active={isActive(pathname, item.href)} collapsed={collapsed} onClick={() => setMobileOpen(false)} />
             ))}
@@ -90,14 +90,14 @@ export function PortalShell({ profile, children }: { profile: Profile; children:
 
           <div className={cn("mt-auto rounded-2xl border border-white/10 bg-white/[0.035] p-4", collapsed && "lg:hidden")}>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/38">Click Crafters</p>
-            <p className="mt-3 text-sm leading-5 text-white/58">Performance reporting powered by Supabase and n8n.</p>
+            <p className="mt-3 text-sm leading-5 text-white/58">Clear reporting for marketing performance, revenue, and next steps.</p>
           </div>
         </div>
       </aside>
 
       {mobileOpen ? <button type="button" aria-label="Close menu" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-40 bg-black/60 lg:hidden" /> : null}
 
-      <main className={cn("w-full px-4 py-6 transition-all sm:px-6 lg:px-8", collapsed ? "lg:ml-24" : "lg:ml-80")}>
+      <main className={cn("min-w-0 overflow-x-hidden px-4 py-4 transition-all sm:px-6 sm:py-6 lg:px-8", collapsed ? "lg:ml-24" : "lg:ml-80")}>
         {children}
       </main>
     </div>
@@ -112,14 +112,14 @@ function NavItem({ item, active, collapsed, onClick }: { item: typeof nav[number
       onClick={onClick}
       title={collapsed ? item.label : undefined}
       className={cn(
-        "group flex items-center gap-4 rounded-xl px-3 py-3 text-white/68 transition hover:bg-white/[0.06] hover:text-white",
+        "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-white/68 transition hover:bg-white/[0.06] hover:text-white sm:gap-4 sm:py-3",
         active && "bg-accentSoft text-white ring-1 ring-accent/25",
         collapsed && "lg:justify-center lg:px-0"
       )}
     >
-      <Icon size={22} className={cn("shrink-0", active && "text-accent")} />
+      <Icon size={20} className={cn("shrink-0 sm:size-[22px]", active && "text-accent")} />
       <span className={cn("min-w-0 flex-1", collapsed && "lg:hidden")}>
-        <span className="block text-lg font-black tracking-tight">{item.label}</span>
+        <span className="block text-base font-black tracking-tight sm:text-lg">{item.label}</span>
         <span className="block text-xs font-bold uppercase tracking-[0.18em] text-white/35 group-hover:text-white/45">{item.eyebrow}</span>
       </span>
     </Link>

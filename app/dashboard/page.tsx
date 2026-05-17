@@ -2,7 +2,7 @@ import { CalendarDays } from "lucide-react";
 import { PlatformBreakdown, TrendChart } from "@/components/charts";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { LogoutButton } from "@/components/logout-button";
-import { Badge, Card, EmptyState, StatCard, Table } from "@/components/ui";
+import { Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
 import { getOverviewDashboardData, metricRatios, percentChange } from "@/lib/data";
 import { compact, currency, currencyCents, pct } from "@/lib/utils";
 import type { DailyPerformance } from "@/lib/types";
@@ -27,15 +27,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const tileState = paid.status.error ? "error" : hasPaidData ? "ready" : "empty";
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <Badge>{client?.industry ?? "No client"}</Badge>
             <Badge className="gap-1"><CalendarDays size={13} /> {range.label}</Badge>
           </div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">{client?.name ?? "No client assigned"}</h1>
-          <p className="mt-2 text-sm text-white/50">Last updated {client ? new Date(client.last_updated_at).toLocaleString() : "after setup"}</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-4xl">{client?.name ?? "No client assigned"}</h1>
+          <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">Last updated {client ? new Date(client.last_updated_at).toLocaleString() : "after setup"}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <DateRangePicker range={range} />
@@ -43,7 +43,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         </div>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricGrid>
         <StatCard label="Total spend" value={hasPaidData ? currency.format(performance.spend) : "Unavailable"} helper={trendHelper("vs prior period", percentChange(paid.totals.spend, paid.previousTotals.spend))} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
         <StatCard label="Total revenue" value={hasPaidData ? currency.format(performance.revenue) : "Unavailable"} helper={trendHelper("vs prior period", percentChange(paid.totals.revenue, paid.previousTotals.revenue))} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
         <StatCard label="ROAS" value={paidRatios.roas === null ? "Unavailable" : `${paidRatios.roas.toFixed(2)}x`} helper={trendHelper("vs prior period", percentChange(paidRatios.roas, previousPaidRatios.roas))} state={paid.status.error ? "error" : paidRatios.roas === null ? "empty" : "ready"} />
@@ -52,14 +52,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <StatCard label="Clicks" value={hasPaidData ? compact.format(performance.clicks) : "Unavailable"} state={tileState} />
         <StatCard label="Impressions" value={hasPaidData ? compact.format(performance.impressions) : "Unavailable"} state={tileState} />
         <StatCard label="CTR / CPC" value={ratios.ctr === null || ratios.cpc === null ? "Unavailable" : `${pct(ratios.ctr * 100)} / ${currencyCents.format(ratios.cpc)}`} state={tileState} />
-      </div>
+      </MetricGrid>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Card><h2 className="mb-4 text-lg font-semibold">Spend over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="spend" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-4 text-lg font-semibold">ROAS over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="roas" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-4 text-lg font-semibold">Platform breakdown</h2>{hasPaidData ? <PlatformBreakdown data={paid.daily} /> : <EmptyState />}</Card>
+      <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Spend over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="spend" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">ROAS over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="roas" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Platform breakdown</h2>{hasPaidData ? <PlatformBreakdown data={paid.daily} /> : <EmptyState />}</Card>
         <Card>
-          <h2 className="mb-4 text-lg font-semibold">Organic visibility</h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Organic visibility</h2>
           {hasOrganicVisibilityData ? (
             <Table headers={["Metric", "Value"]} rows={[
               ["Organic clicks", compact.format(seo.totals.organicClicks ?? 0)],
@@ -72,7 +72,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       </div>
 
       <Card>
-        <h2 className="mb-4 text-lg font-semibold">Paid channel performance</h2>
+        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Paid channel performance</h2>
         <Table headers={["Platform", "Channel", "Spend", "Revenue", "Conv.", "ROAS"]} rows={channelRows(paid.daily).slice(0, 6).map((item) => [
           item.platform,
           item.channel ?? "Unspecified",
@@ -84,7 +84,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       </Card>
 
       <Card>
-        <h2 className="mb-4 text-lg font-semibold">Campaign performance</h2>
+        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Campaign performance</h2>
         <EmptyState>No data available for this date range yet.</EmptyState>
       </Card>
     </div>

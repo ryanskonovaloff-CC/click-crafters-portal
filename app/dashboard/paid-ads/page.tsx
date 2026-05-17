@@ -1,6 +1,6 @@
 import { PlatformBreakdown, TrendChart } from "@/components/charts";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { Badge, Card, EmptyState, StatCard, Table } from "@/components/ui";
+import { Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
 import { getPaidAdsDashboardData, metricRatios, percentChange } from "@/lib/data";
 import { compact, currency, currencyCents, pct } from "@/lib/utils";
 import type { AdLifetimePerformance, CampaignDailyPerformance, DailyPerformance } from "@/lib/types";
@@ -18,20 +18,23 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
   const tileState = status.error ? "error" : hasData ? "ready" : "empty";
   const rows = channelRows(daily);
   const campaignRows = aggregateCampaignRows(campaigns);
+  const topRoasRows = topCampaignsByRoas(campaignRows);
+  const topConversionRows = topCampaignsByConversions(campaignRows);
+  const campaignWatchRows = campaignsToWatch(campaignRows, [...topRoasRows, ...topConversionRows]);
   const adRows = topLifetimeAdRows(lifetimeAds);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="mx-auto min-w-0 max-w-7xl space-y-4 sm:space-y-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <Badge>Paid media</Badge>
-          <h1 className="mt-3 text-3xl font-semibold tracking-normal">Paid Ads Performance</h1>
-          <p className="mt-2 text-sm text-white/50">{range.label}</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl">Paid Ads Performance</h1>
+          <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">{range.label}</p>
         </div>
         <DateRangePicker range={range} />
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricGrid>
         <StatCard label="Spend" value={hasData ? currency.format(totals.spend) : "Unavailable"} helper={trendHelper(percentChange(totals.spend, previousTotals.spend))} state={tileState} />
         <StatCard label="Revenue" value={hasData ? currency.format(totals.revenue) : "Unavailable"} helper={trendHelper(percentChange(totals.revenue, previousTotals.revenue))} state={tileState} />
         <StatCard label="Conversions" value={hasData ? compact.format(totals.conversions) : "Unavailable"} helper={trendHelper(percentChange(totals.conversions, previousTotals.conversions))} state={tileState} />
@@ -40,18 +43,18 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
         <StatCard label="Clicks" value={hasData ? compact.format(totals.clicks) : "Unavailable"} state={tileState} />
         <StatCard label="Impressions" value={hasData ? compact.format(totals.impressions) : "Unavailable"} state={tileState} />
         <StatCard label="CTR / CPC" value={ratios.ctr === null || ratios.cpc === null ? "Unavailable" : `${pct(ratios.ctr * 100)} / ${currencyCents.format(ratios.cpc)}`} state={status.error ? "error" : ratios.ctr === null || ratios.cpc === null ? "empty" : "ready"} />
-      </div>
+      </MetricGrid>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load paid ads data: {status.error}</Card> : null}
       {campaignStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load campaign data: {campaignStatus.error}</Card> : null}
       {lifetimeAdStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load lifetime ad data: {lifetimeAdStatus.error}</Card> : null}
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Card><h2 className="mb-4 text-lg font-semibold">CPA over time</h2>{hasData ? <TrendChart data={daily} metric="cpa" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-4 text-lg font-semibold">ROAS over time</h2>{hasData ? <TrendChart data={daily} metric="roas" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-4 text-lg font-semibold">Platform breakdown</h2>{hasData ? <PlatformBreakdown data={daily} /> : <EmptyState />}</Card>
+      <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">CPA over time</h2>{hasData ? <TrendChart data={daily} metric="cpa" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">ROAS over time</h2>{hasData ? <TrendChart data={daily} metric="roas" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Platform breakdown</h2>{hasData ? <PlatformBreakdown data={daily} /> : <EmptyState />}</Card>
         <Card>
-          <h2 className="mb-4 text-lg font-semibold">Channel mix</h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Channel mix</h2>
           <Table headers={["Platform", "Channel", "Spend", "Revenue", "Conv.", "CPA", "ROAS", "CTR", "CPC"]} rows={rows.map((item) => [
             item.platform,
             item.channel ?? "Unspecified",
@@ -66,9 +69,9 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card>
-          <h2 className="mb-4 text-lg font-semibold">Campaign comparison</h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Campaign comparison</h2>
           <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Conv.", "CPA", "ROAS"]} rows={campaignRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             item.platform,
@@ -81,8 +84,8 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
           ])} />
         </Card>
         <Card>
-          <h2 className="mb-4 text-lg font-semibold">Top campaigns by ROAS</h2>
-          <Table headers={["Campaign", "ROAS", "Revenue", "Spend", "Conv."]} rows={[...campaignRows].filter((item) => item.roas !== null).sort((a, b) => (b.roas ?? 0) - (a.roas ?? 0)).slice(0, 8).map((item) => [
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top campaigns by ROAS</h2>
+          <Table headers={["Campaign", "ROAS", "Revenue", "Spend", "Conv."]} rows={topRoasRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             `${item.roas?.toFixed(2)}x`,
             currency.format(item.revenue),
@@ -91,8 +94,8 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
           ])} />
         </Card>
         <Card>
-          <h2 className="mb-4 text-lg font-semibold">Top campaigns by conversions</h2>
-          <Table headers={["Campaign", "Conv.", "CPA", "Spend", "ROAS"]} rows={[...campaignRows].sort((a, b) => b.conversions - a.conversions).slice(0, 8).map((item) => [
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top campaigns by conversions</h2>
+          <Table headers={["Campaign", "Conv.", "CPA", "Spend", "ROAS"]} rows={topConversionRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             compact.format(item.conversions),
             item.cpa === null ? "Unavailable" : currency.format(item.cpa),
@@ -101,8 +104,8 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
           ])} />
         </Card>
         <Card>
-          <h2 className="mb-4 text-lg font-semibold">Worst campaigns by wasted spend</h2>
-          <Table headers={["Campaign", "Wasted spend", "Spend", "Conv.", "CPA"]} rows={[...campaignRows].sort((a, b) => effectiveWastedSpend(b) - effectiveWastedSpend(a)).slice(0, 8).map((item) => [
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Campaigns to watch</h2>
+          <Table headers={["Campaign", "Wasted spend", "Spend", "Conv.", "CPA"]} rows={campaignWatchRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             currency.format(effectiveWastedSpend(item)),
             currency.format(item.spend),
@@ -113,7 +116,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       </div>
 
       <Card>
-        <h2 className="mb-4 text-lg font-semibold">Top ads by performance</h2>
+        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top ads by performance</h2>
         <Table headers={["Ad", "Campaign", "Platform", "ROAS", "Conv.", "Spend", "CTR", "Preview"]} rows={adRows.map((item) => [
           item.ad_name ?? item.creative_name ?? item.ad_id,
           item.campaign_name ?? item.campaign_id ?? "Unspecified",
@@ -153,6 +156,33 @@ function topLifetimeAdRows(rows: AdLifetimePerformance[]) {
   return [...rows]
     .sort((a, b) => (b.roas ?? -1) - (a.roas ?? -1) || b.conversions - a.conversions || b.spend - a.spend)
     .slice(0, 12);
+}
+
+function campaignKey(row: CampaignDailyPerformance) {
+  return `${row.platform}|${row.campaign_id}`;
+}
+
+function topCampaignsByRoas(rows: CampaignDailyPerformance[]) {
+  return [...rows]
+    .filter((item) => item.roas !== null && item.spend > 0)
+    .sort((a, b) => (b.roas ?? 0) - (a.roas ?? 0) || b.revenue - a.revenue)
+    .slice(0, 8);
+}
+
+function topCampaignsByConversions(rows: CampaignDailyPerformance[]) {
+  return [...rows]
+    .filter((item) => item.conversions > 0)
+    .sort((a, b) => b.conversions - a.conversions || (a.cpa ?? Number.MAX_SAFE_INTEGER) - (b.cpa ?? Number.MAX_SAFE_INTEGER))
+    .slice(0, 8);
+}
+
+function campaignsToWatch(rows: CampaignDailyPerformance[], topRows: CampaignDailyPerformance[]) {
+  const topKeys = new Set(topRows.map(campaignKey));
+  return [...rows]
+    .filter((item) => !topKeys.has(campaignKey(item)))
+    .filter((item) => effectiveWastedSpend(item) > 0)
+    .sort((a, b) => effectiveWastedSpend(b) - effectiveWastedSpend(a) || b.spend - a.spend)
+    .slice(0, 8);
 }
 
 function effectiveWastedSpend(row: CampaignDailyPerformance) {

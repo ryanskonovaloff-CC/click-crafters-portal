@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <section className={cn("rounded-xl border border-border bg-panel p-5 shadow-glow", className)}>
+    <section className={cn("min-w-0 overflow-hidden rounded-xl border border-border bg-panel p-4 shadow-glow sm:p-5", className)}>
       {children}
     </section>
   );
@@ -20,18 +20,26 @@ export function Badge({ children, className }: { children: ReactNode; className?
 export function StatCard({ label, value, helper, state = "ready" }: { label: string; value: string; helper?: string; state?: "ready" | "empty" | "error" | "loading" }) {
   const muted = state !== "ready";
   return (
-    <Card className="min-h-28">
-      <p className="text-sm text-white/60">{label}</p>
-      <p className={cn("mt-3 text-2xl font-semibold tracking-normal", muted ? "text-white/45" : "text-white")}>{value}</p>
-      {helper ? <p className="mt-2 text-xs text-white/50">{helper}</p> : null}
+    <Card className="min-h-[92px] sm:min-h-28">
+      <p className="text-xs text-white/60 sm:text-sm">{label}</p>
+      <p className={cn("mt-2 break-words text-xl font-semibold tracking-normal sm:mt-3 sm:text-2xl", muted ? "text-white/45" : "text-white")}>{value}</p>
+      {helper ? <p className="mt-1.5 text-[11px] leading-4 text-white/50 sm:mt-2 sm:text-xs">{helper}</p> : null}
     </Card>
+  );
+}
+
+export function MetricGrid({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4", className)}>
+      {children}
+    </div>
   );
 }
 
 export function Table({ headers, rows }: { headers: string[]; rows: Array<Array<ReactNode>> }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+    <div className="w-full max-w-full overflow-x-auto">
+      <table className="w-full min-w-[560px] border-collapse text-left text-sm sm:min-w-[680px]">
         <thead>
           <tr className="border-b border-border text-xs uppercase tracking-[0.08em] text-white/50">
             {headers.map((header) => (
@@ -43,7 +51,7 @@ export function Table({ headers, rows }: { headers: string[]; rows: Array<Array<
           {rows.map((row, index) => (
             <tr key={index} className="border-b border-white/5 last:border-0">
               {row.map((cell, cellIndex) => (
-                <td key={cellIndex} className="py-3 pr-4 text-white/80">{cell}</td>
+                <td key={cellIndex} className="max-w-[18rem] break-words py-3 pr-4 text-white/80">{cell}</td>
               ))}
             </tr>
           ))}
@@ -56,7 +64,7 @@ export function Table({ headers, rows }: { headers: string[]; rows: Array<Array<
 
 export function EmptyState({ children = "No data available for this date range yet." }: { children?: ReactNode }) {
   return (
-    <div className="grid min-h-48 place-items-center rounded-lg border border-dashed border-white/10 bg-black/20 px-4 text-center text-sm text-white/45">
+    <div className="grid min-h-36 place-items-center rounded-lg border border-dashed border-white/10 bg-black/20 px-4 text-center text-sm text-white/45 sm:min-h-48">
       {children}
     </div>
   );
@@ -64,10 +72,10 @@ export function EmptyState({ children = "No data available for this date range y
 
 export function TileSkeleton() {
   return (
-    <Card className="min-h-28 animate-pulse">
+    <Card className="min-h-[92px] animate-pulse sm:min-h-28">
       <div className="h-4 w-24 rounded bg-white/10" />
-      <div className="mt-4 h-7 w-32 rounded bg-white/10" />
-      <div className="mt-3 h-3 w-28 rounded bg-white/5" />
+      <div className="mt-3 h-6 w-28 rounded bg-white/10 sm:mt-4 sm:h-7 sm:w-32" />
+      <div className="mt-2 h-3 w-24 rounded bg-white/5 sm:mt-3 sm:w-28" />
     </Card>
   );
 }

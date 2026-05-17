@@ -43,19 +43,23 @@ export function DateRangePicker({ range }: { range: DateRange }) {
   }
 
   return (
-    <div className="relative">
-      <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-black/45 text-sm shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur">
-        <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex items-center gap-2.5 border-r border-white/10 px-3.5 py-2.5 font-mono text-sm text-white/90 transition hover:bg-white/[0.03]">
-          <CalendarDays size={16} className="text-accent" />
-          {label}
-          <ChevronDown size={16} className={cn("text-white/45 transition", open && "rotate-180")} />
+    <div className="relative w-full sm:w-auto">
+      <div className="flex w-full flex-wrap items-center rounded-xl border border-white/10 bg-black/45 text-xs shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur sm:w-auto sm:text-sm">
+        <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex min-w-0 flex-1 basis-[calc(100%-58px)] items-center gap-2 border-r border-white/10 px-2.5 py-2 font-mono text-xs text-white/90 transition hover:bg-white/[0.03] sm:flex-none sm:basis-auto sm:gap-2.5 sm:px-3.5 sm:py-2.5 sm:text-sm">
+          <CalendarDays size={15} className="shrink-0 text-accent sm:size-4" />
+          <span className="truncate">{label}</span>
+          <ChevronDown size={15} className={cn("shrink-0 text-white/45 transition sm:size-4", open && "rotate-180")} />
         </button>
         {presets.slice(0, 4).map((preset) => (
           <button
             key={preset.key}
             type="button"
             onClick={() => setRange(preset.key)}
-            className={cn("border-r border-white/10 px-3.5 py-2.5 font-semibold text-white/48 transition last:border-r-0 hover:bg-white/[0.03] hover:text-white", range.key === preset.key && "bg-accent/15 text-accent")}
+            className={cn(
+              "border-r border-white/10 px-2.5 py-2 font-semibold text-white/48 transition last:border-r-0 hover:bg-white/[0.03] hover:text-white sm:px-3.5 sm:py-2.5",
+              preset.key === "mtd" ? "basis-[58px] sm:basis-auto" : "flex-1 basis-1/3 sm:flex-none sm:basis-auto",
+              range.key === preset.key && "bg-accent/15 text-accent"
+            )}
           >
             {preset.compact ?? preset.label}
           </button>
@@ -63,7 +67,7 @@ export function DateRangePicker({ range }: { range: DateRange }) {
       </div>
 
       {open ? (
-        <div className="absolute right-0 z-30 mt-3 w-[min(92vw,460px)] overflow-hidden rounded-2xl border border-white/12 bg-[#0b0807]/95 shadow-[0_24px_80px_rgba(0,0,0,0.48)] backdrop-blur-xl">
+        <div className="absolute right-0 z-30 mt-2 w-[min(92vw,460px)] overflow-hidden rounded-2xl border border-white/12 bg-[#0b0807]/95 shadow-[0_24px_80px_rgba(0,0,0,0.48)] backdrop-blur-xl sm:mt-3">
           <div>
             <div className="border-b border-white/10 p-2">
               {presets.map((preset) => (
@@ -78,9 +82,9 @@ export function DateRangePicker({ range }: { range: DateRange }) {
                 </button>
               ))}
             </div>
-            <div className="p-4">
+            <div className="p-3 sm:p-4">
               <p className="text-xs uppercase tracking-[0.18em] text-white/40">Custom Range</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-3 grid gap-3 sm:mt-4 sm:grid-cols-2">
                 <label className="space-y-2 text-sm text-white/60">
                   <span>Start date</span>
                   <input type="date" value={start} onChange={(event) => setStart(event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/35 px-3 py-2 font-mono text-white outline-none focus:border-accent" />
@@ -90,11 +94,11 @@ export function DateRangePicker({ range }: { range: DateRange }) {
                   <input type="date" value={end} onChange={(event) => setEnd(event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/35 px-3 py-2 font-mono text-white outline-none focus:border-accent" />
                 </label>
               </div>
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-                <p className="font-mono text-sm text-white/70">{start} - {end}</p>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3 sm:mt-5 sm:pt-4">
+                <p className="font-mono text-xs text-white/70 sm:text-sm">{start} - {end}</p>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white">Cancel</button>
-                  <button type="button" onClick={applyCustom} className="rounded-lg border border-accent bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:bg-accent/90">Apply</button>
+                  <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white sm:px-4">Cancel</button>
+                  <button type="button" onClick={applyCustom} className="rounded-lg border border-accent bg-accent px-3 py-2 text-sm font-semibold text-black transition hover:bg-accent/90 sm:px-4">Apply</button>
                 </div>
               </div>
             </div>

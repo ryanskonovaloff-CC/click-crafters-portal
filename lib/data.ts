@@ -609,12 +609,11 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     return { profile, client, range, totals: emptySeoTotals(), topQueries: [], topPages: [], technicalIssues: [], status: queryStatus(null, 0) };
   }
 
-  const [daily, analytics, keywords, pages, technicalIssuesResult] = await Promise.all([
+  const [daily, analytics, keywords, pages] = await Promise.all([
     supabase.from("seo_daily_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: true }),
     supabase.from("analytics_daily_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: true }),
     supabase.from("seo_keyword_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10),
-    supabase.from("seo_pages_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10),
-    supabase.from("seo_technical_issues").select("*").eq("client_id", client.id).gte("detected_date", range.start).lte("detected_date", range.end).eq("status", "open").order("detected_date", { ascending: false })
+    supabase.from("seo_pages_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10)
   ]);
 
   const dailyRows = (daily.data ?? []) as Record<string, unknown>[];
@@ -634,16 +633,13 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     sessions: toNumber(row.organic_sessions ?? row.sessions),
     conversions: toNumber(row.organic_conversions ?? row.conversions)
   }));
-  const technicalIssues = ((technicalIssuesResult.data ?? []) as Record<string, unknown>[]).map(normalizeTechnicalIssue);
-  totals.technicalIssues = technicalIssues.map((issue) => issue.issue_type);
   const statusError = [
     queryErrorMessage(daily.error),
     queryErrorMessage(analytics.error),
     queryErrorMessage(keywords.error),
-    queryErrorMessage(pages.error),
-    queryErrorMessage(technicalIssuesResult.error)
+    queryErrorMessage(pages.error)
   ].filter(Boolean).join("; ") || null;
-  const count = dailyRows.length + analyticsRows.length + topQueries.length + topPages.length + technicalIssues.length;
+  const count = dailyRows.length + analyticsRows.length + topQueries.length + topPages.length;
 
   return {
     profile,
@@ -652,7 +648,7 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     totals,
     topQueries,
     topPages,
-    technicalIssues,
+    technicalIssues: [],
     status: queryStatus(statusError, count)
   };
 }

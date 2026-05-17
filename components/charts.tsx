@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { DailyPerformance } from "@/lib/types";
 import { currency } from "@/lib/utils";
@@ -14,6 +15,7 @@ function tooltipStyle() {
 }
 
 export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric: "spend" | "conversions" | "cpa" | "roas" }) {
+  const height = useMobileChartHeight();
   const byDate = data.reduce<Record<string, { date: string; spend: number; revenue: number; conversions: number }>>((acc, item) => {
     acc[item.date] ??= { date: item.date.slice(5), spend: 0, revenue: 0, conversions: 0 };
     acc[item.date].spend += item.spend;
@@ -29,7 +31,7 @@ export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric:
   }));
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={height}>
       <LineChart data={chartData}>
         <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
         <XAxis dataKey="date" tickLine={false} axisLine={false} />
@@ -46,6 +48,7 @@ export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric:
 }
 
 export function PlatformBreakdown({ data }: { data: DailyPerformance[] }) {
+  const height = useMobileChartHeight();
   const platforms = Object.values(data.reduce<Record<string, { name: string; spend: number }>>((acc, item) => {
     acc[item.platform] ??= { name: item.platform, spend: 0 };
     acc[item.platform].spend += item.spend;
@@ -53,7 +56,7 @@ export function PlatformBreakdown({ data }: { data: DailyPerformance[] }) {
   }, {}));
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={height}>
       <PieChart>
         <Pie data={platforms} dataKey="spend" nameKey="name" innerRadius={62} outerRadius={94} paddingAngle={3}>
           {platforms.map((entry, index) => (
@@ -65,4 +68,19 @@ export function PlatformBreakdown({ data }: { data: DailyPerformance[] }) {
       </PieChart>
     </ResponsiveContainer>
   );
+}
+
+function useMobileChartHeight() {
+  const [height, setHeight] = useState(260);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    const update = () => setHeight(media.matches ? 220 : 260);
+
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  return height;
 }
