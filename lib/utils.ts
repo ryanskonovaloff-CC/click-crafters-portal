@@ -11,6 +11,13 @@ export const currency = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0
 });
 
+export const currencyCents = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+});
+
 export const compact = new Intl.NumberFormat("en-US", {
   notation: "compact",
   maximumFractionDigits: 1

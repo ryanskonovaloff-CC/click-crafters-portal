@@ -4,7 +4,7 @@ import { DateRangePicker } from "@/components/date-range-picker";
 import { LogoutButton } from "@/components/logout-button";
 import { Badge, Card, EmptyState, StatCard, Table } from "@/components/ui";
 import { getOverviewDashboardData, metricRatios, percentChange } from "@/lib/data";
-import { compact, currency, pct } from "@/lib/utils";
+import { compact, currency, currencyCents, pct } from "@/lib/utils";
 import type { DailyPerformance } from "@/lib/types";
 
 type PageProps = {
@@ -51,7 +51,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <StatCard label="Leads / Conversions" value={hasPaidData ? compact.format(performance.conversions) : "Unavailable"} state={tileState} />
         <StatCard label="Clicks" value={hasPaidData ? compact.format(performance.clicks) : "Unavailable"} state={tileState} />
         <StatCard label="Impressions" value={hasPaidData ? compact.format(performance.impressions) : "Unavailable"} state={tileState} />
-        <StatCard label="CTR / CPC" value={ratios.ctr === null || ratios.cpc === null ? "Unavailable" : `${pct(ratios.ctr * 100)} / ${currency.format(ratios.cpc)}`} state={tileState} />
+        <StatCard label="CTR / CPC" value={ratios.ctr === null || ratios.cpc === null ? "Unavailable" : `${pct(ratios.ctr * 100)} / ${currencyCents.format(ratios.cpc)}`} state={tileState} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">

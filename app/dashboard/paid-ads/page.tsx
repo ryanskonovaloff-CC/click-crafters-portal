@@ -2,7 +2,7 @@ import { PlatformBreakdown, TrendChart } from "@/components/charts";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { Badge, Card, EmptyState, StatCard, Table } from "@/components/ui";
 import { getPaidAdsDashboardData, metricRatios, percentChange } from "@/lib/data";
-import { compact, currency, pct } from "@/lib/utils";
+import { compact, currency, currencyCents, pct } from "@/lib/utils";
 import type { AdLifetimePerformance, CampaignDailyPerformance, DailyPerformance } from "@/lib/types";
 
 type PageProps = {
@@ -39,7 +39,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
         <StatCard label="CPA" value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} state={status.error ? "error" : ratios.cpa === null ? "empty" : "ready"} />
         <StatCard label="Clicks" value={hasData ? compact.format(totals.clicks) : "Unavailable"} state={tileState} />
         <StatCard label="Impressions" value={hasData ? compact.format(totals.impressions) : "Unavailable"} state={tileState} />
-        <StatCard label="CTR / CPC" value={ratios.ctr === null || ratios.cpc === null ? "Unavailable" : `${pct(ratios.ctr * 100)} / ${currency.format(ratios.cpc)}`} state={status.error ? "error" : ratios.ctr === null || ratios.cpc === null ? "empty" : "ready"} />
+        <StatCard label="CTR / CPC" value={ratios.ctr === null || ratios.cpc === null ? "Unavailable" : `${pct(ratios.ctr * 100)} / ${currencyCents.format(ratios.cpc)}`} state={status.error ? "error" : ratios.ctr === null || ratios.cpc === null ? "empty" : "ready"} />
       </div>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load paid ads data: {status.error}</Card> : null}
@@ -61,7 +61,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
             item.cpa === null ? "Unavailable" : currency.format(item.cpa),
             item.roas === null ? "Unavailable" : `${item.roas.toFixed(2)}x`,
             item.ctr === null ? "Unavailable" : pct(item.ctr * 100),
-            item.cpc === null ? "Unavailable" : currency.format(item.cpc)
+            item.cpc === null ? "Unavailable" : currencyCents.format(item.cpc)
           ])} />
         </Card>
       </div>

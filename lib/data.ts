@@ -284,7 +284,10 @@ function queryStatus(error: string | null, count: number): DashboardQueryStatus 
 }
 
 function isMissingTableError(error: { code?: string; message?: string } | null | undefined) {
-  return error?.code === "42P01" || error?.message?.toLowerCase().includes("does not exist") === true;
+  const message = error?.message?.toLowerCase() ?? "";
+  return error?.code === "42P01"
+    || message.includes("does not exist")
+    || message.includes("schema cache");
 }
 
 function queryErrorMessage(error: { code?: string; message?: string } | null | undefined) {
@@ -381,7 +384,7 @@ async function getPaidRowsForRange(supabase: any, clientId: string, start: strin
 
   return {
     rows: ((data ?? []) as Record<string, unknown>[]).map(normalizeDailyPerformance),
-    error: error?.message ?? null
+    error: queryErrorMessage(error)
   };
 }
 
