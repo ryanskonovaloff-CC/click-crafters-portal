@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type {
+  AdDailyPerformance,
+  CampaignDailyPerformance,
   Client,
   DailyPerformance,
   DashboardQueryStatus,
@@ -8,6 +10,7 @@ import type {
   DateRangeKey,
   MetricTotals,
   Report,
+  SeoTechnicalIssue,
   SeoTotals
 } from "@/lib/types";
 
@@ -161,6 +164,65 @@ function normalizeDailyPerformance(row: Record<string, unknown>): DailyPerforman
   };
 }
 
+function normalizeCampaignDailyPerformance(row: Record<string, unknown>): CampaignDailyPerformance {
+  return {
+    ...normalizeDailyPerformance(row),
+    campaign_id: String(row.campaign_id ?? ""),
+    campaign_name: row.campaign_name ? String(row.campaign_name) : null,
+    wasted_spend: toNumber(row.wasted_spend)
+  };
+}
+
+function normalizeAdDailyPerformance(row: Record<string, unknown>): AdDailyPerformance {
+  return {
+    ...normalizeDailyPerformance(row),
+    campaign_id: row.campaign_id ? String(row.campaign_id) : null,
+    campaign_name: row.campaign_name ? String(row.campaign_name) : null,
+    ad_group_id: row.ad_group_id ? String(row.ad_group_id) : null,
+    ad_group_name: row.ad_group_name ? String(row.ad_group_name) : null,
+    ad_id: String(row.ad_id ?? ""),
+    ad_name: row.ad_name ? String(row.ad_name) : null,
+    creative_id: row.creative_id ? String(row.creative_id) : null,
+    creative_name: row.creative_name ? String(row.creative_name) : null,
+    creative_preview_url: row.creative_preview_url ? String(row.creative_preview_url) : null
+  };
+}
+
+function normalizeTechnicalIssue(row: Record<string, unknown>): SeoTechnicalIssue {
+  return {
+    id: String(row.id ?? ""),
+    detected_date: String(row.detected_date ?? ""),
+    issue_type: String(row.issue_type ?? "SEO issue"),
+    severity: row.severity ? String(row.severity) : null,
+    page_url: row.page_url ? String(row.page_url) : null,
+    issue_description: row.issue_description ? String(row.issue_description) : null,
+    recommendation: row.recommendation ? String(row.recommendation) : null,
+    status: row.status ? String(row.status) : null,
+    source: row.source ? String(row.source) : null
+  };
+}
+
+function parseJsonArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => String(item)) : [];
+}
+
+function normalizeMonthlyReport(row: Record<string, unknown>): Report {
+  return {
+    id: String(row.id ?? ""),
+    period_start: String(row.period_start ?? ""),
+    period_end: String(row.period_end ?? ""),
+    report_month: row.report_month ? String(row.report_month) : null,
+    headline: row.headline ? String(row.headline) : null,
+    wins: parseJsonArray(row.wins),
+    issues: parseJsonArray(row.issues),
+    actions_taken: parseJsonArray(row.actions_taken),
+    next_steps: parseJsonArray(row.next_steps),
+    source_metrics: row.source_metrics && typeof row.source_metrics === "object" && !Array.isArray(row.source_metrics) ? row.source_metrics as Record<string, unknown> : {},
+    generated_by: row.generated_by ? String(row.generated_by) : null,
+    status: row.status ? String(row.status) : null
+  };
+}
+
 export function sumPaidPerformance(rows: DailyPerformance[]): MetricTotals {
   return rows.reduce((acc, item) => ({
     spend: acc.spend + item.spend,
@@ -246,23 +308,33 @@ export async function getActiveClient() {
   return { supabase, profile, client: client as Client };
 }
 
-export async function getReportsData() {
+export async function getReportsData(rangeKey?: string, customStart?: string, customEnd?: string) {
   const { supabase, profile, client } = await getActiveClient();
+  const range = getDateRange(rangeKey, customStart, customEnd);
 
   if (!client) {
-    return { profile, client, reports: [] };
+    return { profile, client, range, reports: [], status: queryStatus(null, 0) };
   }
 
-  const { data } = await supabase
-    .from("reports")
+  const { data, error } = await supabase
+    .from("monthly_reports")
     .select("*")
     .eq("client_id", client.id)
-    .order("month", { ascending: false });
+    .lte("period_start", range.end)
+    .gte("period_end", range.start)
+    .in("status", ["draft", "published"])
+    .order("period_end", { ascending: false })
+    .limit(1);
+
+  const reports = ((data ?? []) as Record<string, unknown>[]).map(normalizeMonthlyReport);
+  const errorMessage = queryErrorMessage(error);
 
   return {
     profile,
     client,
-    reports: (data ?? []) as Report[]
+    range,
+    reports,
+    status: queryStatus(errorMessage, reports.length)
   };
 }
 
@@ -278,6 +350,36 @@ async function getPaidRowsForRange(supabase: any, clientId: string, start: strin
   return {
     rows: ((data ?? []) as Record<string, unknown>[]).map(normalizeDailyPerformance),
     error: error?.message ?? null
+  };
+}
+
+async function getCampaignRowsForRange(supabase: any, clientId: string, start: string, end: string) {
+  const { data, error } = await supabase
+    .from("campaign_daily_performance")
+    .select("*")
+    .eq("client_id", clientId)
+    .gte("date", start)
+    .lte("date", end)
+    .order("date", { ascending: true });
+
+  return {
+    rows: ((data ?? []) as Record<string, unknown>[]).map(normalizeCampaignDailyPerformance),
+    error: queryErrorMessage(error)
+  };
+}
+
+async function getAdRowsForRange(supabase: any, clientId: string, start: string, end: string) {
+  const { data, error } = await supabase
+    .from("ad_daily_performance")
+    .select("*")
+    .eq("client_id", clientId)
+    .gte("date", start)
+    .lte("date", end)
+    .order("date", { ascending: true });
+
+  return {
+    rows: ((data ?? []) as Record<string, unknown>[]).map(normalizeAdDailyPerformance),
+    error: queryErrorMessage(error)
   };
 }
 
@@ -405,12 +507,27 @@ export async function getPaidAdsDashboardData(rangeKey?: string, customStart?: s
   const range = getDateRange(rangeKey, customStart, customEnd);
 
   if (!client) {
-    return { profile, client, range, daily: [], previousDaily: [], totals: sumPaidPerformance([]), previousTotals: sumPaidPerformance([]), status: queryStatus(null, 0) };
+    return {
+      profile,
+      client,
+      range,
+      daily: [],
+      previousDaily: [],
+      campaigns: [],
+      ads: [],
+      totals: sumPaidPerformance([]),
+      previousTotals: sumPaidPerformance([]),
+      status: queryStatus(null, 0),
+      campaignStatus: queryStatus(null, 0),
+      adStatus: queryStatus(null, 0)
+    };
   }
 
-  const [current, previous] = await Promise.all([
+  const [current, previous, campaigns, ads] = await Promise.all([
     getPaidRowsForRange(supabase, client.id, range.start, range.end),
-    getPaidRowsForRange(supabase, client.id, range.previousStart, range.previousEnd)
+    getPaidRowsForRange(supabase, client.id, range.previousStart, range.previousEnd),
+    getCampaignRowsForRange(supabase, client.id, range.start, range.end),
+    getAdRowsForRange(supabase, client.id, range.start, range.end)
   ]);
 
   return {
@@ -419,9 +536,13 @@ export async function getPaidAdsDashboardData(rangeKey?: string, customStart?: s
     range,
     daily: current.rows,
     previousDaily: previous.rows,
+    campaigns: campaigns.rows,
+    ads: ads.rows,
     totals: sumPaidPerformance(current.rows),
     previousTotals: sumPaidPerformance(previous.rows),
-    status: queryStatus(current.error, current.rows.length)
+    status: queryStatus(current.error, current.rows.length),
+    campaignStatus: queryStatus(campaigns.error, campaigns.rows.length),
+    adStatus: queryStatus(ads.error, ads.rows.length)
   };
 }
 
@@ -430,14 +551,15 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
   const range = getDateRange(rangeKey, customStart, customEnd);
 
   if (!client) {
-    return { profile, client, range, totals: emptySeoTotals(), topQueries: [], topPages: [], status: queryStatus(null, 0) };
+    return { profile, client, range, totals: emptySeoTotals(), topQueries: [], topPages: [], technicalIssues: [], status: queryStatus(null, 0) };
   }
 
-  const [daily, analytics, keywords, pages] = await Promise.all([
+  const [daily, analytics, keywords, pages, technicalIssuesResult] = await Promise.all([
     supabase.from("seo_daily_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: true }),
     supabase.from("analytics_daily_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: true }),
     supabase.from("seo_keyword_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10),
-    supabase.from("seo_pages_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10)
+    supabase.from("seo_pages_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10),
+    supabase.from("seo_technical_issues").select("*").eq("client_id", client.id).gte("detected_date", range.start).lte("detected_date", range.end).eq("status", "open").order("detected_date", { ascending: false })
   ]);
 
   const dailyRows = (daily.data ?? []) as Record<string, unknown>[];
@@ -457,13 +579,16 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     sessions: toNumber(row.organic_sessions ?? row.sessions),
     conversions: toNumber(row.organic_conversions ?? row.conversions)
   }));
+  const technicalIssues = ((technicalIssuesResult.data ?? []) as Record<string, unknown>[]).map(normalizeTechnicalIssue);
+  totals.technicalIssues = technicalIssues.map((issue) => issue.issue_type);
   const statusError = [
     queryErrorMessage(daily.error),
     queryErrorMessage(analytics.error),
     queryErrorMessage(keywords.error),
-    queryErrorMessage(pages.error)
+    queryErrorMessage(pages.error),
+    queryErrorMessage(technicalIssuesResult.error)
   ].filter(Boolean).join("; ") || null;
-  const count = dailyRows.length + analyticsRows.length + topQueries.length + topPages.length;
+  const count = dailyRows.length + analyticsRows.length + topQueries.length + topPages.length + technicalIssues.length;
 
   return {
     profile,
@@ -472,6 +597,7 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     totals,
     topQueries,
     topPages,
+    technicalIssues,
     status: queryStatus(statusError, count)
   };
 }

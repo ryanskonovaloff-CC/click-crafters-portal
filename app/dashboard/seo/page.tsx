@@ -1,5 +1,5 @@
 import { DateRangePicker } from "@/components/date-range-picker";
-import { Badge, Card, StatCard, Table } from "@/components/ui";
+import { Badge, Card, EmptyState, StatCard, Table } from "@/components/ui";
 import { getSeoDashboardData } from "@/lib/data";
 import { compact, pct } from "@/lib/utils";
 
@@ -9,7 +9,7 @@ type PageProps = {
 
 export default async function SeoPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const { range, totals, topQueries, topPages, status } = await getSeoDashboardData(params?.range, params?.start, params?.end);
+  const { range, totals, topQueries, topPages, technicalIssues, status } = await getSeoDashboardData(params?.range, params?.start, params?.end);
   const hasData = !status.error && !status.isEmpty;
   const tileState = status.error ? "error" : hasData ? "ready" : "empty";
 
@@ -32,7 +32,7 @@ export default async function SeoPage({ searchParams }: PageProps) {
         <StatCard label="Organic sessions" value={totals.organicSessions === null ? "Unavailable" : compact.format(totals.organicSessions)} state={tileState} />
         <StatCard label="Organic conversions" value={totals.organicConversions === null ? "Unavailable" : compact.format(totals.organicConversions)} state={tileState} />
         <StatCard label="Indexed pages" value={totals.indexedPages === null ? "Unavailable" : compact.format(totals.indexedPages)} state={status.error ? "error" : totals.indexedPages === null ? "empty" : "ready"} />
-        <StatCard label="Technical issues" value={totals.technicalIssues.length ? compact.format(totals.technicalIssues.length) : "Unavailable"} state={status.error ? "error" : totals.technicalIssues.length ? "ready" : "empty"} />
+        <StatCard label="Technical issues" value={technicalIssues.length ? compact.format(technicalIssues.length) : "Unavailable"} state={status.error ? "error" : technicalIssues.length ? "ready" : "empty"} />
       </div>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load SEO data: {status.error}</Card> : null}
@@ -50,13 +50,17 @@ export default async function SeoPage({ searchParams }: PageProps) {
 
       <Card>
         <h2 className="mb-4 text-lg font-semibold">Technical SEO issues</h2>
-        <div className="grid gap-3 md:grid-cols-3">
-          {totals.technicalIssues.length > 0 ? totals.technicalIssues.map((issue) => (
-            <div key={issue} className="rounded-xl border border-border bg-black/25 p-4 text-sm text-white/70">{issue}</div>
-          )) : (
-            <div className="rounded-xl border border-border bg-black/25 p-4 text-sm text-white/45">No data available for this date range yet.</div>
-          )}
-        </div>
+        {technicalIssues.length > 0 ? (
+          <Table headers={["Issue", "Severity", "Page", "Recommendation", "Detected"]} rows={technicalIssues.map((issue) => [
+            issue.issue_type,
+            issue.severity ?? "Unspecified",
+            issue.page_url ? <a href={issue.page_url} className="text-accent hover:underline" target="_blank" rel="noreferrer">{issue.page_url}</a> : "Sitewide",
+            issue.recommendation ?? issue.issue_description ?? "Review issue details.",
+            issue.detected_date
+          ])} />
+        ) : (
+          <EmptyState>No technical SEO issues found for this date range.</EmptyState>
+        )}
       </Card>
     </div>
   );

@@ -31,6 +31,24 @@ export type DailyPerformance = {
   cpc: number | null;
 };
 
+export type CampaignDailyPerformance = DailyPerformance & {
+  campaign_id: string;
+  campaign_name: string | null;
+  wasted_spend: number;
+};
+
+export type AdDailyPerformance = DailyPerformance & {
+  campaign_id: string | null;
+  campaign_name: string | null;
+  ad_group_id: string | null;
+  ad_group_name: string | null;
+  ad_id: string;
+  ad_name: string | null;
+  creative_id: string | null;
+  creative_name: string | null;
+  creative_preview_url: string | null;
+};
+
 export type DateRangeKey = "today" | "yesterday" | "last3" | "last7" | "last14" | "mtd" | "last30" | "last_month" | "custom";
 
 export type DateRange = {
@@ -61,6 +79,18 @@ export type SeoTotals = {
   technicalIssues: Array<string>;
 };
 
+export type SeoTechnicalIssue = {
+  id: string;
+  detected_date: string;
+  issue_type: string;
+  severity: string | null;
+  page_url: string | null;
+  issue_description: string | null;
+  recommendation: string | null;
+  status: string | null;
+  source: string | null;
+};
+
 export type DashboardQueryStatus = {
   error: string | null;
   isEmpty: boolean;
@@ -68,10 +98,15 @@ export type DashboardQueryStatus = {
 
 export type Report = {
   id: string;
-  month: string;
-  summary: string;
+  period_start: string;
+  period_end: string;
+  report_month: string | null;
+  headline: string | null;
   wins: string[];
   issues: string[];
   actions_taken: string[];
   next_steps: string[];
+  source_metrics: Record<string, unknown>;
+  generated_by: string | null;
+  status: string | null;
 };

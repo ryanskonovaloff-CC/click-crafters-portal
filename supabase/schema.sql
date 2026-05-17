@@ -84,6 +84,58 @@ create table public.ad_performance (
   created_at timestamptz not null default now()
 );
 
+create table public.campaign_daily_performance (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  date date not null,
+  platform text not null,
+  channel text,
+  campaign_id text not null,
+  campaign_name text,
+  spend numeric default 0,
+  revenue numeric default 0,
+  conversions integer default 0,
+  clicks integer default 0,
+  impressions integer default 0,
+  cpa numeric,
+  roas numeric,
+  ctr numeric,
+  cpc numeric,
+  wasted_spend numeric default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (client_id, date, platform, campaign_id)
+);
+
+create table public.ad_daily_performance (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  date date not null,
+  platform text not null,
+  channel text,
+  campaign_id text,
+  campaign_name text,
+  ad_group_id text,
+  ad_group_name text,
+  ad_id text not null,
+  ad_name text,
+  creative_id text,
+  creative_name text,
+  creative_preview_url text,
+  spend numeric default 0,
+  revenue numeric default 0,
+  conversions integer default 0,
+  clicks integer default 0,
+  impressions integer default 0,
+  cpa numeric,
+  roas numeric,
+  ctr numeric,
+  cpc numeric,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (client_id, date, platform, ad_id)
+);
+
 create table public.seo_performance (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.clients(id) on delete cascade,
@@ -111,6 +163,41 @@ create table public.reports (
   next_steps text[] not null default '{}',
   created_at timestamptz not null default now(),
   unique (client_id, month)
+);
+
+create table public.seo_technical_issues (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  detected_date date not null,
+  issue_type text not null,
+  severity text,
+  page_url text,
+  issue_description text,
+  recommendation text,
+  status text default 'open',
+  source text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (client_id, detected_date, issue_type, page_url)
+);
+
+create table public.monthly_reports (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  period_start date not null,
+  period_end date not null,
+  report_month text,
+  headline text,
+  wins jsonb default '[]'::jsonb,
+  issues jsonb default '[]'::jsonb,
+  actions_taken jsonb default '[]'::jsonb,
+  next_steps jsonb default '[]'::jsonb,
+  source_metrics jsonb default '{}'::jsonb,
+  generated_by text default 'n8n',
+  status text default 'draft',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (client_id, period_start, period_end)
 );
 
 create or replace function public.handle_new_user()
@@ -173,8 +260,12 @@ alter table public.client_users enable row level security;
 alter table public.daily_performance enable row level security;
 alter table public.campaign_performance enable row level security;
 alter table public.ad_performance enable row level security;
+alter table public.campaign_daily_performance enable row level security;
+alter table public.ad_daily_performance enable row level security;
 alter table public.seo_performance enable row level security;
 alter table public.reports enable row level security;
+alter table public.seo_technical_issues enable row level security;
+alter table public.monthly_reports enable row level security;
 
 create policy "Admins can manage clients" on public.clients for all using (public.is_admin()) with check (public.is_admin());
 create policy "Assigned users can read clients" on public.clients for select using (public.can_access_client(id));
@@ -200,8 +291,24 @@ create policy "Admin manage seo performance" on public.seo_performance for all u
 create policy "Read assigned reports" on public.reports for select using (public.can_access_client(client_id));
 create policy "Admin manage reports" on public.reports for all using (public.is_admin()) with check (public.is_admin());
 
+create policy "Authenticated read campaign daily performance" on public.campaign_daily_performance for select to authenticated using (true);
+create policy "Authenticated read ad daily performance" on public.ad_daily_performance for select to authenticated using (true);
+create policy "Authenticated read seo technical issues" on public.seo_technical_issues for select to authenticated using (true);
+create policy "Authenticated read monthly reports" on public.monthly_reports for select to authenticated using (true);
+
+grant select on public.campaign_daily_performance to authenticated;
+grant select on public.ad_daily_performance to authenticated;
+grant select on public.seo_technical_issues to authenticated;
+grant select on public.monthly_reports to authenticated;
+
 create index daily_performance_client_date_idx on public.daily_performance (client_id, date);
 create index campaign_performance_client_period_idx on public.campaign_performance (client_id, period_start, period_end);
 create index ad_performance_client_period_idx on public.ad_performance (client_id, period_start, period_end);
+create index campaign_daily_performance_client_date_idx on public.campaign_daily_performance (client_id, date);
+create index campaign_daily_performance_client_sort_idx on public.campaign_daily_performance (client_id, platform, campaign_id);
+create index ad_daily_performance_client_date_idx on public.ad_daily_performance (client_id, date);
+create index ad_daily_performance_client_sort_idx on public.ad_daily_performance (client_id, platform, ad_id);
 create index seo_performance_client_period_idx on public.seo_performance (client_id, period_start, period_end);
 create index reports_client_month_idx on public.reports (client_id, month);
+create index seo_technical_issues_client_date_idx on public.seo_technical_issues (client_id, detected_date);
+create index monthly_reports_client_period_idx on public.monthly_reports (client_id, period_start, period_end);
