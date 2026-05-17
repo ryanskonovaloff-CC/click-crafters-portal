@@ -136,6 +136,34 @@ create table public.ad_daily_performance (
   unique (client_id, date, platform, ad_id)
 );
 
+create table public.ad_lifetime_performance (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  platform text not null,
+  channel text,
+  campaign_id text,
+  campaign_name text,
+  ad_group_id text,
+  ad_group_name text,
+  ad_id text not null,
+  ad_name text,
+  creative_id text,
+  creative_name text,
+  creative_preview_url text,
+  spend numeric default 0,
+  revenue numeric default 0,
+  conversions integer default 0,
+  clicks integer default 0,
+  impressions integer default 0,
+  cpa numeric,
+  roas numeric,
+  ctr numeric,
+  cpc numeric,
+  updated_at timestamptz default now(),
+  created_at timestamptz default now(),
+  unique (client_id, platform, ad_id)
+);
+
 create table public.seo_performance (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.clients(id) on delete cascade,
@@ -262,6 +290,7 @@ alter table public.campaign_performance enable row level security;
 alter table public.ad_performance enable row level security;
 alter table public.campaign_daily_performance enable row level security;
 alter table public.ad_daily_performance enable row level security;
+alter table public.ad_lifetime_performance enable row level security;
 alter table public.seo_performance enable row level security;
 alter table public.reports enable row level security;
 alter table public.seo_technical_issues enable row level security;
@@ -293,11 +322,13 @@ create policy "Admin manage reports" on public.reports for all using (public.is_
 
 create policy "Authenticated read campaign daily performance" on public.campaign_daily_performance for select to authenticated using (true);
 create policy "Authenticated read ad daily performance" on public.ad_daily_performance for select to authenticated using (true);
+create policy "Authenticated read ad lifetime performance" on public.ad_lifetime_performance for select to authenticated using (true);
 create policy "Authenticated read seo technical issues" on public.seo_technical_issues for select to authenticated using (true);
 create policy "Authenticated read monthly reports" on public.monthly_reports for select to authenticated using (true);
 
 grant select on public.campaign_daily_performance to authenticated;
 grant select on public.ad_daily_performance to authenticated;
+grant select on public.ad_lifetime_performance to authenticated;
 grant select on public.seo_technical_issues to authenticated;
 grant select on public.monthly_reports to authenticated;
 
@@ -308,6 +339,7 @@ create index campaign_daily_performance_client_date_idx on public.campaign_daily
 create index campaign_daily_performance_client_sort_idx on public.campaign_daily_performance (client_id, platform, campaign_id);
 create index ad_daily_performance_client_date_idx on public.ad_daily_performance (client_id, date);
 create index ad_daily_performance_client_sort_idx on public.ad_daily_performance (client_id, platform, ad_id);
+create index ad_lifetime_performance_client_sort_idx on public.ad_lifetime_performance (client_id, roas desc, conversions desc, spend desc);
 create index seo_performance_client_period_idx on public.seo_performance (client_id, period_start, period_end);
 create index reports_client_month_idx on public.reports (client_id, month);
 create index seo_technical_issues_client_date_idx on public.seo_technical_issues (client_id, detected_date);

@@ -3,7 +3,7 @@ import { DateRangePicker } from "@/components/date-range-picker";
 import { Badge, Card, EmptyState, StatCard, Table } from "@/components/ui";
 import { getPaidAdsDashboardData, metricRatios, percentChange } from "@/lib/data";
 import { compact, currency, pct } from "@/lib/utils";
-import type { AdDailyPerformance, CampaignDailyPerformance, DailyPerformance } from "@/lib/types";
+import type { AdLifetimePerformance, CampaignDailyPerformance, DailyPerformance } from "@/lib/types";
 
 type PageProps = {
   searchParams?: Promise<{ range?: string; start?: string; end?: string }>;
@@ -11,14 +11,14 @@ type PageProps = {
 
 export default async function PaidAdsPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const { range, daily, campaigns, ads, totals, previousTotals, status, campaignStatus, adStatus } = await getPaidAdsDashboardData(params?.range, params?.start, params?.end);
+  const { range, daily, campaigns, lifetimeAds, totals, previousTotals, status, campaignStatus, lifetimeAdStatus } = await getPaidAdsDashboardData(params?.range, params?.start, params?.end);
   const ratios = metricRatios(totals);
   const previousRatios = metricRatios(previousTotals);
   const hasData = !status.error && !status.isEmpty;
   const tileState = status.error ? "error" : hasData ? "ready" : "empty";
   const rows = channelRows(daily);
   const campaignRows = aggregateCampaignRows(campaigns);
-  const adRows = aggregateAdRows(ads);
+  const adRows = topLifetimeAdRows(lifetimeAds);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -44,7 +44,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load paid ads data: {status.error}</Card> : null}
       {campaignStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load campaign data: {campaignStatus.error}</Card> : null}
-      {adStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load ad data: {adStatus.error}</Card> : null}
+      {lifetimeAdStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load lifetime ad data: {lifetimeAdStatus.error}</Card> : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card><h2 className="mb-4 text-lg font-semibold">CPA over time</h2>{hasData ? <TrendChart data={daily} metric="cpa" /> : <EmptyState />}</Card>
@@ -149,23 +149,10 @@ function aggregateCampaignRows(rows: CampaignDailyPerformance[]) {
   return Object.values(byCampaign).sort((a, b) => b.spend - a.spend);
 }
 
-function aggregateAdRows(rows: AdDailyPerformance[]) {
-  const byAd = rows.reduce<Record<string, AdDailyPerformance>>((acc, row) => {
-    const key = `${row.platform}|${row.ad_id}`;
-    acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, clicks: 0, impressions: 0, cpa: null, roas: null, ctr: null, cpc: null };
-    acc[key].spend += row.spend;
-    acc[key].revenue += row.revenue;
-    acc[key].conversions += row.conversions;
-    acc[key].clicks += row.clicks;
-    acc[key].impressions += row.impressions;
-    acc[key].cpa = acc[key].conversions > 0 ? acc[key].spend / acc[key].conversions : null;
-    acc[key].roas = acc[key].spend > 0 ? acc[key].revenue / acc[key].spend : null;
-    acc[key].ctr = acc[key].impressions > 0 ? acc[key].clicks / acc[key].impressions : null;
-    acc[key].cpc = acc[key].clicks > 0 ? acc[key].spend / acc[key].clicks : null;
-    return acc;
-  }, {});
-
-  return Object.values(byAd).sort((a, b) => (b.roas ?? 0) - (a.roas ?? 0) || b.conversions - a.conversions || b.spend - a.spend).slice(0, 12);
+function topLifetimeAdRows(rows: AdLifetimePerformance[]) {
+  return [...rows]
+    .sort((a, b) => (b.roas ?? -1) - (a.roas ?? -1) || b.conversions - a.conversions || b.spend - a.spend)
+    .slice(0, 12);
 }
 
 function effectiveWastedSpend(row: CampaignDailyPerformance) {

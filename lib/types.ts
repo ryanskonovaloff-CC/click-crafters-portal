@@ -49,6 +49,29 @@ export type AdDailyPerformance = DailyPerformance & {
   creative_preview_url: string | null;
 };
 
+export type AdLifetimePerformance = {
+  platform: string;
+  channel: string | null;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  ad_group_id: string | null;
+  ad_group_name: string | null;
+  ad_id: string;
+  ad_name: string | null;
+  creative_id: string | null;
+  creative_name: string | null;
+  creative_preview_url: string | null;
+  spend: number;
+  revenue: number;
+  conversions: number;
+  clicks: number;
+  impressions: number;
+  cpa: number | null;
+  roas: number | null;
+  ctr: number | null;
+  cpc: number | null;
+};
+
 export type DateRangeKey = "today" | "yesterday" | "last3" | "last7" | "last14" | "mtd" | "last30" | "last_month" | "custom";
 
 export type DateRange = {
