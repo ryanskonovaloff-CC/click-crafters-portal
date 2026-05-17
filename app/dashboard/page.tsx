@@ -18,7 +18,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const paidRatios = metricRatios(paid.totals);
   const previousPaidRatios = metricRatios(paid.previousTotals);
   const hasPaidData = !paid.status.error && !paid.status.isEmpty;
-  const hasSeoData = !seo.status.error && !seo.status.isEmpty;
+  const hasOrganicVisibilityData = !seo.status.error && [
+    seo.totals.organicClicks,
+    seo.totals.organicImpressions,
+    seo.totals.organicSessions,
+    seo.totals.organicConversions
+  ].some((value) => value !== null);
   const tileState = paid.status.error ? "error" : hasPaidData ? "ready" : "empty";
 
   return (
@@ -55,7 +60,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <Card><h2 className="mb-4 text-lg font-semibold">Platform breakdown</h2>{hasPaidData ? <PlatformBreakdown data={paid.daily} /> : <EmptyState />}</Card>
         <Card>
           <h2 className="mb-4 text-lg font-semibold">Organic visibility</h2>
-          {hasSeoData ? (
+          {hasOrganicVisibilityData ? (
             <Table headers={["Metric", "Value"]} rows={[
               ["Organic clicks", compact.format(seo.totals.organicClicks ?? 0)],
               ["Organic impressions", compact.format(seo.totals.organicImpressions ?? 0)],
