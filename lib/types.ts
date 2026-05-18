@@ -120,17 +120,30 @@ export type DashboardQueryStatus = {
   isEmpty: boolean;
 };
 
-export type Report = {
+export type ReportStatus = "draft" | "published" | "archived";
+
+export type MonthlyReport = {
   id: string;
+  client_id: string;
+  client_name: string | null;
+  report_month: string;
   period_start: string;
   period_end: string;
-  report_month: string | null;
-  headline: string | null;
+  previous_period_start: string | null;
+  previous_period_end: string | null;
+  status: ReportStatus;
+  title: string | null;
+  executive_summary: string | null;
+  paid_ads_commentary: string | null;
+  seo_commentary: string | null;
+  mom_commentary: string | null;
   wins: string[];
-  issues: string[];
-  actions_taken: string[];
+  watchouts: string[];
   next_steps: string[];
-  source_metrics: Record<string, unknown>;
-  generated_by: string | null;
-  status: string | null;
+  paid_ads_summary: Record<string, unknown> | null;
+  seo_summary: Record<string, unknown> | null;
+  mom_summary: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
 };

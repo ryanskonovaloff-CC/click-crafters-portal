@@ -212,20 +212,27 @@ create table public.seo_technical_issues (
 create table public.monthly_reports (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.clients(id) on delete cascade,
+  report_month date not null,
   period_start date not null,
   period_end date not null,
-  report_month text,
-  headline text,
-  wins jsonb default '[]'::jsonb,
-  issues jsonb default '[]'::jsonb,
-  actions_taken jsonb default '[]'::jsonb,
-  next_steps jsonb default '[]'::jsonb,
-  source_metrics jsonb default '{}'::jsonb,
-  generated_by text default 'n8n',
-  status text default 'draft',
-  created_at timestamptz default now(),
-  updated_at timestamptz default now(),
-  unique (client_id, period_start, period_end)
+  previous_period_start date,
+  previous_period_end date,
+  status text not null default 'draft' check (status in ('draft', 'published', 'archived')),
+  title text,
+  executive_summary text,
+  paid_ads_commentary text,
+  seo_commentary text,
+  mom_commentary text,
+  wins text[] not null default '{}',
+  watchouts text[] not null default '{}',
+  next_steps text[] not null default '{}',
+  paid_ads_summary jsonb,
+  seo_summary jsonb,
+  mom_summary jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  published_at timestamptz,
+  unique (client_id, report_month)
 );
 
 create or replace function public.handle_new_user()
@@ -324,7 +331,8 @@ create policy "Authenticated read campaign daily performance" on public.campaign
 create policy "Authenticated read ad daily performance" on public.ad_daily_performance for select to authenticated using (true);
 create policy "Authenticated read ad lifetime performance" on public.ad_lifetime_performance for select to authenticated using (true);
 create policy "Authenticated read seo technical issues" on public.seo_technical_issues for select to authenticated using (true);
-create policy "Authenticated read monthly reports" on public.monthly_reports for select to authenticated using (true);
+create policy "Read assigned monthly reports" on public.monthly_reports for select to authenticated using (public.is_admin() or (status = 'published' and public.can_access_client(client_id)));
+create policy "Admin manage monthly reports" on public.monthly_reports for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 grant select on public.campaign_daily_performance to authenticated;
 grant select on public.ad_daily_performance to authenticated;
@@ -343,4 +351,5 @@ create index ad_lifetime_performance_client_sort_idx on public.ad_lifetime_perfo
 create index seo_performance_client_period_idx on public.seo_performance (client_id, period_start, period_end);
 create index reports_client_month_idx on public.reports (client_id, month);
 create index seo_technical_issues_client_date_idx on public.seo_technical_issues (client_id, detected_date);
-create index monthly_reports_client_period_idx on public.monthly_reports (client_id, period_start, period_end);
+create index monthly_reports_client_month_idx on public.monthly_reports (client_id, report_month desc);
+create index monthly_reports_client_status_month_idx on public.monthly_reports (client_id, status, report_month desc);

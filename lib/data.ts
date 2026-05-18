@@ -10,7 +10,8 @@ import type {
   DateRange,
   DateRangeKey,
   MetricTotals,
-  Report,
+  MonthlyReport,
+  ReportStatus,
   SeoTechnicalIssue,
   SeoTotals
 } from "@/lib/types";
@@ -314,24 +315,66 @@ function normalizeTechnicalIssue(row: Record<string, unknown>): SeoTechnicalIssu
   };
 }
 
-function parseJsonArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.map((item) => String(item)) : [];
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.map((item) => String(item)).filter(Boolean) : [];
+    } catch {
+      return value ? [value] : [];
+    }
+  }
+  return [];
 }
 
-function normalizeMonthlyReport(row: Record<string, unknown>): Report {
+function parseJsonObject(value: unknown): Record<string, unknown> | null {
+  if (!value) return null;
+  if (typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function normalizeReportStatus(value: unknown): ReportStatus {
+  return value === "published" || value === "archived" ? value : "draft";
+}
+
+function normalizeMonthlyReport(row: Record<string, unknown>): MonthlyReport {
+  const clientRow = row.clients && typeof row.clients === "object" && !Array.isArray(row.clients)
+    ? row.clients as Record<string, unknown>
+    : null;
+
   return {
     id: String(row.id ?? ""),
+    client_id: String(row.client_id ?? ""),
+    client_name: clientRow?.name ? String(clientRow.name) : null,
+    report_month: String(row.report_month ?? row.period_start ?? ""),
     period_start: String(row.period_start ?? ""),
     period_end: String(row.period_end ?? ""),
-    report_month: row.report_month ? String(row.report_month) : null,
-    headline: row.headline ? String(row.headline) : null,
-    wins: parseJsonArray(row.wins),
-    issues: parseJsonArray(row.issues),
-    actions_taken: parseJsonArray(row.actions_taken),
-    next_steps: parseJsonArray(row.next_steps),
-    source_metrics: row.source_metrics && typeof row.source_metrics === "object" && !Array.isArray(row.source_metrics) ? row.source_metrics as Record<string, unknown> : {},
-    generated_by: row.generated_by ? String(row.generated_by) : null,
-    status: row.status ? String(row.status) : null
+    previous_period_start: row.previous_period_start ? String(row.previous_period_start) : null,
+    previous_period_end: row.previous_period_end ? String(row.previous_period_end) : null,
+    status: normalizeReportStatus(row.status),
+    title: row.title ? String(row.title) : row.headline ? String(row.headline) : null,
+    executive_summary: row.executive_summary ? String(row.executive_summary) : row.summary ? String(row.summary) : null,
+    paid_ads_commentary: row.paid_ads_commentary ? String(row.paid_ads_commentary) : null,
+    seo_commentary: row.seo_commentary ? String(row.seo_commentary) : null,
+    mom_commentary: row.mom_commentary ? String(row.mom_commentary) : null,
+    wins: parseStringArray(row.wins),
+    watchouts: parseStringArray(row.watchouts ?? row.issues),
+    next_steps: parseStringArray(row.next_steps),
+    paid_ads_summary: parseJsonObject(row.paid_ads_summary),
+    seo_summary: parseJsonObject(row.seo_summary),
+    mom_summary: parseJsonObject(row.mom_summary),
+    created_at: String(row.created_at ?? ""),
+    updated_at: String(row.updated_at ?? ""),
+    published_at: row.published_at ? String(row.published_at) : null
   };
 }
 
@@ -423,23 +466,52 @@ export async function getActiveClient() {
   return { supabase, profile, client: client as Client };
 }
 
-export async function getReportsData(rangeKey?: string, customStart?: string, customEnd?: string) {
+const monthlyReportSelect = `
+  id,
+  client_id,
+  report_month,
+  period_start,
+  period_end,
+  previous_period_start,
+  previous_period_end,
+  status,
+  title,
+  executive_summary,
+  paid_ads_commentary,
+  seo_commentary,
+  mom_commentary,
+  wins,
+  watchouts,
+  next_steps,
+  paid_ads_summary,
+  seo_summary,
+  mom_summary,
+  created_at,
+  updated_at,
+  published_at,
+  clients(name)
+`;
+
+export async function getReportsData() {
   const { supabase, profile, client } = await getActiveClient();
-  const range = getDateRange(rangeKey, customStart, customEnd);
+  const today = isoDate(new Date());
 
   if (!client) {
-    return { profile, client, range, reports: [], status: queryStatus(null, 0) };
+    return { profile, client, reports: [], status: queryStatus(null, 0) };
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("monthly_reports")
-    .select("*")
+    .select(monthlyReportSelect)
     .eq("client_id", client.id)
-    .lte("period_start", range.end)
-    .gte("period_end", range.start)
-    .in("status", ["draft", "published"])
-    .order("period_end", { ascending: false })
-    .limit(1);
+    .lt("period_end", today)
+    .order("report_month", { ascending: false });
+
+  if (profile.role !== "admin") {
+    query = query.eq("status", "published");
+  }
+
+  const { data, error } = await query;
 
   const reports = ((data ?? []) as Record<string, unknown>[]).map(normalizeMonthlyReport);
   const errorMessage = queryErrorMessage(error);
@@ -447,9 +519,31 @@ export async function getReportsData(rangeKey?: string, customStart?: string, cu
   return {
     profile,
     client,
-    range,
     reports,
     status: queryStatus(errorMessage, reports.length)
+  };
+}
+
+export async function getMonthlyReportData(reportId: string) {
+  const { supabase, profile } = await getSessionProfile();
+  const today = isoDate(new Date());
+  let query = supabase
+    .from("monthly_reports")
+    .select(monthlyReportSelect)
+    .eq("id", reportId)
+    .lt("period_end", today);
+
+  if (profile.role !== "admin") {
+    query = query.eq("status", "published");
+  }
+
+  const { data, error } = await query.single();
+  const errorMessage = queryErrorMessage(error);
+
+  return {
+    profile,
+    report: data ? normalizeMonthlyReport(data as Record<string, unknown>) : null,
+    status: queryStatus(errorMessage, data ? 1 : 0)
   };
 }
 
