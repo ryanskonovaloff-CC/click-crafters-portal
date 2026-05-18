@@ -551,6 +551,7 @@ function seoSearchTotalsFromRows(rows: Record<string, unknown>[]): SeoTotals {
   type SeoAccumulator = {
     organicClicks: number;
     organicImpressions: number;
+    outboundClicks: number | null;
     indexedPages: number;
     positionWeightedTotal: number;
     positionWeight: number;
@@ -560,6 +561,7 @@ function seoSearchTotalsFromRows(rows: Record<string, unknown>[]): SeoTotals {
   const totals = rows.reduce<SeoAccumulator>((acc, row) => {
     acc.organicClicks += toNumber(row.organic_clicks ?? row.clicks);
     acc.organicImpressions += toNumber(row.organic_impressions ?? row.impressions);
+    acc.outboundClicks = sumNullable(acc.outboundClicks, firstNullableNumber(row.outbound_clicks));
     acc.indexedPages += toNumber(row.indexed_pages);
     const position = nullableNumber(row.average_position ?? row.position);
     if (position !== null) {
@@ -571,6 +573,7 @@ function seoSearchTotalsFromRows(rows: Record<string, unknown>[]): SeoTotals {
   }, {
     organicClicks: 0,
     organicImpressions: 0,
+    outboundClicks: null,
     indexedPages: 0,
     positionWeightedTotal: 0,
     positionWeight: 0,
@@ -584,7 +587,7 @@ function seoSearchTotalsFromRows(rows: Record<string, unknown>[]): SeoTotals {
     averagePosition: totals.positionWeight > 0 ? totals.positionWeightedTotal / totals.positionWeight : null,
     organicSessions: null,
     organicConversions: null,
-    outboundClicks: null,
+    outboundClicks: totals.outboundClicks,
     indexedPages: totals.indexedPages > 0 ? totals.indexedPages : null,
     technicalIssues: [...new Set(totals.technicalIssues)]
   };
@@ -699,7 +702,7 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
   }
 
   const [daily, analytics, keywords, pages] = await Promise.all([
-    supabase.from("seo_daily_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: true }),
+    supabase.from("seo_daily_performance").select("date,organic_clicks,organic_impressions,organic_sessions,organic_conversions,outbound_clicks,outbound_click_rate,average_position,indexed_pages,technical_issues").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: true }),
     supabase.from("analytics_daily_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: true }),
     supabase.from("seo_keyword_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10),
     supabase.from("seo_pages_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10)
