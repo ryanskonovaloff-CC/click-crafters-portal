@@ -142,6 +142,14 @@ function nullableNumber(value: unknown) {
   return Number.isFinite(number) ? number : null;
 }
 
+function firstNullableNumber(...values: unknown[]) {
+  for (const value of values) {
+    const number = nullableNumber(value);
+    if (number !== null) return number;
+  }
+  return null;
+}
+
 function normalizeDailyPerformance(row: Record<string, unknown>): DailyPerformance {
   const spend = toNumber(row.spend);
   const revenue = toNumber(row.revenue);
@@ -630,8 +638,23 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
   const topPages = ((pages.data ?? []) as Record<string, unknown>[]).map((row) => ({
     page: String(row.page ?? row.landing_page ?? row.url ?? "Unknown page"),
     clicks: toNumber(row.organic_clicks ?? row.clicks),
-    sessions: toNumber(row.organic_sessions ?? row.sessions),
-    conversions: toNumber(row.organic_conversions ?? row.conversions)
+    impressions: toNumber(row.organic_impressions ?? row.impressions),
+    ctr: firstNullableNumber(row.organic_ctr, row.ctr, row.click_through_rate),
+    position: firstNullableNumber(row.average_position, row.position, row.avg_position),
+    sessions: firstNullableNumber(row.organic_sessions, row.sessions),
+    outboundClicks: firstNullableNumber(
+      row.outbound_clicks,
+      row.organic_outbound_clicks,
+      row.outbound_actions,
+      row.organic_outbound_actions,
+      row.order_clicks,
+      row.phone_clicks,
+      row.directions_clicks,
+      row.catering_clicks,
+      row.organic_conversions,
+      row.conversions
+    ),
+    outboundClickRate: firstNullableNumber(row.outbound_click_rate, row.organic_outbound_click_rate, row.outbound_rate, row.action_rate)
   }));
   const statusError = [
     queryErrorMessage(daily.error),

@@ -12,7 +12,7 @@ export default async function SeoPage({ searchParams }: PageProps) {
   const { range, totals, topQueries, topPages, status } = await getSeoDashboardData(params?.range, params?.start, params?.end);
   const hasData = !status.error && !status.isEmpty;
   const tileState = status.error ? "error" : hasData ? "ready" : "empty";
-  const conversionRate = totals.organicSessions && totals.organicConversions !== null ? totals.organicConversions / totals.organicSessions : null;
+  const outboundActionRate = totals.organicSessions && totals.organicConversions !== null ? totals.organicConversions / totals.organicSessions : null;
   const opportunities = organicOpportunities(topQueries, topPages);
 
   return (
@@ -32,9 +32,9 @@ export default async function SeoPage({ searchParams }: PageProps) {
         <StatCard label="Organic CTR" value={totals.ctr === null ? "Unavailable" : pct(totals.ctr * 100)} state={status.error ? "error" : totals.ctr === null ? "empty" : "ready"} />
         <StatCard label="Average position" value={totals.averagePosition === null ? "Unavailable" : totals.averagePosition.toFixed(1)} state={status.error ? "error" : totals.averagePosition === null ? "empty" : "ready"} />
         <StatCard label="Organic sessions" value={totals.organicSessions === null ? "Unavailable" : compact.format(totals.organicSessions)} state={tileState} />
-        <StatCard label="Organic conversions" value={totals.organicConversions === null ? "Unavailable" : compact.format(totals.organicConversions)} state={tileState} />
+        <StatCard label="Outbound actions" value={totals.organicConversions === null ? "Unavailable" : compact.format(totals.organicConversions)} state={tileState} />
         <StatCard label="Indexed pages" value={totals.indexedPages === null ? "Unavailable" : compact.format(totals.indexedPages)} state={status.error ? "error" : totals.indexedPages === null ? "empty" : "ready"} />
-        <StatCard label="Organic conv. rate" value={conversionRate === null ? "Unavailable" : pct(conversionRate * 100)} state={status.error ? "error" : conversionRate === null ? "empty" : "ready"} />
+        <StatCard label="Outbound action rate" value={outboundActionRate === null ? "Unavailable" : pct(outboundActionRate * 100)} state={status.error ? "error" : outboundActionRate === null ? "empty" : "ready"} />
       </MetricGrid>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load SEO data: {status.error}</Card> : null}
@@ -46,17 +46,25 @@ export default async function SeoPage({ searchParams }: PageProps) {
         </Card>
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top landing pages</h2>
-          <Table headers={["Page", "Clicks", "Sessions", "Conv."]} rows={topPages.map((item) => [item.page, compact.format(item.clicks), compact.format(item.sessions), compact.format(item.conversions)])} />
+          <Table headers={["Page", "Clicks", "Impressions", "CTR", "Position", "Outbound clicks"]} rows={topPages.map((item) => [
+            item.page,
+            compact.format(item.clicks),
+            compact.format(item.impressions),
+            formatPercentRatio(pageCtr(item)),
+            item.position === null ? "Not available" : item.position.toFixed(1),
+            item.outboundClicks === null ? "Not available" : compact.format(item.outboundClicks)
+          ])} />
         </Card>
       </div>
 
       <Card>
         <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Organic growth opportunities</h2>
         {opportunities.length > 0 ? (
-          <Table headers={["Opportunity", "Signal", "Why it matters"]} rows={opportunities.map((item) => [
+          <Table headers={["Opportunity", "Signal", "Why it matters", "Recommended action"]} rows={opportunities.map((item) => [
             item.name,
             item.signal,
-            item.reason
+            item.reason,
+            item.action
           ])} />
         ) : (
           <EmptyState>No organic growth opportunities found for this date range yet.</EmptyState>
@@ -76,30 +84,157 @@ type QueryRow = {
 type PageRow = {
   page: string;
   clicks: number;
-  sessions: number;
-  conversions: number;
+  impressions: number;
+  ctr: number | null;
+  position: number | null;
+  sessions: number | null;
+  outboundClicks: number | null;
+  outboundClickRate: number | null;
 };
 
 function organicOpportunities(topQueries: QueryRow[], topPages: PageRow[]) {
   const queryOpportunities = topQueries
-    .filter((item) => item.impressions >= 10 && item.position > 3)
-    .sort((a, b) => b.impressions - a.impressions || a.position - b.position)
-    .slice(0, 4)
-    .map((item) => ({
-      name: item.query,
-      signal: `${compact.format(item.impressions)} impressions, position ${item.position.toFixed(1)}`,
-      reason: "Search demand is already showing; improving this ranking could unlock more qualified visits."
-    }));
+    .map((item) => {
+      const ctr = item.impressions > 0 ? item.clicks / item.impressions : null;
+      const nearPageOne = item.position >= 4 && item.position <= 15;
+      const lowCtr = item.impressions >= 100 && ctr !== null && ctr < 0.025;
+      if (!nearPageOne && !lowCtr) return null;
+
+      return {
+        name: item.query,
+        signal: signalText({
+          clicks: item.clicks,
+          impressions: item.impressions,
+          ctr,
+          position: item.position
+        }),
+        reason: lowCtr
+          ? "This query is earning organic visibility but the search result may not be compelling enough to win clicks."
+          : "This query is close to stronger page-one visibility and may be within range for incremental ranking gains.",
+        action: lowCtr
+          ? "Improve the title tag and meta description around the search intent."
+          : "Strengthen page content, internal links, schema, and local relevance for this intent.",
+        score: opportunityScore({ impressions: item.impressions, clicks: item.clicks, position: item.position, lowCtr, nearPageOne })
+      };
+    })
+    .filter((item): item is OrganicOpportunity => Boolean(item));
 
   const pageOpportunities = topPages
-    .filter((item) => item.clicks > 0 && item.conversions === 0)
-    .sort((a, b) => b.clicks - a.clicks)
-    .slice(0, 4)
-    .map((item) => ({
-      name: item.page,
-      signal: `${compact.format(item.clicks)} clicks, 0 conversions`,
-      reason: "This page is attracting organic traffic and may need a stronger offer, form, or call to action."
-    }));
+    .map((item) => {
+      const ctr = pageCtr(item);
+      const outboundRate = pageOutboundRate(item);
+      const meaningfulVisibility = item.impressions >= 100 || item.clicks >= 5;
+      const lowCtr = item.impressions >= 100 && ctr !== null && ctr < 0.025;
+      const lowOutboundClicks = item.clicks >= 5 && item.outboundClicks !== null && item.outboundClicks <= 0;
+      const lowOutboundRate = item.clicks >= 10 && outboundRate !== null && outboundRate < 0.05;
+      const nearPageOne = item.position !== null && item.position >= 4 && item.position <= 15;
 
-  return [...queryOpportunities, ...pageOpportunities].slice(0, 8);
+      if (!meaningfulVisibility || (!lowCtr && !lowOutboundClicks && !lowOutboundRate && !nearPageOne)) return null;
+
+      return {
+        name: item.page,
+        signal: signalText({
+          clicks: item.clicks,
+          impressions: item.impressions,
+          ctr,
+          position: item.position,
+          outboundClicks: item.outboundClicks,
+          outboundRate
+        }),
+        reason: pageReason({ lowCtr, lowOutboundClicks, lowOutboundRate, nearPageOne }),
+        action: pageAction(item.page, { lowCtr, lowOutboundClicks, lowOutboundRate, nearPageOne }),
+        score: opportunityScore({ impressions: item.impressions, clicks: item.clicks, position: item.position, lowCtr, lowOutboundClicks, lowOutboundRate, nearPageOne })
+      };
+    })
+    .filter((item): item is OrganicOpportunity => Boolean(item));
+
+  return [...pageOpportunities, ...queryOpportunities]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
+}
+
+type OrganicOpportunity = {
+  name: string;
+  signal: string;
+  reason: string;
+  action: string;
+  score: number;
+};
+
+function pageCtr(item: PageRow) {
+  return normalizeRatio(item.ctr) ?? (item.impressions > 0 ? item.clicks / item.impressions : null);
+}
+
+function pageOutboundRate(item: PageRow) {
+  return normalizeRatio(item.outboundClickRate) ?? (item.outboundClicks !== null && item.clicks > 0 ? item.outboundClicks / item.clicks : null);
+}
+
+function normalizeRatio(value: number | null) {
+  if (value === null) return null;
+  return value > 1 ? value / 100 : value;
+}
+
+function formatPercentRatio(value: number | null) {
+  return value === null ? "Not available" : pct(value * 100);
+}
+
+function signalText({ clicks, impressions, ctr, position, outboundClicks, outboundRate }: {
+  clicks?: number;
+  impressions?: number;
+  ctr?: number | null;
+  position?: number | null;
+  outboundClicks?: number | null;
+  outboundRate?: number | null;
+}) {
+  return [
+    clicks !== undefined ? `${compact.format(clicks)} clicks` : null,
+    impressions !== undefined ? `${compact.format(impressions)} impressions` : null,
+    ctr !== undefined && ctr !== null ? `${formatPercentRatio(ctr)} CTR` : null,
+    position !== undefined && position !== null ? `avg position ${position.toFixed(1)}` : null,
+    outboundClicks !== undefined && outboundClicks !== null ? `${compact.format(outboundClicks)} outbound clicks` : null,
+    outboundRate !== undefined && outboundRate !== null ? `${formatPercentRatio(outboundRate)} outbound rate` : null
+  ].filter(Boolean).join(", ");
+}
+
+function pageReason(flags: { lowCtr: boolean; lowOutboundClicks: boolean; lowOutboundRate: boolean; nearPageOne: boolean }) {
+  if (flags.lowOutboundClicks || flags.lowOutboundRate) {
+    return "This page is gaining organic visibility but may not be driving enough measurable ordering, location, or catering actions.";
+  }
+  if (flags.lowCtr) {
+    return "This page is showing in organic search, but the result may not be earning enough clicks for the visibility it has.";
+  }
+  return "This page is close to stronger page-one visibility and may be within range for incremental ranking gains.";
+}
+
+function pageAction(page: string, flags: { lowCtr: boolean; lowOutboundClicks: boolean; lowOutboundRate: boolean; nearPageOne: boolean }) {
+  const normalized = page.toLowerCase();
+  if (normalized.includes("catering")) {
+    return "Prioritize the catering CTA, lead capture path, catering copy, and internal links from high-traffic pages.";
+  }
+  if (normalized.includes("menu") || normalized.includes("order")) {
+    return "Prioritize order-now visibility, menu/order structured data, and above-the-fold ordering CTAs.";
+  }
+  if (normalized.includes("location") || normalized.includes("hours") || normalized === "/" || normalized.includes("home")) {
+    return "Improve local SEO signals, directions and phone-click visibility, and alignment with the Google Business Profile.";
+  }
+  if (flags.lowCtr) {
+    return "Improve the title tag and meta description around the search intent.";
+  }
+  if (flags.lowOutboundClicks || flags.lowOutboundRate) {
+    return "Improve above-the-fold CTAs, order buttons, location buttons, and measurable outbound action tracking.";
+  }
+  return "Optimize page content, internal links, schema, and local relevance.";
+}
+
+function opportunityScore({ impressions = 0, clicks = 0, position, lowCtr = false, lowOutboundClicks = false, lowOutboundRate = false, nearPageOne = false }: {
+  impressions?: number;
+  clicks?: number;
+  position?: number | null;
+  lowCtr?: boolean;
+  lowOutboundClicks?: boolean;
+  lowOutboundRate?: boolean;
+  nearPageOne?: boolean;
+}) {
+  const positionBoost = position && position >= 4 && position <= 15 ? 80 - position : 0;
+  return impressions * 0.1 + clicks * 8 + positionBoost + (lowCtr ? 80 : 0) + (lowOutboundClicks ? 100 : 0) + (lowOutboundRate ? 80 : 0) + (nearPageOne ? 40 : 0);
 }
