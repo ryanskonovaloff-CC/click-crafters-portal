@@ -150,6 +150,78 @@ function firstNullableNumber(...values: unknown[]) {
   return null;
 }
 
+function normalizeLandingPage(value: unknown) {
+  const raw = String(value ?? "Unknown page").trim();
+  if (!raw || raw === "Unknown page") return "Unknown page";
+
+  try {
+    const url = new URL(raw.startsWith("http") ? raw : `https://www.thepressburger.com${raw.startsWith("/") ? raw : `/${raw}`}`);
+    url.hash = "";
+    url.search = "";
+    url.hostname = url.hostname.toLowerCase();
+    url.pathname = url.pathname.replace(/\/+/g, "/");
+    if (url.pathname !== "/") url.pathname = url.pathname.replace(/\/$/, "");
+    return `${url.origin}${url.pathname === "/" ? "/" : url.pathname}`;
+  } catch {
+    return raw.split("#")[0].split("?")[0].replace(/\/$/, "") || raw;
+  }
+}
+
+type SeoPageRow = {
+  page: string;
+  clicks: number | null;
+  impressions: number | null;
+  ctr: number | null;
+  position: number | null;
+  sessions: number | null;
+  outboundClicks: number | null;
+  outboundClickRate: number | null;
+};
+
+function sumNullable(left: number | null, right: number | null) {
+  if (left === null && right === null) return null;
+  return (left ?? 0) + (right ?? 0);
+}
+
+function aggregateSeoPages(rows: SeoPageRow[]) {
+  const weighted = new Map<string, { row: SeoPageRow; positionTotal: number; positionWeight: number }>();
+
+  for (const row of rows) {
+    const current = weighted.get(row.page);
+    if (!current) {
+      weighted.set(row.page, {
+        row: { ...row },
+        positionTotal: row.position !== null ? row.position * Math.max(1, row.impressions ?? row.clicks ?? 1) : 0,
+        positionWeight: row.position !== null ? Math.max(1, row.impressions ?? row.clicks ?? 1) : 0
+      });
+      continue;
+    }
+
+    const weight = Math.max(1, row.impressions ?? row.clicks ?? 1);
+    current.row.clicks = sumNullable(current.row.clicks, row.clicks);
+    current.row.impressions = sumNullable(current.row.impressions, row.impressions);
+    current.row.sessions = sumNullable(current.row.sessions, row.sessions);
+    current.row.outboundClicks = sumNullable(current.row.outboundClicks, row.outboundClicks);
+    if (row.position !== null) {
+      current.positionTotal += row.position * weight;
+      current.positionWeight += weight;
+    }
+  }
+
+  return [...weighted.values()]
+    .map(({ row, positionTotal, positionWeight }) => {
+      const ctr = row.ctr ?? (row.clicks !== null && row.impressions ? row.clicks / row.impressions : null);
+      const outboundClickRate = row.outboundClickRate ?? (row.outboundClicks !== null && row.clicks ? row.outboundClicks / row.clicks : null);
+      return {
+        ...row,
+        ctr,
+        position: positionWeight > 0 ? positionTotal / positionWeight : row.position,
+        outboundClickRate
+      };
+    })
+    .sort((a, b) => (b.clicks ?? 0) - (a.clicks ?? 0) || (b.impressions ?? 0) - (a.impressions ?? 0));
+}
+
 function normalizeDailyPerformance(row: Record<string, unknown>): DailyPerformance {
   const spend = toNumber(row.spend);
   const revenue = toNumber(row.revenue);
@@ -467,6 +539,7 @@ function emptySeoTotals(): SeoTotals {
     averagePosition: null,
     organicSessions: null,
     organicConversions: null,
+    outboundClicks: null,
     indexedPages: null,
     technicalIssues: []
   };
@@ -511,6 +584,7 @@ function seoSearchTotalsFromRows(rows: Record<string, unknown>[]): SeoTotals {
     averagePosition: totals.positionWeight > 0 ? totals.positionWeightedTotal / totals.positionWeight : null,
     organicSessions: null,
     organicConversions: null,
+    outboundClicks: null,
     indexedPages: totals.indexedPages > 0 ? totals.indexedPages : null,
     technicalIssues: [...new Set(totals.technicalIssues)]
   };
@@ -519,16 +593,22 @@ function seoSearchTotalsFromRows(rows: Record<string, unknown>[]): SeoTotals {
 function analyticsTotalsFromRows(rows: Record<string, unknown>[]): SeoTotals {
   if (rows.length === 0) return emptySeoTotals();
 
-  const totals = rows.reduce<{ organicSessions: number; organicConversions: number }>((acc, row) => {
-    acc.organicSessions += toNumber(row.organic_sessions ?? row.sessions);
-    acc.organicConversions += toNumber(row.organic_conversions ?? row.conversions);
+  const totals = rows.reduce<{ organicSessions: number | null; organicConversions: number | null; outboundClicks: number | null }>((acc, row) => {
+    const sessions = firstNullableNumber(row.organic_sessions, row.sessions);
+    const conversions = firstNullableNumber(row.organic_conversions, row.conversions);
+    const outboundClicks = firstNullableNumber(row.outbound_clicks, row.organic_outbound_clicks, row.outbound_actions, row.organic_outbound_actions);
+
+    acc.organicSessions = sessions === null ? acc.organicSessions : (acc.organicSessions ?? 0) + sessions;
+    acc.organicConversions = conversions === null ? acc.organicConversions : (acc.organicConversions ?? 0) + conversions;
+    acc.outboundClicks = outboundClicks === null ? acc.outboundClicks : (acc.outboundClicks ?? 0) + outboundClicks;
     return acc;
-  }, { organicSessions: 0, organicConversions: 0 });
+  }, { organicSessions: null, organicConversions: null, outboundClicks: null });
 
   return {
     ...emptySeoTotals(),
     organicSessions: totals.organicSessions,
-    organicConversions: totals.organicConversions
+    organicConversions: totals.organicConversions,
+    outboundClicks: totals.outboundClicks
   };
 }
 
@@ -555,6 +635,7 @@ function mergeSeoTotals(primary: SeoTotals, fallback: SeoTotals): SeoTotals {
     averagePosition: primary.averagePosition ?? fallback.averagePosition,
     organicSessions: primary.organicSessions ?? fallback.organicSessions,
     organicConversions: primary.organicConversions ?? fallback.organicConversions,
+    outboundClicks: primary.outboundClicks ?? fallback.outboundClicks,
     indexedPages: primary.indexedPages ?? fallback.indexedPages,
     technicalIssues: primary.technicalIssues.length > 0 ? primary.technicalIssues : fallback.technicalIssues
   };
@@ -633,12 +714,13 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     query: String(row.query ?? row.keyword ?? "Unknown query"),
     clicks: toNumber(row.organic_clicks ?? row.clicks),
     impressions: toNumber(row.organic_impressions ?? row.impressions),
+    ctr: firstNullableNumber(row.organic_ctr, row.ctr, row.click_through_rate),
     position: toNumber(row.average_position ?? row.position)
   }));
-  const topPages = ((pages.data ?? []) as Record<string, unknown>[]).map((row) => ({
-    page: String(row.page ?? row.landing_page ?? row.url ?? "Unknown page"),
-    clicks: toNumber(row.organic_clicks ?? row.clicks),
-    impressions: toNumber(row.organic_impressions ?? row.impressions),
+  const rawTopPages = ((pages.data ?? []) as Record<string, unknown>[]).map((row) => ({
+    page: normalizeLandingPage(row.page ?? row.landing_page ?? row.url),
+    clicks: firstNullableNumber(row.organic_clicks, row.clicks),
+    impressions: firstNullableNumber(row.organic_impressions, row.impressions),
     ctr: firstNullableNumber(row.organic_ctr, row.ctr, row.click_through_rate),
     position: firstNullableNumber(row.average_position, row.position, row.avg_position),
     sessions: firstNullableNumber(row.organic_sessions, row.sessions),
@@ -650,12 +732,11 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
       row.order_clicks,
       row.phone_clicks,
       row.directions_clicks,
-      row.catering_clicks,
-      row.organic_conversions,
-      row.conversions
+      row.catering_clicks
     ),
     outboundClickRate: firstNullableNumber(row.outbound_click_rate, row.organic_outbound_click_rate, row.outbound_rate, row.action_rate)
   }));
+  const topPages = aggregateSeoPages(rawTopPages).slice(0, 10);
   const statusError = [
     queryErrorMessage(daily.error),
     queryErrorMessage(analytics.error),

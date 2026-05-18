@@ -12,7 +12,7 @@ export default async function SeoPage({ searchParams }: PageProps) {
   const { range, totals, topQueries, topPages, status } = await getSeoDashboardData(params?.range, params?.start, params?.end);
   const hasData = !status.error && !status.isEmpty;
   const tileState = status.error ? "error" : hasData ? "ready" : "empty";
-  const outboundActionRate = totals.organicSessions && totals.organicConversions !== null ? totals.organicConversions / totals.organicSessions : null;
+  const outboundClickRate = totals.organicClicks && totals.outboundClicks !== null ? totals.outboundClicks / totals.organicClicks : null;
   const opportunities = organicOpportunities(topQueries, topPages);
 
   return (
@@ -32,9 +32,9 @@ export default async function SeoPage({ searchParams }: PageProps) {
         <StatCard label="Organic CTR" value={totals.ctr === null ? "Unavailable" : pct(totals.ctr * 100)} state={status.error ? "error" : totals.ctr === null ? "empty" : "ready"} />
         <StatCard label="Average position" value={totals.averagePosition === null ? "Unavailable" : totals.averagePosition.toFixed(1)} state={status.error ? "error" : totals.averagePosition === null ? "empty" : "ready"} />
         <StatCard label="Organic sessions" value={totals.organicSessions === null ? "Unavailable" : compact.format(totals.organicSessions)} state={tileState} />
-        <StatCard label="Outbound actions" value={totals.organicConversions === null ? "Unavailable" : compact.format(totals.organicConversions)} state={tileState} />
+        <StatCard label="Outbound clicks" value={totals.outboundClicks === null ? "Unavailable" : compact.format(totals.outboundClicks)} state={status.error ? "error" : totals.outboundClicks === null ? "empty" : "ready"} />
         <StatCard label="Indexed pages" value={totals.indexedPages === null ? "Unavailable" : compact.format(totals.indexedPages)} state={status.error ? "error" : totals.indexedPages === null ? "empty" : "ready"} />
-        <StatCard label="Outbound action rate" value={outboundActionRate === null ? "Unavailable" : pct(outboundActionRate * 100)} state={status.error ? "error" : outboundActionRate === null ? "empty" : "ready"} />
+        <StatCard label="Outbound click rate" value={outboundClickRate === null ? "Unavailable" : pct(outboundClickRate * 100)} state={status.error ? "error" : outboundClickRate === null ? "empty" : "ready"} />
       </MetricGrid>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load SEO data: {status.error}</Card> : null}
@@ -42,14 +42,20 @@ export default async function SeoPage({ searchParams }: PageProps) {
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top queries</h2>
-          <Table headers={["Query", "Clicks", "Impressions", "Position"]} rows={topQueries.map((item) => [item.query, compact.format(item.clicks), compact.format(item.impressions), item.position.toFixed(1)])} />
+          <Table headers={["Query", "Clicks", "Impressions", "CTR", "Position"]} rows={topQueries.map((item) => [
+            item.query,
+            compact.format(item.clicks),
+            compact.format(item.impressions),
+            formatPercentRatio(queryCtr(item)),
+            item.position.toFixed(1)
+          ])} />
         </Card>
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top landing pages</h2>
           <Table headers={["Page", "Clicks", "Impressions", "CTR", "Position", "Outbound clicks"]} rows={topPages.map((item) => [
             item.page,
-            compact.format(item.clicks),
-            compact.format(item.impressions),
+            formatNumber(item.clicks),
+            formatNumber(item.impressions),
             formatPercentRatio(pageCtr(item)),
             item.position === null ? "Not available" : item.position.toFixed(1),
             item.outboundClicks === null ? "Not available" : compact.format(item.outboundClicks)
@@ -78,13 +84,14 @@ type QueryRow = {
   query: string;
   clicks: number;
   impressions: number;
+  ctr: number | null;
   position: number;
 };
 
 type PageRow = {
   page: string;
-  clicks: number;
-  impressions: number;
+  clicks: number | null;
+  impressions: number | null;
   ctr: number | null;
   position: number | null;
   sessions: number | null;
@@ -95,7 +102,7 @@ type PageRow = {
 function organicOpportunities(topQueries: QueryRow[], topPages: PageRow[]) {
   const queryOpportunities = topQueries
     .map((item) => {
-      const ctr = item.impressions > 0 ? item.clicks / item.impressions : null;
+      const ctr = queryCtr(item);
       const nearPageOne = item.position >= 4 && item.position <= 15;
       const lowCtr = item.impressions >= 100 && ctr !== null && ctr < 0.025;
       if (!nearPageOne && !lowCtr) return null;
@@ -123,10 +130,12 @@ function organicOpportunities(topQueries: QueryRow[], topPages: PageRow[]) {
     .map((item) => {
       const ctr = pageCtr(item);
       const outboundRate = pageOutboundRate(item);
-      const meaningfulVisibility = item.impressions >= 100 || item.clicks >= 5;
-      const lowCtr = item.impressions >= 100 && ctr !== null && ctr < 0.025;
-      const lowOutboundClicks = item.clicks >= 5 && item.outboundClicks !== null && item.outboundClicks <= 0;
-      const lowOutboundRate = item.clicks >= 10 && outboundRate !== null && outboundRate < 0.05;
+      const clicks = item.clicks ?? 0;
+      const impressions = item.impressions ?? 0;
+      const meaningfulVisibility = impressions >= 100 || clicks >= 5;
+      const lowCtr = impressions >= 100 && ctr !== null && ctr < 0.025;
+      const lowOutboundClicks = clicks >= 5 && item.outboundClicks !== null && item.outboundClicks <= 0;
+      const lowOutboundRate = clicks >= 10 && outboundRate !== null && outboundRate < 0.05;
       const nearPageOne = item.position !== null && item.position >= 4 && item.position <= 15;
 
       if (!meaningfulVisibility || (!lowCtr && !lowOutboundClicks && !lowOutboundRate && !nearPageOne)) return null;
@@ -143,7 +152,7 @@ function organicOpportunities(topQueries: QueryRow[], topPages: PageRow[]) {
         }),
         reason: pageReason({ lowCtr, lowOutboundClicks, lowOutboundRate, nearPageOne }),
         action: pageAction(item.page, { lowCtr, lowOutboundClicks, lowOutboundRate, nearPageOne }),
-        score: opportunityScore({ impressions: item.impressions, clicks: item.clicks, position: item.position, lowCtr, lowOutboundClicks, lowOutboundRate, nearPageOne })
+        score: opportunityScore({ impressions, clicks, position: item.position, lowCtr, lowOutboundClicks, lowOutboundRate, nearPageOne })
       };
     })
     .filter((item): item is OrganicOpportunity => Boolean(item));
@@ -151,6 +160,10 @@ function organicOpportunities(topQueries: QueryRow[], topPages: PageRow[]) {
   return [...pageOpportunities, ...queryOpportunities]
     .sort((a, b) => b.score - a.score)
     .slice(0, 8);
+}
+
+function queryCtr(item: QueryRow) {
+  return normalizeRatio(item.ctr) ?? (item.impressions > 0 ? item.clicks / item.impressions : null);
 }
 
 type OrganicOpportunity = {
@@ -162,11 +175,11 @@ type OrganicOpportunity = {
 };
 
 function pageCtr(item: PageRow) {
-  return normalizeRatio(item.ctr) ?? (item.impressions > 0 ? item.clicks / item.impressions : null);
+  return normalizeRatio(item.ctr) ?? (item.impressions && item.clicks !== null ? item.clicks / item.impressions : null);
 }
 
 function pageOutboundRate(item: PageRow) {
-  return normalizeRatio(item.outboundClickRate) ?? (item.outboundClicks !== null && item.clicks > 0 ? item.outboundClicks / item.clicks : null);
+  return normalizeRatio(item.outboundClickRate) ?? (item.outboundClicks !== null && item.clicks !== null && item.clicks > 0 ? item.outboundClicks / item.clicks : null);
 }
 
 function normalizeRatio(value: number | null) {
@@ -178,17 +191,21 @@ function formatPercentRatio(value: number | null) {
   return value === null ? "Not available" : pct(value * 100);
 }
 
+function formatNumber(value: number | null) {
+  return value === null ? "Not available" : compact.format(value);
+}
+
 function signalText({ clicks, impressions, ctr, position, outboundClicks, outboundRate }: {
-  clicks?: number;
-  impressions?: number;
+  clicks?: number | null;
+  impressions?: number | null;
   ctr?: number | null;
   position?: number | null;
   outboundClicks?: number | null;
   outboundRate?: number | null;
 }) {
   return [
-    clicks !== undefined ? `${compact.format(clicks)} clicks` : null,
-    impressions !== undefined ? `${compact.format(impressions)} impressions` : null,
+    clicks !== undefined && clicks !== null ? `${compact.format(clicks)} clicks` : null,
+    impressions !== undefined && impressions !== null ? `${compact.format(impressions)} impressions` : null,
     ctr !== undefined && ctr !== null ? `${formatPercentRatio(ctr)} CTR` : null,
     position !== undefined && position !== null ? `avg position ${position.toFixed(1)}` : null,
     outboundClicks !== undefined && outboundClicks !== null ? `${compact.format(outboundClicks)} outbound clicks` : null,

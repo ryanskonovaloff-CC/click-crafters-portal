@@ -98,6 +98,7 @@ export type SeoTotals = {
   averagePosition: number | null;
   organicSessions: number | null;
   organicConversions: number | null;
+  outboundClicks: number | null;
   indexedPages: number | null;
   technicalIssues: Array<string>;
 };
