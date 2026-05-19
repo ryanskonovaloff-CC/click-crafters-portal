@@ -13,7 +13,7 @@ type PageProps = {
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const { client, range, paid, seo, performance } = await getOverviewDashboardData(params?.range, params?.start, params?.end);
+  const { client, range, latestDataUpdatedAt, paid, seo, performance } = await getOverviewDashboardData(params?.range, params?.start, params?.end);
   const ratios = metricRatios(performance);
   const paidRatios = metricRatios(paid.totals);
   const previousPaidRatios = metricRatios(paid.previousTotals);
@@ -35,7 +35,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             <Badge className="gap-1"><CalendarDays size={13} /> {range.label}</Badge>
           </div>
           <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-4xl">{client?.name ?? "No client assigned"}</h1>
-          <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">Last updated {client ? new Date(client.last_updated_at).toLocaleString() : "after setup"}</p>
+          <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">Updated at {formatUpdatedAt(latestDataUpdatedAt ?? client?.last_updated_at ?? null)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <DateRangePicker range={range} />
@@ -89,6 +89,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       </Card>
     </div>
   );
+}
+
+function formatUpdatedAt(value: string | null) {
+  return value ? new Date(value).toLocaleString() : "after setup";
 }
 
 function trendHelper(label: string, change: number | null) {

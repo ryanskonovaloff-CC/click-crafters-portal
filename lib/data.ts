@@ -607,6 +607,36 @@ async function getAdLifetimeRows(supabase: any, clientId: string) {
   };
 }
 
+async function getLatestDataUpdatedAt(supabase: any, clientId: string) {
+  const sources = [
+    { table: "daily_performance", column: "created_at" },
+    { table: "campaign_daily_performance", column: "updated_at" },
+    { table: "ad_daily_performance", column: "updated_at" },
+    { table: "ad_lifetime_performance", column: "updated_at" },
+    { table: "seo_daily_performance", column: "updated_at" },
+    { table: "seo_keyword_performance", column: "updated_at" },
+    { table: "seo_pages_performance", column: "updated_at" },
+    { table: "analytics_daily_performance", column: "updated_at" }
+  ];
+
+  const results = await Promise.all(sources.map(async ({ table, column }) => {
+    const { data, error } = await supabase
+      .from(table)
+      .select(column)
+      .eq("client_id", clientId)
+      .order(column, { ascending: false })
+      .limit(1);
+
+    if (error) return null;
+    const value = (data?.[0] as Record<string, unknown> | undefined)?.[column];
+    return typeof value === "string" ? value : null;
+  }));
+
+  return results
+    .filter((value): value is string => Boolean(value))
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
+}
+
 function parseArray(value: unknown): any[] {
   return Array.isArray(value) ? value : [];
 }
@@ -744,6 +774,7 @@ export async function getPaidAdsDashboardData(rangeKey?: string, customStart?: s
 
   if (!client) {
     return {
+      supabase,
       profile,
       client,
       range,
@@ -770,6 +801,7 @@ export async function getPaidAdsDashboardData(rangeKey?: string, customStart?: s
   ]);
 
   return {
+    supabase,
     profile,
     client,
     range,
@@ -859,10 +891,12 @@ export async function getOverviewDashboardData(rangeKey?: string, customStart?: 
     getPaidAdsDashboardData(rangeKey, customStart, customEnd),
     getSeoDashboardData(rangeKey, customStart, customEnd)
   ]);
+  const latestDataUpdatedAt = paid.client ? await getLatestDataUpdatedAt(paid.supabase, paid.client.id) : null;
 
   return {
     client: paid.client,
     range: paid.range,
+    latestDataUpdatedAt,
     paid,
     seo,
     performance: paid.totals
