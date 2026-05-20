@@ -890,14 +890,16 @@ export async function getAdminData() {
     redirect("/dashboard");
   }
 
-  const [clients, profiles] = await Promise.all([
+  const [clients, profiles, assignments] = await Promise.all([
     supabase.from("clients").select("*").order("name"),
-    supabase.from("profiles").select("id,email,full_name,role,created_at").order("created_at", { ascending: false })
+    supabase.from("profiles").select("id,email,full_name,role,created_at").order("created_at", { ascending: false }),
+    supabase.from("client_users").select("user_id,client_id,clients(name)").order("created_at", { ascending: false })
   ]);
 
   return {
     profile,
     clients: clients.data ?? [],
-    profiles: profiles.data ?? []
+    profiles: profiles.data ?? [],
+    clientUsers: assignments.data ?? []
   };
 }
