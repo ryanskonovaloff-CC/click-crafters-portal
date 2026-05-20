@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react";
 import { PlatformBreakdown, TrendChart } from "@/components/charts";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
@@ -117,17 +118,72 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
 
       <Card>
         <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top ads by performance</h2>
-        <Table headers={["Ad", "Campaign", "Platform", "ROAS", "Conv.", "Spend", "CTR", "Preview"]} rows={adRows.map((item) => [
-          item.ad_name ?? item.creative_name ?? item.ad_id,
-          item.campaign_name ?? item.campaign_id ?? "Unspecified",
-          item.platform,
-          item.roas === null ? "Unavailable" : `${item.roas.toFixed(2)}x`,
-          compact.format(item.conversions),
-          currency.format(item.spend),
-          item.ctr === null ? "Unavailable" : pct(item.ctr * 100),
-          item.creative_preview_url ? <a href={item.creative_preview_url} className="text-accent hover:underline" target="_blank" rel="noreferrer">Open</a> : "Unavailable"
-        ])} />
+        {adRows.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 2xl:grid-cols-3">
+            {adRows.map((item) => <AdPerformanceCard key={`${item.platform}-${item.ad_id}`} ad={item} />)}
+          </div>
+        ) : (
+          <EmptyState>No data available for this date range yet.</EmptyState>
+        )}
       </Card>
+    </div>
+  );
+}
+
+function AdPerformanceCard({ ad }: { ad: AdLifetimePerformance }) {
+  const previewUrl = ad.preview_url ?? ad.creative_preview_url ?? ad.final_url;
+  const imageUrl = ad.thumbnail_url ?? ad.image_url;
+
+  return (
+    <article className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-black/20">
+      <div className="grid aspect-[16/9] place-items-center border-b border-white/10 bg-black/25">
+        {imageUrl ? (
+          <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="px-4 text-center text-sm text-white/40">Preview unavailable</div>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col gap-4 p-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge>{ad.platform}</Badge>
+            {ad.channel ? <Badge>{ad.channel}</Badge> : null}
+          </div>
+          <h3 className="mt-3 line-clamp-2 text-base font-semibold leading-6 text-white">{adTitle(ad)}</h3>
+          <p className="mt-1 line-clamp-2 text-sm leading-5 text-white/50">{ad.campaign_name ?? ad.campaign_id ?? "Unspecified campaign"}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <AdMetric label="Spend" value={currency.format(ad.spend)} />
+          <AdMetric label="Conversions" value={compact.format(ad.conversions)} />
+          <AdMetric label="ROAS" value={ad.roas === null ? "Unavailable" : `${ad.roas.toFixed(2)}x`} />
+          <AdMetric label="CTR" value={ad.ctr === null ? "Unavailable" : pct(ad.ctr * 100)} />
+          <AdMetric label="CPA" value={ad.cpa === null ? "Unavailable" : currency.format(ad.cpa)} />
+          <AdMetric label="Revenue" value={currency.format(ad.revenue)} />
+        </div>
+
+        {previewUrl ? (
+          <a
+            href={previewUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-auto inline-flex items-center justify-center gap-2 rounded-lg border border-accent/45 bg-accent/10 px-3 py-2 text-sm font-medium text-accent transition hover:border-accent hover:bg-accent/15"
+          >
+            Open Preview <ExternalLink size={14} />
+          </a>
+        ) : (
+          <div className="mt-auto rounded-lg border border-white/10 px-3 py-2 text-center text-sm text-white/35">Preview unavailable</div>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function AdMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-panelStrong/60 p-3">
+      <p className="text-[11px] uppercase tracking-[0.08em] text-white/40">{label}</p>
+      <p className="mt-1 break-words font-semibold text-white/85">{value}</p>
     </div>
   );
 }
@@ -153,9 +209,47 @@ function aggregateCampaignRows(rows: CampaignDailyPerformance[]) {
 }
 
 function topLifetimeAdRows(rows: AdLifetimePerformance[]) {
-  return [...rows]
-    .sort((a, b) => (b.roas ?? -1) - (a.roas ?? -1) || b.conversions - a.conversions || b.spend - a.spend)
+  const byPlatform = rows.reduce<Record<string, AdLifetimePerformance[]>>((acc, row) => {
+    acc[row.platform] ??= [];
+    acc[row.platform].push(row);
+    return acc;
+  }, {});
+
+  return Object.values(byPlatform)
+    .flatMap((platformRows) => [...platformRows].sort(compareAdsByPerformance).slice(0, Math.min(6, Math.max(3, platformRows.length))))
+    .sort(compareAdsByPerformance)
     .slice(0, 12);
+}
+
+function compareAdsByPerformance(a: AdLifetimePerformance, b: AdLifetimePerformance) {
+  const hasRevenue = a.revenue > 0 || b.revenue > 0;
+  if (hasRevenue) return (b.roas ?? -1) - (a.roas ?? -1) || b.conversions - a.conversions || b.spend - a.spend;
+  if (a.conversions !== b.conversions) return b.conversions - a.conversions;
+  return b.spend - a.spend;
+}
+
+function adTitle(ad: AdLifetimePerformance) {
+  const candidates = [ad.ad_name, ad.headline, ad.creative_name]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+  const nonUrl = candidates.find((value) => !isUrlLike(value));
+  if (nonUrl) return nonUrl;
+  const fallbackUrl = ad.final_url ?? candidates.find(isUrlLike);
+  return fallbackUrl ? readableUrl(fallbackUrl) : `Ad ${ad.ad_id}`;
+}
+
+function isUrlLike(value: string) {
+  return /^https?:\/\//i.test(value) || /^[\w.-]+\.[a-z]{2,}/i.test(value);
+}
+
+function readableUrl(value: string) {
+  try {
+    const url = new URL(value.startsWith("http") ? value : `https://${value}`);
+    const path = url.pathname === "/" ? "" : url.pathname.replace(/\/$/, "");
+    return `${url.hostname.replace(/^www\./, "")}${path}`;
+  } catch {
+    return value.length > 42 ? `${value.slice(0, 39)}...` : value;
+  }
 }
 
 function campaignKey(row: CampaignDailyPerformance) {

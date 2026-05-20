@@ -44,6 +44,11 @@ export type AdDailyPerformance = DailyPerformance & {
   ad_group_name: string | null;
   ad_id: string;
   ad_name: string | null;
+  headline: string | null;
+  final_url: string | null;
+  preview_url: string | null;
+  image_url: string | null;
+  thumbnail_url: string | null;
   creative_id: string | null;
   creative_name: string | null;
   creative_preview_url: string | null;
@@ -58,6 +63,11 @@ export type AdLifetimePerformance = {
   ad_group_name: string | null;
   ad_id: string;
   ad_name: string | null;
+  headline: string | null;
+  final_url: string | null;
+  preview_url: string | null;
+  image_url: string | null;
+  thumbnail_url: string | null;
   creative_id: string | null;
   creative_name: string | null;
   creative_preview_url: string | null;
