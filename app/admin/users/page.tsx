@@ -172,6 +172,8 @@ function formatDateTime(value: string | null | undefined) {
     day: "numeric",
     year: "numeric",
     hour: "numeric",
-    minute: "2-digit"
+    minute: "2-digit",
+    timeZone: "America/Los_Angeles",
+    timeZoneName: "short"
   }).format(new Date(value));
 }
