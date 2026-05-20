@@ -167,13 +167,13 @@ function accessStatus(authUser: any) {
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) return "Never";
-  return new Intl.DateTimeFormat("en-US", {
+  const formatted = new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
-    timeZone: "America/Los_Angeles",
-    timeZoneName: "short"
+    timeZone: "America/Los_Angeles"
   }).format(new Date(value));
+  return `${formatted} PT`;
 }
