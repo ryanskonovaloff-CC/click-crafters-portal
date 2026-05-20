@@ -896,6 +896,14 @@ export async function getAdminData() {
     supabase.from("profiles").select("id,email,full_name,role,created_at").order("created_at", { ascending: false }),
     supabase.from("client_users").select("user_id,client_id,clients(name)").order("created_at", { ascending: false })
   ]);
+  const { data: lastSeenRows } = await supabase
+    .from("profiles")
+    .select("id,last_seen_at");
+  const lastSeenById = new Map((lastSeenRows ?? []).map((row: any) => [row.id, row.last_seen_at]));
+  const profilesWithLastSeen = (profiles.data ?? []).map((row: any) => ({
+    ...row,
+    last_seen_at: lastSeenById.get(row.id) ?? null
+  }));
   let authUsers: any[] = [];
 
   try {
@@ -909,7 +917,7 @@ export async function getAdminData() {
   return {
     profile,
     clients: clients.data ?? [],
-    profiles: profiles.data ?? [],
+    profiles: profilesWithLastSeen,
     clientUsers: assignments.data ?? [],
     authUsers
   };

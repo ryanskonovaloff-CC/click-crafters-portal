@@ -60,6 +60,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  if (user && isProtectedPage) {
+    await supabase
+      .from("profiles")
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq("id", user.id);
+  }
+
   if (isCallbackPage) {
     return response;
   }

@@ -18,7 +18,8 @@ create table public.profiles (
   full_name text,
   role public.user_role not null default 'client_viewer',
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  last_seen_at timestamptz
 );
 
 create table public.client_users (
@@ -294,6 +295,8 @@ create policy "Assigned users can read clients" on public.clients for select usi
 
 create policy "Users can read own profile" on public.profiles for select using (id = auth.uid() or public.is_admin());
 create policy "Admins can manage profiles" on public.profiles for all using (public.is_admin()) with check (public.is_admin());
+create policy "Users can update own last seen" on public.profiles for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
+grant update (last_seen_at) on public.profiles to authenticated;
 
 create policy "Admins can manage client users" on public.client_users for all using (public.is_admin()) with check (public.is_admin());
 create policy "Users can read own assignments" on public.client_users for select using (user_id = auth.uid() or public.is_admin());
