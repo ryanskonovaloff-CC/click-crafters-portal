@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays } from "lucide-react";
 import { Badge, Card, EmptyState, MetricGrid, StatCard } from "@/components/ui";
+import { publishMonthlyReport } from "../actions";
 import { getMonthlyReportData } from "@/lib/data";
 import { compact, currency, currencyCents, pct } from "@/lib/utils";
 import type { MonthlyReport } from "@/lib/types";
@@ -43,6 +44,7 @@ function ReportContent({ report, showStatus }: { report: MonthlyReport; showStat
             {[report.client_name, periodLabel(report), report.published_at ? `Published ${formatDate(report.published_at)}` : null].filter(Boolean).join(" · ")}
           </p>
         </div>
+        {showStatus && report.status === "draft" ? <PublishReportButton reportId={report.id} /> : null}
       </header>
 
       <Card>
@@ -94,6 +96,20 @@ function ReportContent({ report, showStatus }: { report: MonthlyReport; showStat
         <ListSection title="Recommended Next Steps" items={report.next_steps} empty="No next steps recorded for this report." />
       </div>
     </>
+  );
+}
+
+function PublishReportButton({ reportId }: { reportId: string }) {
+  return (
+    <form action={publishMonthlyReport} className="shrink-0">
+      <input type="hidden" name="reportId" value={reportId} />
+      <button
+        type="submit"
+        className="inline-flex w-full items-center justify-center rounded-lg border border-accent/50 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition hover:border-accent hover:bg-accent/20 sm:w-auto"
+      >
+        Publish Report
+      </button>
+    </form>
   );
 }
 

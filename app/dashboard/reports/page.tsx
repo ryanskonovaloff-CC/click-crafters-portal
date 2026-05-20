@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays } from "lucide-react";
 import { Badge, Card, EmptyState } from "@/components/ui";
+import { publishMonthlyReport } from "./actions";
 import { getReportsData } from "@/lib/data";
 import type { MonthlyReport } from "@/lib/types";
 
@@ -48,14 +49,31 @@ function ReportCard({ report, showStatus }: { report: MonthlyReport; showStatus:
             {previewText(report.executive_summary) ?? "Monthly report details are being prepared."}
           </p>
         </div>
-        <Link
-          href={`/dashboard/reports/${report.id}`}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-panelStrong px-3 py-2 text-sm text-white/80 transition hover:border-accent/60 hover:text-white"
-        >
-          View report <ArrowRight size={15} />
-        </Link>
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          {showStatus && report.status === "draft" ? <PublishReportButton reportId={report.id} /> : null}
+          <Link
+            href={`/dashboard/reports/${report.id}`}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-panelStrong px-3 py-2 text-sm text-white/80 transition hover:border-accent/60 hover:text-white"
+          >
+            View report <ArrowRight size={15} />
+          </Link>
+        </div>
       </div>
     </Card>
+  );
+}
+
+function PublishReportButton({ reportId }: { reportId: string }) {
+  return (
+    <form action={publishMonthlyReport}>
+      <input type="hidden" name="reportId" value={reportId} />
+      <button
+        type="submit"
+        className="inline-flex w-full items-center justify-center rounded-lg border border-accent/50 bg-accent/15 px-3 py-2 text-sm font-medium text-accent transition hover:border-accent hover:bg-accent/20 sm:w-auto"
+      >
+        Publish
+      </button>
+    </form>
   );
 }
 
