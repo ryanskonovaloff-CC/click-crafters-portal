@@ -264,7 +264,14 @@ function normalizeAdDailyPerformance(row: Record<string, unknown>): AdDailyPerfo
     ad_group_name: row.ad_group_name ? String(row.ad_group_name) : null,
     ad_id: String(row.ad_id ?? ""),
     ad_name: row.ad_name ? String(row.ad_name) : null,
+    ad_type: row.ad_type ? String(row.ad_type) : null,
+    status: row.status ? String(row.status) : null,
     headline: row.headline ? String(row.headline) : null,
+    headline_2: row.headline_2 ? String(row.headline_2) : null,
+    headline_3: row.headline_3 ? String(row.headline_3) : null,
+    description: row.description ? String(row.description) : null,
+    description_2: row.description_2 ? String(row.description_2) : null,
+    display_url: row.display_url ? String(row.display_url) : null,
     final_url: row.final_url ? String(row.final_url) : row.landing_page_url ? String(row.landing_page_url) : null,
     preview_url: row.preview_url ? String(row.preview_url) : null,
     image_url: row.image_url ? String(row.image_url) : null,
@@ -291,7 +298,14 @@ function normalizeAdLifetimePerformance(row: Record<string, unknown>): AdLifetim
     ad_group_name: row.ad_group_name ? String(row.ad_group_name) : null,
     ad_id: String(row.ad_id ?? ""),
     ad_name: row.ad_name ? String(row.ad_name) : null,
+    ad_type: row.ad_type ? String(row.ad_type) : null,
+    status: row.status ? String(row.status) : null,
     headline: row.headline ? String(row.headline) : null,
+    headline_2: row.headline_2 ? String(row.headline_2) : null,
+    headline_3: row.headline_3 ? String(row.headline_3) : null,
+    description: row.description ? String(row.description) : null,
+    description_2: row.description_2 ? String(row.description_2) : null,
+    display_url: row.display_url ? String(row.display_url) : null,
     final_url: row.final_url ? String(row.final_url) : row.landing_page_url ? String(row.landing_page_url) : null,
     preview_url: row.preview_url ? String(row.preview_url) : null,
     image_url: row.image_url ? String(row.image_url) : null,
@@ -307,7 +321,9 @@ function normalizeAdLifetimePerformance(row: Record<string, unknown>): AdLifetim
     cpa: nullableNumber(row.cpa) ?? (conversions > 0 ? spend / conversions : null),
     roas: nullableNumber(row.roas) ?? (spend > 0 ? revenue / spend : null),
     ctr: nullableNumber(row.ctr) ?? (impressions > 0 ? clicks / impressions : null),
-    cpc: nullableNumber(row.cpc) ?? (clicks > 0 ? spend / clicks : null)
+    cpc: nullableNumber(row.cpc) ?? (clicks > 0 ? spend / clicks : null),
+    date_range: row.date_range ? String(row.date_range) : null,
+    source_updated_at: row.source_updated_at ? String(row.source_updated_at) : null
   };
 }
 

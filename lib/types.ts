@@ -44,7 +44,14 @@ export type AdDailyPerformance = DailyPerformance & {
   ad_group_name: string | null;
   ad_id: string;
   ad_name: string | null;
+  ad_type: string | null;
+  status: string | null;
   headline: string | null;
+  headline_2: string | null;
+  headline_3: string | null;
+  description: string | null;
+  description_2: string | null;
+  display_url: string | null;
   final_url: string | null;
   preview_url: string | null;
   image_url: string | null;
@@ -63,7 +70,14 @@ export type AdLifetimePerformance = {
   ad_group_name: string | null;
   ad_id: string;
   ad_name: string | null;
+  ad_type: string | null;
+  status: string | null;
   headline: string | null;
+  headline_2: string | null;
+  headline_3: string | null;
+  description: string | null;
+  description_2: string | null;
+  display_url: string | null;
   final_url: string | null;
   preview_url: string | null;
   image_url: string | null;
@@ -80,6 +94,8 @@ export type AdLifetimePerformance = {
   roas: number | null;
   ctr: number | null;
   cpc: number | null;
+  date_range: string | null;
+  source_updated_at: string | null;
 };
 
 export type DateRangeKey = "today" | "yesterday" | "last3" | "last7" | "last14" | "mtd" | "last30" | "last_month" | "custom";

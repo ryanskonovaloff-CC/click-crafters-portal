@@ -133,12 +133,15 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
 function AdPerformanceCard({ ad }: { ad: AdLifetimePerformance }) {
   const previewUrl = ad.preview_url ?? ad.creative_preview_url ?? ad.final_url;
   const imageUrl = ad.thumbnail_url ?? ad.image_url;
+  const hasTextPreview = Boolean(ad.headline || ad.headline_2 || ad.headline_3 || ad.description || ad.description_2 || ad.display_url || ad.final_url);
 
   return (
     <article className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-black/20">
-      <div className="grid aspect-[16/9] place-items-center border-b border-white/10 bg-black/25">
+      <div className="grid min-h-44 place-items-center border-b border-white/10 bg-black/25">
         {imageUrl ? (
-          <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+          <img src={imageUrl} alt="" className="aspect-[16/9] h-full w-full object-cover" />
+        ) : hasTextPreview ? (
+          <TextAdPreview ad={ad} />
         ) : (
           <div className="px-4 text-center text-sm text-white/40">Preview unavailable</div>
         )}
@@ -176,6 +179,19 @@ function AdPerformanceCard({ ad }: { ad: AdLifetimePerformance }) {
         )}
       </div>
     </article>
+  );
+}
+
+function TextAdPreview({ ad }: { ad: AdLifetimePerformance }) {
+  const headlines = [ad.headline, ad.headline_2, ad.headline_3].filter(Boolean).join(" | ");
+  const descriptions = [ad.description, ad.description_2].filter(Boolean).join(" ");
+
+  return (
+    <div className="w-full space-y-2 p-4">
+      <p className="truncate text-xs text-emerald-200/70">{ad.display_url ?? readableUrl(ad.final_url ?? "")}</p>
+      <p className="line-clamp-2 text-base font-semibold leading-6 text-accent">{headlines || adTitle(ad)}</p>
+      <p className="line-clamp-3 text-sm leading-5 text-white/60">{descriptions || "Search ad text preview unavailable."}</p>
+    </div>
   );
 }
 
@@ -229,12 +245,12 @@ function compareAdsByPerformance(a: AdLifetimePerformance, b: AdLifetimePerforma
 }
 
 function adTitle(ad: AdLifetimePerformance) {
-  const candidates = [ad.ad_name, ad.headline, ad.creative_name]
+  const candidates = [ad.ad_name, ad.headline, ad.headline_2, ad.headline_3, ad.creative_name]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value));
   const nonUrl = candidates.find((value) => !isUrlLike(value));
   if (nonUrl) return nonUrl;
-  const fallbackUrl = ad.final_url ?? candidates.find(isUrlLike);
+  const fallbackUrl = ad.display_url ?? ad.final_url ?? candidates.find(isUrlLike);
   return fallbackUrl ? readableUrl(fallbackUrl) : `Ad ${ad.ad_id}`;
 }
 

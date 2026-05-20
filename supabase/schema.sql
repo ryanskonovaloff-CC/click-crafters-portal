@@ -119,6 +119,18 @@ create table public.ad_daily_performance (
   ad_group_name text,
   ad_id text not null,
   ad_name text,
+  ad_type text,
+  status text,
+  headline text,
+  headline_2 text,
+  headline_3 text,
+  description text,
+  description_2 text,
+  display_url text,
+  final_url text,
+  preview_url text,
+  image_url text,
+  thumbnail_url text,
   creative_id text,
   creative_name text,
   creative_preview_url text,
@@ -131,6 +143,8 @@ create table public.ad_daily_performance (
   roas numeric,
   ctr numeric,
   cpc numeric,
+  source_updated_at timestamptz,
+  raw_payload jsonb,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   unique (client_id, date, platform, ad_id)
@@ -147,6 +161,18 @@ create table public.ad_lifetime_performance (
   ad_group_name text,
   ad_id text not null,
   ad_name text,
+  ad_type text,
+  status text,
+  headline text,
+  headline_2 text,
+  headline_3 text,
+  description text,
+  description_2 text,
+  display_url text,
+  final_url text,
+  preview_url text,
+  image_url text,
+  thumbnail_url text,
   creative_id text,
   creative_name text,
   creative_preview_url text,
@@ -159,6 +185,9 @@ create table public.ad_lifetime_performance (
   roas numeric,
   ctr numeric,
   cpc numeric,
+  date_range text,
+  source_updated_at timestamptz,
+  raw_payload jsonb,
   updated_at timestamptz default now(),
   created_at timestamptz default now(),
   unique (client_id, platform, ad_id)
@@ -348,6 +377,7 @@ create index campaign_daily_performance_client_sort_idx on public.campaign_daily
 create index ad_daily_performance_client_date_idx on public.ad_daily_performance (client_id, date);
 create index ad_daily_performance_client_sort_idx on public.ad_daily_performance (client_id, platform, ad_id);
 create index ad_lifetime_performance_client_sort_idx on public.ad_lifetime_performance (client_id, roas desc, conversions desc, spend desc);
+create index ad_lifetime_performance_client_campaign_ad_idx on public.ad_lifetime_performance (client_id, platform, campaign_id, ad_id);
 create index seo_performance_client_period_idx on public.seo_performance (client_id, period_start, period_end);
 create index reports_client_month_idx on public.reports (client_id, month);
 create index seo_technical_issues_client_date_idx on public.seo_technical_issues (client_id, detected_date);
