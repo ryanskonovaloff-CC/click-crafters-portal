@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   AdLifetimePerformance,
   CampaignDailyPerformance,
@@ -895,11 +896,21 @@ export async function getAdminData() {
     supabase.from("profiles").select("id,email,full_name,role,created_at").order("created_at", { ascending: false }),
     supabase.from("client_users").select("user_id,client_id,clients(name)").order("created_at", { ascending: false })
   ]);
+  let authUsers: any[] = [];
+
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    authUsers = data.users;
+  } catch {
+    authUsers = [];
+  }
 
   return {
     profile,
     clients: clients.data ?? [],
     profiles: profiles.data ?? [],
-    clientUsers: assignments.data ?? []
+    clientUsers: assignments.data ?? [],
+    authUsers
   };
 }
