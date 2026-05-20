@@ -37,30 +37,6 @@ export type CampaignDailyPerformance = DailyPerformance & {
   wasted_spend: number;
 };
 
-export type AdDailyPerformance = DailyPerformance & {
-  campaign_id: string | null;
-  campaign_name: string | null;
-  ad_group_id: string | null;
-  ad_group_name: string | null;
-  ad_id: string;
-  ad_name: string | null;
-  ad_type: string | null;
-  status: string | null;
-  headline: string | null;
-  headline_2: string | null;
-  headline_3: string | null;
-  description: string | null;
-  description_2: string | null;
-  display_url: string | null;
-  final_url: string | null;
-  preview_url: string | null;
-  image_url: string | null;
-  thumbnail_url: string | null;
-  creative_id: string | null;
-  creative_name: string | null;
-  creative_preview_url: string | null;
-};
-
 export type AdLifetimePerformance = {
   platform: string;
   channel: string | null;

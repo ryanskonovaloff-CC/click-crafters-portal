@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type {
-  AdDailyPerformance,
   AdLifetimePerformance,
   CampaignDailyPerformance,
   Client,
@@ -252,33 +251,6 @@ function normalizeCampaignDailyPerformance(row: Record<string, unknown>): Campai
     campaign_id: String(row.campaign_id ?? ""),
     campaign_name: row.campaign_name ? String(row.campaign_name) : null,
     wasted_spend: toNumber(row.wasted_spend)
-  };
-}
-
-function normalizeAdDailyPerformance(row: Record<string, unknown>): AdDailyPerformance {
-  return {
-    ...normalizeDailyPerformance(row),
-    campaign_id: row.campaign_id ? String(row.campaign_id) : null,
-    campaign_name: row.campaign_name ? String(row.campaign_name) : null,
-    ad_group_id: row.ad_group_id ? String(row.ad_group_id) : null,
-    ad_group_name: row.ad_group_name ? String(row.ad_group_name) : null,
-    ad_id: String(row.ad_id ?? ""),
-    ad_name: row.ad_name ? String(row.ad_name) : null,
-    ad_type: row.ad_type ? String(row.ad_type) : null,
-    status: row.status ? String(row.status) : null,
-    headline: row.headline ? String(row.headline) : null,
-    headline_2: row.headline_2 ? String(row.headline_2) : null,
-    headline_3: row.headline_3 ? String(row.headline_3) : null,
-    description: row.description ? String(row.description) : null,
-    description_2: row.description_2 ? String(row.description_2) : null,
-    display_url: row.display_url ? String(row.display_url) : null,
-    final_url: row.final_url ? String(row.final_url) : row.landing_page_url ? String(row.landing_page_url) : null,
-    preview_url: row.preview_url ? String(row.preview_url) : null,
-    image_url: row.image_url ? String(row.image_url) : null,
-    thumbnail_url: row.thumbnail_url ? String(row.thumbnail_url) : null,
-    creative_id: row.creative_id ? String(row.creative_id) : null,
-    creative_name: row.creative_name ? String(row.creative_name) : null,
-    creative_preview_url: row.creative_preview_url ? String(row.creative_preview_url) : null
   };
 }
 
@@ -603,21 +575,6 @@ async function getCampaignRowsForRange(supabase: any, clientId: string, start: s
   };
 }
 
-async function getAdRowsForRange(supabase: any, clientId: string, start: string, end: string) {
-  const { data, error } = await supabase
-    .from("ad_daily_performance")
-    .select("*")
-    .eq("client_id", clientId)
-    .gte("date", start)
-    .lte("date", end)
-    .order("date", { ascending: true });
-
-  return {
-    rows: ((data ?? []) as Record<string, unknown>[]).map(normalizeAdDailyPerformance),
-    error: queryErrorMessage(error)
-  };
-}
-
 async function getAdLifetimeRows(supabase: any, clientId: string) {
   const { data, error } = await supabase
     .from("ad_lifetime_performance")
@@ -637,7 +594,6 @@ async function getLatestDataUpdatedAt(supabase: any, clientId: string) {
   const sources = [
     { table: "daily_performance", column: "created_at" },
     { table: "campaign_daily_performance", column: "updated_at" },
-    { table: "ad_daily_performance", column: "updated_at" },
     { table: "ad_lifetime_performance", column: "updated_at" },
     { table: "seo_daily_performance", column: "updated_at" },
     { table: "seo_keyword_performance", column: "updated_at" },
@@ -818,11 +774,10 @@ export async function getPaidAdsDashboardData(rangeKey?: string, customStart?: s
     };
   }
 
-  const [current, previous, campaigns, ads, lifetimeAds] = await Promise.all([
+  const [current, previous, campaigns, lifetimeAds] = await Promise.all([
     getPaidRowsForRange(supabase, client.id, range.start, range.end),
     getPaidRowsForRange(supabase, client.id, range.previousStart, range.previousEnd),
     getCampaignRowsForRange(supabase, client.id, range.start, range.end),
-    getAdRowsForRange(supabase, client.id, range.start, range.end),
     getAdLifetimeRows(supabase, client.id)
   ]);
 
@@ -834,13 +789,13 @@ export async function getPaidAdsDashboardData(rangeKey?: string, customStart?: s
     daily: current.rows,
     previousDaily: previous.rows,
     campaigns: campaigns.rows,
-    ads: ads.rows,
+    ads: [],
     lifetimeAds: lifetimeAds.rows,
     totals: sumPaidPerformance(current.rows),
     previousTotals: sumPaidPerformance(previous.rows),
     status: queryStatus(current.error, current.rows.length),
     campaignStatus: queryStatus(campaigns.error, campaigns.rows.length),
-    adStatus: queryStatus(ads.error, ads.rows.length),
+    adStatus: queryStatus(null, 0),
     lifetimeAdStatus: queryStatus(lifetimeAds.error, lifetimeAds.rows.length)
   };
 }

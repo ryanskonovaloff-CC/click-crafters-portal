@@ -107,48 +107,6 @@ create table public.campaign_daily_performance (
   unique (client_id, date, platform, campaign_id)
 );
 
-create table public.ad_daily_performance (
-  id uuid primary key default gen_random_uuid(),
-  client_id uuid not null references public.clients(id) on delete cascade,
-  date date not null,
-  platform text not null,
-  channel text,
-  campaign_id text,
-  campaign_name text,
-  ad_group_id text,
-  ad_group_name text,
-  ad_id text not null,
-  ad_name text,
-  ad_type text,
-  status text,
-  headline text,
-  headline_2 text,
-  headline_3 text,
-  description text,
-  description_2 text,
-  display_url text,
-  final_url text,
-  preview_url text,
-  image_url text,
-  thumbnail_url text,
-  creative_id text,
-  creative_name text,
-  creative_preview_url text,
-  spend numeric default 0,
-  revenue numeric default 0,
-  conversions integer default 0,
-  clicks integer default 0,
-  impressions integer default 0,
-  cpa numeric,
-  roas numeric,
-  ctr numeric,
-  cpc numeric,
-  source_updated_at timestamptz,
-  raw_payload jsonb,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now(),
-  unique (client_id, date, platform, ad_id)
-);
 
 create table public.ad_lifetime_performance (
   id uuid primary key default gen_random_uuid(),
@@ -325,7 +283,6 @@ alter table public.daily_performance enable row level security;
 alter table public.campaign_performance enable row level security;
 alter table public.ad_performance enable row level security;
 alter table public.campaign_daily_performance enable row level security;
-alter table public.ad_daily_performance enable row level security;
 alter table public.ad_lifetime_performance enable row level security;
 alter table public.seo_performance enable row level security;
 alter table public.reports enable row level security;
@@ -357,14 +314,12 @@ create policy "Read assigned reports" on public.reports for select using (public
 create policy "Admin manage reports" on public.reports for all using (public.is_admin()) with check (public.is_admin());
 
 create policy "Authenticated read campaign daily performance" on public.campaign_daily_performance for select to authenticated using (true);
-create policy "Authenticated read ad daily performance" on public.ad_daily_performance for select to authenticated using (true);
 create policy "Authenticated read ad lifetime performance" on public.ad_lifetime_performance for select to authenticated using (true);
 create policy "Authenticated read seo technical issues" on public.seo_technical_issues for select to authenticated using (true);
 create policy "Read assigned monthly reports" on public.monthly_reports for select to authenticated using (public.is_admin() or (status = 'published' and public.can_access_client(client_id)));
 create policy "Admin manage monthly reports" on public.monthly_reports for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 grant select on public.campaign_daily_performance to authenticated;
-grant select on public.ad_daily_performance to authenticated;
 grant select on public.ad_lifetime_performance to authenticated;
 grant select on public.seo_technical_issues to authenticated;
 grant select on public.monthly_reports to authenticated;
@@ -374,8 +329,6 @@ create index campaign_performance_client_period_idx on public.campaign_performan
 create index ad_performance_client_period_idx on public.ad_performance (client_id, period_start, period_end);
 create index campaign_daily_performance_client_date_idx on public.campaign_daily_performance (client_id, date);
 create index campaign_daily_performance_client_sort_idx on public.campaign_daily_performance (client_id, platform, campaign_id);
-create index ad_daily_performance_client_date_idx on public.ad_daily_performance (client_id, date);
-create index ad_daily_performance_client_sort_idx on public.ad_daily_performance (client_id, platform, ad_id);
 create index ad_lifetime_performance_client_sort_idx on public.ad_lifetime_performance (client_id, roas desc, conversions desc, spend desc);
 create index ad_lifetime_performance_client_campaign_ad_idx on public.ad_lifetime_performance (client_id, platform, campaign_id, ad_id);
 create index seo_performance_client_period_idx on public.seo_performance (client_id, period_start, period_end);
