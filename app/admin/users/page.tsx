@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge, Card, Table } from "@/components/ui";
 import { getAdminData } from "@/lib/data";
 import { removeUserAccess, saveUserAccess, updateUserAccess } from "./actions";
+import { ConfirmRemoveButton } from "./confirm-remove-button";
 
 type PageProps = {
   searchParams?: Promise<{ selected?: string }>;
@@ -149,9 +150,7 @@ function ManageUserCard({ profile, authUser, assignments, clients, isSelf }: {
         </form>
         <form action={removeUserAccess} className="flex items-end">
           <input type="hidden" name="userId" value={profile.id} />
-          <button type="submit" disabled={isSelf} className="h-11 w-full rounded-lg border border-red-400/30 bg-red-500/10 px-4 text-sm text-red-100/80 transition hover:border-red-300/60 disabled:cursor-not-allowed disabled:opacity-40">
-            Remove user
-          </button>
+          <ConfirmRemoveButton disabled={isSelf} userLabel={profile.full_name ?? profile.email} />
         </form>
       </div>
     </Card>
