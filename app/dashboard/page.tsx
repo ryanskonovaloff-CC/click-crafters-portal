@@ -4,7 +4,7 @@ import { DateRangePicker } from "@/components/date-range-picker";
 import { LogoutButton } from "@/components/logout-button";
 import { AccentText, Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
 import { getOverviewDashboardData, metricRatios, percentChange } from "@/lib/data";
-import { compact, currency, currencyCents, pct } from "@/lib/utils";
+import { compact, currency } from "@/lib/utils";
 import type { DailyPerformance } from "@/lib/types";
 
 type PageProps = {
@@ -53,7 +53,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <StatCard label="Store visits" value={hasStoreVisitData && performance.store_visits !== null ? compact.format(performance.store_visits) : "Unavailable"} state={paid.status.error ? "error" : hasStoreVisitData ? "ready" : "empty"} />
         <StatCard label="Clicks" value={hasPaidData ? compact.format(performance.clicks) : "Unavailable"} state={tileState} />
         <StatCard label="Impressions" value={hasPaidData ? compact.format(performance.impressions) : "Unavailable"} state={tileState} />
-        <StatCard label="CTR / CPC" value={ratios.ctr === null || ratios.cpc === null ? "Unavailable" : `${pct(ratios.ctr * 100)} / ${currencyCents.format(ratios.cpc)}`} state={tileState} />
       </MetricGrid>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">

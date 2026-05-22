@@ -217,9 +217,9 @@ function paidAdsMetrics(summary: Record<string, unknown> | null) {
 }
 
 function sectionTitle(title: string) {
-  if (title === "Paid Ads") return <>Paid <AccentText>Ads</AccentText></>;
+  if (title === "Paid Ads") return <AccentText>Paid Ads</AccentText>;
   if (title === "SEO") return <AccentText>SEO</AccentText>;
-  if (title === "Month-over-Month") return <><AccentText>Month</AccentText>-over-Month</>;
+  if (title === "Month-over-Month") return <AccentText>Month-over-Month</AccentText>;
   if (title === "Wins") return <AccentText>Wins</AccentText>;
   if (title === "Watchouts") return <AccentText>Watchouts</AccentText>;
   if (title === "Recommended Next Steps") return <>Recommended <AccentText>Next Steps</AccentText></>;
