@@ -53,7 +53,7 @@ export function PortalShell({ profile, children }: { profile: Profile; children:
         mobileOpen ? "w-80 translate-x-0" : "w-80 -translate-x-full lg:translate-x-0"
       )}>
         <div className="flex h-full flex-col overflow-y-auto px-4 py-4 shadow-[35px_0_120px_rgba(255,106,26,0.08)] sm:px-5 sm:py-5">
-          <div className={cn("flex items-center gap-4", collapsed && "lg:justify-center")}>
+          <div className={cn("flex items-center gap-4", collapsed && "lg:flex-col lg:justify-start lg:gap-3")}>
             <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="grid size-12 place-items-center rounded-2xl border border-accent/45 bg-black/45 shadow-[0_0_45px_rgba(255,106,26,0.18)] sm:size-14">
               <img src="/assets/logo-mark.svg" alt="" className="h-8 w-8 sm:h-9 sm:w-9" aria-hidden="true" />
             </Link>
@@ -61,7 +61,14 @@ export function PortalShell({ profile, children }: { profile: Profile; children:
               <img src="/assets/primary-logo.svg" alt="Click Crafters" className="h-8 w-auto max-w-[220px]" />
               <p className="text-sm font-semibold text-white/45">Client Portal</p>
             </div>
-            <button type="button" onClick={toggleCollapsed} className="ml-auto hidden rounded-lg border border-white/10 p-2 text-white/55 hover:text-white lg:inline-flex">
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              className={cn(
+                "ml-auto hidden rounded-lg border border-white/10 p-2 text-white/55 hover:text-white lg:inline-flex",
+                collapsed && "lg:ml-0"
+              )}
+            >
               {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
             </button>
           </div>
