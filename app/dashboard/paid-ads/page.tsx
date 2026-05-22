@@ -3,7 +3,7 @@ import { PlatformBreakdown, TrendChart } from "@/components/charts";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { AccentText, Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
 import { getPaidAdsDashboardData, metricRatios, percentChange } from "@/lib/data";
-import { compact, currency, currencyCents, pct } from "@/lib/utils";
+import { compact, currency } from "@/lib/utils";
 import type { AdLifetimePerformance, CampaignDailyPerformance, DailyPerformance } from "@/lib/types";
 
 type PageProps = {
@@ -59,16 +59,13 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
         <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Platform</AccentText> breakdown</h2>{hasData ? <PlatformBreakdown data={daily} /> : <EmptyState />}</Card>
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Channel</AccentText> mix</h2>
-          <Table headers={["Platform", "Channel", "Spend", "Revenue", "Conv.", "CPA", "ROAS", "CTR", "CPC"]} rows={rows.map((item) => [
-            item.platform,
+          <Table headers={["Channel", "Spend", "Revenue", "Conversions", "ROAS", "CPA"]} rows={rows.map((item) => [
             item.channel ?? "Unspecified",
             currency.format(item.spend),
             currency.format(item.revenue),
             compact.format(item.conversions),
-            item.cpa === null ? "Unavailable" : currency.format(item.cpa),
             item.roas === null ? "Unavailable" : `${item.roas.toFixed(2)}x`,
-            item.ctr === null ? "Unavailable" : pct(item.ctr * 100),
-            item.cpc === null ? "Unavailable" : currencyCents.format(item.cpc)
+            item.cpa === null ? "Unavailable" : currency.format(item.cpa)
           ])} />
         </Card>
       </div>
@@ -76,45 +73,49 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaign</AccentText> comparison</h2>
-          <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Conv.", "CPA", "ROAS"]} rows={campaignRows.map((item) => [
+          <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Conversions", "ROAS", "CPA"]} rows={campaignRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             item.platform,
             item.channel ?? "Unspecified",
             currency.format(item.spend),
             currency.format(item.revenue),
             compact.format(item.conversions),
-            item.cpa === null ? "Unavailable" : currency.format(item.cpa),
-            item.roas === null ? "Unavailable" : `${item.roas.toFixed(2)}x`
+            item.roas === null ? "Unavailable" : `${item.roas.toFixed(2)}x`,
+            item.cpa === null ? "Unavailable" : currency.format(item.cpa)
           ])} />
         </Card>
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top campaigns by <AccentText>ROAS</AccentText></h2>
-          <Table headers={["Campaign", "ROAS", "Revenue", "Spend", "Conv."]} rows={topRoasRows.map((item) => [
+          <Table headers={["Campaign", "Spend", "Revenue", "Conversions", "ROAS", "CPA"]} rows={topRoasRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
-            `${item.roas?.toFixed(2)}x`,
-            currency.format(item.revenue),
             currency.format(item.spend),
-            compact.format(item.conversions)
+            currency.format(item.revenue),
+            compact.format(item.conversions),
+            item.roas === null ? "Unavailable" : `${item.roas.toFixed(2)}x`,
+            item.cpa === null ? "Unavailable" : currency.format(item.cpa)
           ])} />
         </Card>
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top campaigns by <AccentText>conversions</AccentText></h2>
-          <Table headers={["Campaign", "Conv.", "CPA", "Spend", "ROAS"]} rows={topConversionRows.map((item) => [
+          <Table headers={["Campaign", "Spend", "Revenue", "Conversions", "ROAS", "CPA"]} rows={topConversionRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
-            compact.format(item.conversions),
-            item.cpa === null ? "Unavailable" : currency.format(item.cpa),
             currency.format(item.spend),
-            item.roas === null ? "Unavailable" : `${item.roas.toFixed(2)}x`
+            currency.format(item.revenue),
+            compact.format(item.conversions),
+            item.roas === null ? "Unavailable" : `${item.roas.toFixed(2)}x`,
+            item.cpa === null ? "Unavailable" : currency.format(item.cpa)
           ])} />
         </Card>
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaigns</AccentText> to watch</h2>
-          <Table headers={["Campaign", "Wasted spend", "Spend", "Conv.", "CPA"]} rows={campaignWatchRows.map((item) => [
+          <Table headers={["Campaign", "Spend", "Revenue", "Conversions", "ROAS", "CPA", "Wasted spend"]} rows={campaignWatchRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
-            currency.format(effectiveWastedSpend(item)),
             currency.format(item.spend),
+            currency.format(item.revenue),
             compact.format(item.conversions),
-            item.cpa === null ? "Unavailable" : currency.format(item.cpa)
+            item.roas === null ? "Unavailable" : `${item.roas.toFixed(2)}x`,
+            item.cpa === null ? "Unavailable" : currency.format(item.cpa),
+            currency.format(effectiveWastedSpend(item))
           ])} />
         </Card>
       </div>
@@ -161,11 +162,10 @@ function AdPerformanceCard({ ad }: { ad: AdLifetimePerformance }) {
 
         <div className="grid grid-cols-2 gap-2 text-sm">
           <AdMetric label="Spend" value={currency.format(ad.spend)} />
+          <AdMetric label="Revenue" value={currency.format(ad.revenue)} />
           <AdMetric label="Conversions" value={compact.format(ad.conversions)} />
           <AdMetric label="ROAS" value={ad.roas === null ? "Unavailable" : `${ad.roas.toFixed(2)}x`} />
-          <AdMetric label="CTR" value={ad.ctr === null ? "Unavailable" : pct(ad.ctr * 100)} />
           <AdMetric label="CPA" value={ad.cpa === null ? "Unavailable" : currency.format(ad.cpa)} />
-          <AdMetric label="Revenue" value={currency.format(ad.revenue)} />
         </div>
 
         {previewUrl ? (
