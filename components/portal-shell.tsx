@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { BarChart3, Building2, FileText, Gauge, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, Shield, Users } from "lucide-react";
+import { BarChart3, Building2, FileText, Gauge, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, Users } from "lucide-react";
 import type { Profile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -54,11 +54,11 @@ export function PortalShell({ profile, children }: { profile: Profile; children:
       )}>
         <div className="flex h-full flex-col overflow-y-auto px-4 py-4 shadow-[35px_0_120px_rgba(255,106,26,0.08)] sm:px-5 sm:py-5">
           <div className={cn("flex items-center gap-4", collapsed && "lg:justify-center")}>
-            <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="grid size-12 place-items-center rounded-2xl border border-accent/55 bg-accentSoft text-accent shadow-[0_0_45px_rgba(255,106,26,0.16)] sm:size-14">
-              <Shield size={24} />
+            <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="grid size-12 place-items-center rounded-2xl border border-accent/45 bg-black/45 shadow-[0_0_45px_rgba(255,106,26,0.18)] sm:size-14">
+              <img src="/assets/logo-mark.svg" alt="" className="h-8 w-8 sm:h-9 sm:w-9" aria-hidden="true" />
             </Link>
             <div className={cn("min-w-0 transition", collapsed && "lg:hidden")}>
-              <p className="text-2xl font-black tracking-tight text-white">Click <span className="text-accent">Crafters</span></p>
+              <img src="/assets/primary-logo.svg" alt="Click Crafters" className="h-8 w-auto max-w-[220px]" />
               <p className="text-sm font-semibold text-white/45">Client Portal</p>
             </div>
             <button type="button" onClick={toggleCollapsed} className="ml-auto hidden rounded-lg border border-white/10 p-2 text-white/55 hover:text-white lg:inline-flex">

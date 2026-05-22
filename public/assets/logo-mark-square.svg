@@ -1,0 +1,11 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Click Crafters square icon</title>
+  <desc id="desc">Dark square icon containing the Click Crafters angular bracket and X mark.</desc>
+  <rect width="512" height="512" rx="96" fill="#070707"/>
+  <rect x="18" y="18" width="476" height="476" rx="80" stroke="#F7F2E8" stroke-opacity=".1" stroke-width="12"/>
+  <path d="M192 112L56 256L192 400" stroke="#FF6A1A" stroke-width="46.4" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M336 112L472 256L336 400" stroke="#FF6A1A" stroke-width="46.4" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M304 144L200 256L304 368" stroke="#F7F2E8" stroke-width="46.4" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M224 144L328 256L224 368" stroke="#F7F2E8" stroke-width="46.4" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M264 208L312 256L264 304L216 256L264 208Z" fill="#FF6A1A"/>
+</svg>

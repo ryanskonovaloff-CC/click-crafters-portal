@@ -1,0 +1,13 @@
+<svg width="278" height="48" viewBox="0 0 278 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Click Crafters</title>
+  <desc id="desc">Click Crafters horizontal logo with symmetrical angular bracket and X mark.</desc>
+  <g>
+    <path d="M24 6L7 24L24 42" stroke="#FF6A1A" stroke-width="5.8" stroke-linecap="square" stroke-linejoin="miter"/>
+    <path d="M42 6L59 24L42 42" stroke="#FF6A1A" stroke-width="5.8" stroke-linecap="square" stroke-linejoin="miter"/>
+    <path d="M38 10L25 24L38 38" stroke="#F7F2E8" stroke-width="5.8" stroke-linecap="square" stroke-linejoin="miter"/>
+    <path d="M28 10L41 24L28 38" stroke="#F7F2E8" stroke-width="5.8" stroke-linecap="square" stroke-linejoin="miter"/>
+    <path d="M33 18L39 24L33 30L27 24L33 18Z" fill="#FF6A1A"/>
+  </g>
+  <text x="66" y="31.8" fill="#F7F2E8" font-family="Inter, Manrope, Avenir Next, Helvetica Neue, Arial, sans-serif" font-size="24" font-weight="780" letter-spacing=".3">Click</text>
+  <text x="132" y="31.8" fill="#FF6A1A" font-family="Inter, Manrope, Avenir Next, Helvetica Neue, Arial, sans-serif" font-size="24" font-weight="780" letter-spacing=".3">Crafters</text>
+</svg>

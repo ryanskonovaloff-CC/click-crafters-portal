@@ -1,0 +1,9 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Click Crafters mark</title>
+  <desc id="desc">Symmetrical angular bracket and X mark with a centered click point.</desc>
+  <path d="M24 14L7 32L24 50" stroke="#FF6A1A" stroke-width="5.8" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M42 14L59 32L42 50" stroke="#FF6A1A" stroke-width="5.8" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M38 18L25 32L38 46" stroke="#F7F2E8" stroke-width="5.8" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M28 18L41 32L28 46" stroke="#F7F2E8" stroke-width="5.8" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M33 26L39 32L33 38L27 32L33 26Z" fill="#FF6A1A"/>
+</svg>
