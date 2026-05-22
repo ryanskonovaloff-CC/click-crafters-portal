@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Card, Table } from "@/components/ui";
+import { AccentText, Badge, Card, Table } from "@/components/ui";
 import { getAdminData } from "@/lib/data";
 import { removeUserAccess, saveUserAccess, updateUserAccess } from "./actions";
 import { ConfirmRemoveButton } from "./confirm-remove-button";
@@ -27,12 +27,12 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
     <div className="mx-auto max-w-6xl space-y-4 sm:space-y-6">
       <header>
         <Badge>Admin</Badge>
-        <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl">Users</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl"><AccentText>Users</AccentText></h1>
       </header>
 
       <Card>
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">Add user access</h2>
+          <h2 className="text-lg font-semibold">Add user <AccentText>access</AccentText></h2>
           <p className="text-sm text-white/50">Invite a user, assign them to a client, and set their portal permissions.</p>
         </div>
         <form action={saveUserAccess} className="mt-5 grid gap-3 lg:grid-cols-[1.1fr_1.1fr_1fr_1fr_auto]">

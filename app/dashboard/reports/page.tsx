@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays } from "lucide-react";
-import { Badge, Card, EmptyState } from "@/components/ui";
+import { AccentText, Badge, Card, EmptyState } from "@/components/ui";
 import { publishMonthlyReport } from "./actions";
 import { getReportsData } from "@/lib/data";
 import type { MonthlyReport } from "@/lib/types";
@@ -14,7 +14,7 @@ export default async function ReportsPage() {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <Badge>Monthly reporting</Badge>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl">Reports</h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl"><AccentText>Reports</AccentText></h1>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">Completed monthly reports</p>
         </div>
       </header>
@@ -41,7 +41,7 @@ function ReportCard({ report, showStatus }: { report: MonthlyReport; showStatus:
             <Badge className="gap-1"><CalendarDays size={13} /> {formatMonth(report.report_month)}</Badge>
             {showStatus ? <StatusBadge status={report.status} /> : null}
           </div>
-          <h2 className="mt-3 text-lg font-semibold sm:text-xl">{report.title ?? "Monthly Performance Report"}</h2>
+          <h2 className="mt-3 text-lg font-semibold sm:text-xl">{report.title ?? <>Monthly <AccentText>Performance</AccentText> Report</>}</h2>
           <p className="mt-1 text-xs text-white/45">
             {report.published_at ? `Published ${formatDate(report.published_at)}` : "Not published yet"}
           </p>

@@ -2,7 +2,7 @@ import { CalendarDays } from "lucide-react";
 import { PlatformBreakdown, TrendChart } from "@/components/charts";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { LogoutButton } from "@/components/logout-button";
-import { Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
+import { AccentText, Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
 import { getOverviewDashboardData, metricRatios, percentChange } from "@/lib/data";
 import { compact, currency, currencyCents, pct } from "@/lib/utils";
 import type { DailyPerformance } from "@/lib/types";
@@ -18,6 +18,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const paidRatios = metricRatios(paid.totals);
   const previousPaidRatios = metricRatios(paid.previousTotals);
   const hasPaidData = !paid.status.error && !paid.status.isEmpty;
+  const hasStoreVisitData = paid.daily.some((item) => item.store_visits !== null);
   const hasOrganicVisibilityData = !seo.status.error && [
     seo.totals.organicClicks,
     seo.totals.organicImpressions,
@@ -44,22 +45,23 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       </header>
 
       <MetricGrid>
-        <StatCard label="Total spend" value={hasPaidData ? currency.format(performance.spend) : "Unavailable"} helper={trendHelper("vs prior period", percentChange(paid.totals.spend, paid.previousTotals.spend))} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
-        <StatCard label="Total revenue" value={hasPaidData ? currency.format(performance.revenue) : "Unavailable"} helper={trendHelper("vs prior period", percentChange(paid.totals.revenue, paid.previousTotals.revenue))} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
-        <StatCard label="ROAS" value={paidRatios.roas === null ? "Unavailable" : `${paidRatios.roas.toFixed(2)}x`} helper={trendHelper("vs prior period", percentChange(paidRatios.roas, previousPaidRatios.roas))} state={paid.status.error ? "error" : paidRatios.roas === null ? "empty" : "ready"} />
-        <StatCard label="CPA" value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} state={tileState} />
-        <StatCard label="Leads / Conversions" value={hasPaidData ? compact.format(performance.conversions) : "Unavailable"} state={tileState} />
+        <StatCard label={<><AccentText>Total spend</AccentText></>} value={hasPaidData ? currency.format(performance.spend) : "Unavailable"} helper={trendHelper("vs prior period", percentChange(paid.totals.spend, paid.previousTotals.spend))} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
+        <StatCard label={<><AccentText>Total revenue</AccentText></>} value={hasPaidData ? currency.format(performance.revenue) : "Unavailable"} helper={trendHelper("vs prior period", percentChange(paid.totals.revenue, paid.previousTotals.revenue))} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
+        <StatCard label={<AccentText>Conversions</AccentText>} value={hasPaidData ? compact.format(performance.conversions) : "Unavailable"} state={tileState} />
+        <StatCard label={<AccentText>ROAS</AccentText>} value={paidRatios.roas === null ? "Unavailable" : `${paidRatios.roas.toFixed(2)}x`} helper={trendHelper("vs prior period", percentChange(paidRatios.roas, previousPaidRatios.roas))} state={paid.status.error ? "error" : paidRatios.roas === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>CPA</AccentText>} value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} state={tileState} />
+        <StatCard label="Store visits" value={hasStoreVisitData && performance.store_visits !== null ? compact.format(performance.store_visits) : "Unavailable"} state={paid.status.error ? "error" : hasStoreVisitData ? "ready" : "empty"} />
         <StatCard label="Clicks" value={hasPaidData ? compact.format(performance.clicks) : "Unavailable"} state={tileState} />
         <StatCard label="Impressions" value={hasPaidData ? compact.format(performance.impressions) : "Unavailable"} state={tileState} />
         <StatCard label="CTR / CPC" value={ratios.ctr === null || ratios.cpc === null ? "Unavailable" : `${pct(ratios.ctr * 100)} / ${currencyCents.format(ratios.cpc)}`} state={tileState} />
       </MetricGrid>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Spend over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="spend" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">ROAS over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="roas" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Platform breakdown</h2>{hasPaidData ? <PlatformBreakdown data={paid.daily} /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Spend</AccentText> over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="spend" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>ROAS</AccentText> over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="roas" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Platform</AccentText> breakdown</h2>{hasPaidData ? <PlatformBreakdown data={paid.daily} /> : <EmptyState />}</Card>
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Organic visibility</h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Organic</AccentText> visibility</h2>
           {hasOrganicVisibilityData ? (
             <Table headers={["Metric", "Value"]} rows={[
               ["Organic clicks", compact.format(seo.totals.organicClicks ?? 0)],
@@ -72,7 +74,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       </div>
 
       <Card>
-        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Paid channel performance</h2>
+        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Paid</AccentText> channel performance</h2>
         <Table headers={["Platform", "Channel", "Spend", "Revenue", "Conv.", "ROAS"]} rows={channelRows(paid.daily).slice(0, 6).map((item) => [
           item.platform,
           item.channel ?? "Unspecified",
@@ -84,7 +86,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       </Card>
 
       <Card>
-        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Campaign performance</h2>
+        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaign</AccentText> performance</h2>
         <EmptyState>No data available for this date range yet.</EmptyState>
       </Card>
     </div>

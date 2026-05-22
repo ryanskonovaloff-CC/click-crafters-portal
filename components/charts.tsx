@@ -14,13 +14,14 @@ function tooltipStyle() {
   };
 }
 
-export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric: "spend" | "conversions" | "cpa" | "roas" }) {
+export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric: "spend" | "conversions" | "store_visits" | "cpa" | "roas" }) {
   const height = useMobileChartHeight();
-  const byDate = data.reduce<Record<string, { date: string; spend: number; revenue: number; conversions: number }>>((acc, item) => {
-    acc[item.date] ??= { date: item.date.slice(5), spend: 0, revenue: 0, conversions: 0 };
+  const byDate = data.reduce<Record<string, { date: string; spend: number; revenue: number; conversions: number; store_visits: number }>>((acc, item) => {
+    acc[item.date] ??= { date: item.date.slice(5), spend: 0, revenue: 0, conversions: 0, store_visits: 0 };
     acc[item.date].spend += item.spend;
     acc[item.date].revenue += item.revenue;
     acc[item.date].conversions += item.conversions;
+    acc[item.date].store_visits += item.store_visits ?? 0;
     return acc;
   }, {});
 

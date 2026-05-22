@@ -17,7 +17,11 @@ export function Badge({ children, className }: { children: ReactNode; className?
   );
 }
 
-export function StatCard({ label, value, helper, state = "ready" }: { label: string; value: string; helper?: string; state?: "ready" | "empty" | "error" | "loading" }) {
+export function AccentText({ children }: { children: ReactNode }) {
+  return <span className="text-accent">{children}</span>;
+}
+
+export function StatCard({ label, value, helper, state = "ready" }: { label: ReactNode; value: string; helper?: string; state?: "ready" | "empty" | "error" | "loading" }) {
   const muted = state !== "ready";
   return (
     <Card className="min-h-[92px] sm:min-h-28">

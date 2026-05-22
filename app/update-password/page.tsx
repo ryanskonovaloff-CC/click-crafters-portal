@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { UpdatePasswordForm } from "@/components/update-password-form";
+import { AccentText } from "@/components/ui";
 
 export default async function UpdatePasswordPage() {
   const cookieStore = await cookies();
@@ -9,7 +10,7 @@ export default async function UpdatePasswordPage() {
     <main className="relative z-10 grid min-h-screen place-items-center px-4 py-10">
       <section className="w-full max-w-md rounded-2xl border border-border bg-black/40 p-6 shadow-glow backdrop-blur">
         <p className="text-sm font-semibold text-accent">Click Crafters</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-normal">Set a new password</h1>
+        <h1 className="mt-3 text-3xl font-semibold tracking-normal">Set a new <AccentText>password</AccentText></h1>
         <p className="mt-3 text-sm leading-6 text-white/60">Enter a new password for your portal account.</p>
         <div className="mt-6">
           <UpdatePasswordForm recoveryAllowed={recoveryAllowed} />

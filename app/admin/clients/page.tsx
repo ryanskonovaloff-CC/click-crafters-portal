@@ -1,4 +1,4 @@
-import { Badge, Card, Table } from "@/components/ui";
+import { AccentText, Badge, Card, Table } from "@/components/ui";
 import { getAdminData } from "@/lib/data";
 
 export default async function AdminClientsPage() {
@@ -8,7 +8,7 @@ export default async function AdminClientsPage() {
     <div className="mx-auto max-w-6xl space-y-4 sm:space-y-6">
       <header>
         <Badge>Admin</Badge>
-        <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl">Clients</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl"><AccentText>Clients</AccentText></h1>
       </header>
       <Card>
         <Table headers={["Client", "Slug", "Industry", "Status", "Last updated"]} rows={clients.map((client: any) => [

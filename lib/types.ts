@@ -23,6 +23,7 @@ export type DailyPerformance = {
   spend: number;
   revenue: number;
   conversions: number;
+  store_visits: number | null;
   clicks: number;
   impressions: number;
   cpa: number | null;
@@ -89,6 +90,7 @@ export type MetricTotals = {
   spend: number;
   revenue: number;
   conversions: number;
+  store_visits: number | null;
   clicks: number;
   impressions: number;
 };

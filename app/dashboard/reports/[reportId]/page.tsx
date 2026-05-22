@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays } from "lucide-react";
-import { Badge, Card, EmptyState, MetricGrid, StatCard } from "@/components/ui";
+import { AccentText, Badge, Card, EmptyState, MetricGrid, StatCard } from "@/components/ui";
 import { publishMonthlyReport } from "../actions";
 import { getMonthlyReportData } from "@/lib/data";
 import { compact, currency, currencyCents, pct } from "@/lib/utils";
@@ -39,7 +39,7 @@ function ReportContent({ report, showStatus }: { report: MonthlyReport; showStat
             <Badge className="gap-1"><CalendarDays size={13} /> {formatMonth(report.report_month)}</Badge>
             {showStatus ? <StatusBadge status={report.status} /> : null}
           </div>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-4xl">Monthly Performance Report</h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-4xl">Monthly <AccentText>Performance</AccentText> Report</h1>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">
             {[report.client_name, periodLabel(report), report.published_at ? `Published ${formatDate(report.published_at)}` : null].filter(Boolean).join(" · ")}
           </p>
@@ -48,7 +48,7 @@ function ReportContent({ report, showStatus }: { report: MonthlyReport; showStat
       </header>
 
       <Card>
-        <h2 className="text-lg font-semibold">Executive Summary</h2>
+        <h2 className="text-lg font-semibold"><AccentText>Executive</AccentText> Summary</h2>
         {report.executive_summary ? (
           <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white/65">{report.executive_summary}</p>
         ) : (
@@ -57,7 +57,7 @@ function ReportContent({ report, showStatus }: { report: MonthlyReport; showStat
       </Card>
 
       <section className="space-y-3 sm:space-y-4">
-        <h2 className="text-lg font-semibold">KPI Overview</h2>
+        <h2 className="text-lg font-semibold"><AccentText>KPI</AccentText> Overview</h2>
         <MetricGrid>
           {overviewMetrics(report).map((metric) => (
             <StatCard key={metric.label} label={metric.label} value={metric.value} state={metric.value === "Not available" ? "empty" : "ready"} />
@@ -122,7 +122,7 @@ function SummarySection({ title, unavailable, summary, commentary, metrics }: {
 }) {
   return (
     <Card>
-      <h2 className="text-lg font-semibold">{title}</h2>
+      <h2 className="text-lg font-semibold">{sectionTitle(title)}</h2>
       {commentary ? <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white/65">{commentary}</p> : null}
       {summary ? (
         <div className="mt-4 space-y-4">
@@ -148,7 +148,7 @@ function SummarySection({ title, unavailable, summary, commentary, metrics }: {
 function ListSection({ title, items, empty }: { title: string; items: string[]; empty: string }) {
   return (
     <Card>
-      <h2 className="text-lg font-semibold">{title}</h2>
+      <h2 className="text-lg font-semibold">{sectionTitle(title)}</h2>
       {items.length > 0 ? (
         <ul className="mt-3 space-y-2 text-sm leading-6 text-white/65">
           {items.map((item) => <li key={item}>{item}</li>)}
@@ -207,13 +207,23 @@ function paidAdsMetrics(summary: Record<string, unknown> | null) {
   return compactMetrics([
     ["Spend", formatCurrency(readNumber(summary, "spend", "total_spend"))],
     ["Revenue", formatCurrency(readNumber(summary, "revenue", "conversion_value", "total_revenue"))],
+    ["Conversions", formatCount(readNumber(summary, "conversions"))],
     ["ROAS", formatMultiplier(readNumber(summary, "roas"))],
     ["CPA", formatCurrency(readNumber(summary, "cpa"))],
-    ["Conversions", formatCount(readNumber(summary, "conversions"))],
     ["Clicks", formatCount(readNumber(summary, "clicks"))],
     ["CPC", formatCurrencyCents(readNumber(summary, "cpc"))],
     ["CTR", formatRatio(readNumber(summary, "ctr"))]
   ]);
+}
+
+function sectionTitle(title: string) {
+  if (title === "Paid Ads") return <>Paid <AccentText>Ads</AccentText></>;
+  if (title === "SEO") return <AccentText>SEO</AccentText>;
+  if (title === "Month-over-Month") return <><AccentText>Month</AccentText>-over-Month</>;
+  if (title === "Wins") return <AccentText>Wins</AccentText>;
+  if (title === "Watchouts") return <AccentText>Watchouts</AccentText>;
+  if (title === "Recommended Next Steps") return <>Recommended <AccentText>Next Steps</AccentText></>;
+  return title;
 }
 
 function seoMetrics(summary: Record<string, unknown> | null) {

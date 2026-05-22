@@ -227,6 +227,7 @@ function normalizeDailyPerformance(row: Record<string, unknown>): DailyPerforman
   const spend = toNumber(row.spend);
   const revenue = toNumber(row.revenue);
   const conversions = toNumber(row.conversions);
+  const storeVisits = nullableNumber(row.store_visits);
   const clicks = toNumber(row.clicks);
   const impressions = toNumber(row.impressions);
 
@@ -237,6 +238,7 @@ function normalizeDailyPerformance(row: Record<string, unknown>): DailyPerforman
     spend,
     revenue,
     conversions,
+    store_visits: storeVisits,
     clicks,
     impressions,
     cpa: nullableNumber(row.cpa) ?? (conversions > 0 ? spend / conversions : null),
@@ -378,13 +380,19 @@ function normalizeMonthlyReport(row: Record<string, unknown>): MonthlyReport {
 }
 
 export function sumPaidPerformance(rows: DailyPerformance[]): MetricTotals {
-  return rows.reduce((acc, item) => ({
+  const totals = rows.reduce((acc, item) => ({
     spend: acc.spend + item.spend,
     revenue: acc.revenue + item.revenue,
     conversions: acc.conversions + item.conversions,
+    store_visits: acc.store_visits + (item.store_visits ?? 0),
     clicks: acc.clicks + item.clicks,
     impressions: acc.impressions + item.impressions
-  }), { spend: 0, revenue: 0, conversions: 0, clicks: 0, impressions: 0 });
+  }), { spend: 0, revenue: 0, conversions: 0, store_visits: 0, clicks: 0, impressions: 0 });
+
+  return {
+    ...totals,
+    store_visits: rows.some((item) => item.store_visits !== null) ? totals.store_visits : null
+  };
 }
 
 export function metricRatios(totals: MetricTotals) {

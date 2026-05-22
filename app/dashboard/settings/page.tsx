@@ -1,4 +1,4 @@
-import { Badge, Card } from "@/components/ui";
+import { AccentText, Badge, Card } from "@/components/ui";
 import { getSessionProfile } from "@/lib/data";
 
 export default async function SettingsPage() {
@@ -7,7 +7,7 @@ export default async function SettingsPage() {
     <div className="mx-auto max-w-4xl space-y-4 sm:space-y-6">
       <header>
         <Badge>Account</Badge>
-        <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl">Settings</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl"><AccentText>Settings</AccentText></h1>
       </header>
       <Card>
         <dl className="grid grid-cols-2 gap-3 sm:gap-4">

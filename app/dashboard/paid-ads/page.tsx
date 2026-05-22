@@ -1,7 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { PlatformBreakdown, TrendChart } from "@/components/charts";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
+import { AccentText, Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
 import { getPaidAdsDashboardData, metricRatios, percentChange } from "@/lib/data";
 import { compact, currency, currencyCents, pct } from "@/lib/utils";
 import type { AdLifetimePerformance, CampaignDailyPerformance, DailyPerformance } from "@/lib/types";
@@ -17,6 +17,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
   const previousRatios = metricRatios(previousTotals);
   const hasData = !status.error && !status.isEmpty;
   const tileState = status.error ? "error" : hasData ? "ready" : "empty";
+  const hasStoreVisitData = daily.some((item) => item.store_visits !== null);
   const rows = channelRows(daily);
   const campaignRows = aggregateCampaignRows(campaigns);
   const topRoasRows = topCampaignsByRoas(campaignRows);
@@ -29,18 +30,19 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <Badge>Paid media</Badge>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl">Paid Ads Performance</h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl">Paid Ads <AccentText>Performance</AccentText></h1>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">{range.label}</p>
         </div>
         <DateRangePicker range={range} />
       </header>
 
       <MetricGrid>
-        <StatCard label="Spend" value={hasData ? currency.format(totals.spend) : "Unavailable"} helper={trendHelper(percentChange(totals.spend, previousTotals.spend))} state={tileState} />
-        <StatCard label="Revenue" value={hasData ? currency.format(totals.revenue) : "Unavailable"} helper={trendHelper(percentChange(totals.revenue, previousTotals.revenue))} state={tileState} />
-        <StatCard label="Conversions" value={hasData ? compact.format(totals.conversions) : "Unavailable"} helper={trendHelper(percentChange(totals.conversions, previousTotals.conversions))} state={tileState} />
-        <StatCard label="ROAS" value={ratios.roas === null ? "Unavailable" : `${ratios.roas.toFixed(2)}x`} helper={trendHelper(percentChange(ratios.roas, previousRatios.roas))} state={status.error ? "error" : ratios.roas === null ? "empty" : "ready"} />
-        <StatCard label="CPA" value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} state={status.error ? "error" : ratios.cpa === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Spend</AccentText>} value={hasData ? currency.format(totals.spend) : "Unavailable"} helper={trendHelper(percentChange(totals.spend, previousTotals.spend))} state={tileState} />
+        <StatCard label={<AccentText>Revenue</AccentText>} value={hasData ? currency.format(totals.revenue) : "Unavailable"} helper={trendHelper(percentChange(totals.revenue, previousTotals.revenue))} state={tileState} />
+        <StatCard label={<AccentText>Conversions</AccentText>} value={hasData ? compact.format(totals.conversions) : "Unavailable"} helper={trendHelper(percentChange(totals.conversions, previousTotals.conversions))} state={tileState} />
+        <StatCard label={<AccentText>ROAS</AccentText>} value={ratios.roas === null ? "Unavailable" : `${ratios.roas.toFixed(2)}x`} helper={trendHelper(percentChange(ratios.roas, previousRatios.roas))} state={status.error ? "error" : ratios.roas === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>CPA</AccentText>} value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} state={status.error ? "error" : ratios.cpa === null ? "empty" : "ready"} />
+        <StatCard label="Store visits" value={hasStoreVisitData && totals.store_visits !== null ? compact.format(totals.store_visits) : "Unavailable"} helper={trendHelper(percentChange(totals.store_visits, previousTotals.store_visits))} state={status.error ? "error" : hasStoreVisitData ? "ready" : "empty"} />
         <StatCard label="Clicks" value={hasData ? compact.format(totals.clicks) : "Unavailable"} state={tileState} />
         <StatCard label="Impressions" value={hasData ? compact.format(totals.impressions) : "Unavailable"} state={tileState} />
         <StatCard label="CTR / CPC" value={ratios.ctr === null || ratios.cpc === null ? "Unavailable" : `${pct(ratios.ctr * 100)} / ${currencyCents.format(ratios.cpc)}`} state={status.error ? "error" : ratios.ctr === null || ratios.cpc === null ? "empty" : "ready"} />
@@ -51,11 +53,13 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       {lifetimeAdStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load lifetime ad data: {lifetimeAdStatus.error}</Card> : null}
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">CPA over time</h2>{hasData ? <TrendChart data={daily} metric="cpa" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">ROAS over time</h2>{hasData ? <TrendChart data={daily} metric="roas" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Platform breakdown</h2>{hasData ? <PlatformBreakdown data={daily} /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Conversions</AccentText> over time</h2>{hasData ? <TrendChart data={daily} metric="conversions" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Store visits</AccentText> over time</h2>{hasStoreVisitData ? <TrendChart data={daily} metric="store_visits" /> : <EmptyState>Store visit data is not available yet.</EmptyState>}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>CPA</AccentText> over time</h2>{hasData ? <TrendChart data={daily} metric="cpa" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>ROAS</AccentText> over time</h2>{hasData ? <TrendChart data={daily} metric="roas" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Platform</AccentText> breakdown</h2>{hasData ? <PlatformBreakdown data={daily} /> : <EmptyState />}</Card>
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Channel mix</h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Channel</AccentText> mix</h2>
           <Table headers={["Platform", "Channel", "Spend", "Revenue", "Conv.", "CPA", "ROAS", "CTR", "CPC"]} rows={rows.map((item) => [
             item.platform,
             item.channel ?? "Unspecified",
@@ -72,7 +76,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Campaign comparison</h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaign</AccentText> comparison</h2>
           <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Conv.", "CPA", "ROAS"]} rows={campaignRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             item.platform,
@@ -85,7 +89,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
           ])} />
         </Card>
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top campaigns by ROAS</h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top campaigns by <AccentText>ROAS</AccentText></h2>
           <Table headers={["Campaign", "ROAS", "Revenue", "Spend", "Conv."]} rows={topRoasRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             `${item.roas?.toFixed(2)}x`,
@@ -95,7 +99,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
           ])} />
         </Card>
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top campaigns by conversions</h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top campaigns by <AccentText>conversions</AccentText></h2>
           <Table headers={["Campaign", "Conv.", "CPA", "Spend", "ROAS"]} rows={topConversionRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             compact.format(item.conversions),
@@ -105,7 +109,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
           ])} />
         </Card>
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Campaigns to watch</h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaigns</AccentText> to watch</h2>
           <Table headers={["Campaign", "Wasted spend", "Spend", "Conv.", "CPA"]} rows={campaignWatchRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             currency.format(effectiveWastedSpend(item)),
@@ -117,7 +121,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       </div>
 
       <Card>
-        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top ads by performance</h2>
+        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top ads by <AccentText>performance</AccentText></h2>
         {adRows.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 2xl:grid-cols-3">
             {adRows.map((item) => <AdPerformanceCard key={`${item.platform}-${item.ad_id}`} ad={item} />)}
@@ -207,10 +211,11 @@ function AdMetric({ label, value }: { label: string; value: string }) {
 function aggregateCampaignRows(rows: CampaignDailyPerformance[]) {
   const byCampaign = rows.reduce<Record<string, CampaignDailyPerformance>>((acc, row) => {
     const key = `${row.platform}|${row.campaign_id}`;
-    acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, clicks: 0, impressions: 0, wasted_spend: 0, cpa: null, roas: null, ctr: null, cpc: null };
+    acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, store_visits: 0, clicks: 0, impressions: 0, wasted_spend: 0, cpa: null, roas: null, ctr: null, cpc: null };
     acc[key].spend += row.spend;
     acc[key].revenue += row.revenue;
     acc[key].conversions += row.conversions;
+    acc[key].store_visits = (acc[key].store_visits ?? 0) + (row.store_visits ?? 0);
     acc[key].clicks += row.clicks;
     acc[key].impressions += row.impressions;
     acc[key].wasted_spend += row.wasted_spend;
@@ -308,10 +313,11 @@ function trendHelper(change: number | null) {
 function channelRows(rows: DailyPerformance[]) {
   const byChannel = rows.reduce<Record<string, DailyPerformance>>((acc, row) => {
     const key = `${row.platform}|${row.channel ?? ""}`;
-    acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, clicks: 0, impressions: 0, cpa: null, roas: null, ctr: null, cpc: null };
+    acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, store_visits: 0, clicks: 0, impressions: 0, cpa: null, roas: null, ctr: null, cpc: null };
     acc[key].spend += row.spend;
     acc[key].revenue += row.revenue;
     acc[key].conversions += row.conversions;
+    acc[key].store_visits = (acc[key].store_visits ?? 0) + (row.store_visits ?? 0);
     acc[key].clicks += row.clicks;
     acc[key].impressions += row.impressions;
     acc[key].cpa = acc[key].conversions > 0 ? acc[key].spend / acc[key].conversions : null;
