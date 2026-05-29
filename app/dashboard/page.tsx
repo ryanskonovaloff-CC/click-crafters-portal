@@ -19,11 +19,12 @@ type EstimatedCampaignRow = CampaignDailyPerformance & {
 };
 
 type PageProps = {
-  searchParams?: Promise<{ range?: string; start?: string; end?: string }>;
+  searchParams?: Promise<{ range?: string; start?: string; end?: string; compare?: string }>;
 };
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   const params = await searchParams;
+  const compare = params?.compare === "previous";
   const { client, range, latestDataUpdatedAt, paid, seo, performance } = await getOverviewDashboardData(params?.range, params?.start, params?.end);
   const ratios = metricRatios(performance);
   const paidRatios = metricRatios(paid.totals);
@@ -70,11 +71,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       </MetricGrid>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Spend</AccentText> over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="spend" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>ROAS</AccentText> over time</h2>{hasPaidData ? <TrendChart data={paid.daily} metric="roas" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Platform</AccentText> breakdown</h2>{hasPaidData ? <PlatformBreakdown data={paid.daily} /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Spend over time</AccentText></h2>{hasPaidData ? <TrendChart data={paid.daily} previousData={paid.previousDaily} compare={compare} metric="spend" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>ROAS over time</AccentText></h2>{hasPaidData ? <TrendChart data={paid.daily} previousData={paid.previousDaily} compare={compare} metric="roas" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Platform breakdown</AccentText></h2>{hasPaidData ? <PlatformBreakdown data={paid.daily} /> : <EmptyState />}</Card>
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Organic</AccentText> visibility</h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Organic visibility</AccentText></h2>
           {hasOrganicVisibilityData ? (
             <Table headers={["Metric", "Value"]} rows={[
               ["Organic clicks", compact.format(seo.totals.organicClicks ?? 0)],
@@ -87,7 +88,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       </div>
 
       <Card>
-        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Paid</AccentText> channel performance</h2>
+        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Paid channel performance</AccentText></h2>
         <Table headers={["Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "ROAS", "Est. blended ROAS"]} rows={paidChannelRows.slice(0, 6).map((item) => [
           item.platform,
           item.channel ?? "Unspecified",
@@ -101,7 +102,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       </Card>
 
       <Card>
-        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaign</AccentText> performance</h2>
+        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaign performance</AccentText></h2>
         {paid.campaignStatus.error ? (
           <div className="rounded-lg border border-red-400/30 bg-red-950/20 px-4 py-3 text-sm text-red-100/80">Unable to load campaign data: {paid.campaignStatus.error}</div>
         ) : campaignRows.length > 0 ? (

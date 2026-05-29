@@ -17,29 +17,18 @@ function tooltipStyle() {
   };
 }
 
-export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric: "spend" | "conversions" | "store_visits" | "cpa" | "roas" }) {
+export function TrendChart({ data, metric, previousData = [], compare = false }: { data: DailyPerformance[]; metric: "spend" | "conversions" | "store_visits" | "cpa" | "roas"; previousData?: DailyPerformance[]; compare?: boolean }) {
   const height = useMobileChartHeight();
-  const byDate = data.reduce<Record<string, { date: string; label: string; spend: number; tracked_spend: number; revenue: number; conversions: number; store_visits: number; has_store_visits: boolean }>>((acc, item) => {
-    acc[item.date] ??= { date: item.date, label: item.date.slice(5), spend: 0, tracked_spend: 0, revenue: 0, conversions: 0, store_visits: 0, has_store_visits: false };
-    acc[item.date].spend += item.spend;
-    if (item.date >= ONLINE_ORDER_TRACKING_START) acc[item.date].tracked_spend += item.spend;
-    acc[item.date].revenue += item.revenue;
-    acc[item.date].conversions += item.conversions;
-    acc[item.date].store_visits += item.store_visits ?? 0;
-    acc[item.date].has_store_visits ||= item.store_visits !== null;
-    return acc;
-  }, {});
-
+  const byDate = aggregateByDate(data);
+  const previousPoints = Object.values(aggregateByDate(previousData)).map(toChartPoint);
   const showEstimatedRoas = metric === "roas" && Object.values(byDate).some((item) => item.has_store_visits);
-  const chartData = Object.values(byDate).map((item) => {
-    const dailyEstimatedInStorePurchases = Math.max(item.store_visits - item.conversions, 0);
-    const estimatedTotalRevenue = item.revenue + dailyEstimatedInStorePurchases * IN_STORE_AOV;
-
+  const chartData = Object.values(byDate).map((item, index) => {
+    const point = toChartPoint(item);
+    const previousPoint = previousPoints[index];
     return {
-      ...item,
-      cpa: item.conversions ? item.spend / item.conversions : 0,
-      roas: metric === "roas" ? (item.tracked_spend ? item.revenue / item.tracked_spend : null) : (item.spend ? item.revenue / item.spend : 0),
-      estimated_blended_roas: item.has_store_visits && item.spend ? estimatedTotalRevenue / item.spend : null
+      ...point,
+      previous_metric: previousPoint?.[metric] ?? null,
+      previous_estimated_blended_roas: previousPoint?.estimated_blended_roas ?? null
     };
   });
 
@@ -58,17 +47,47 @@ export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric:
           if (metric === "spend" || metric === "cpa") return currency.format(numericValue);
           if (metric === "roas") {
             const seriesKey = String(item.dataKey ?? name);
-            return [`${numericValue.toFixed(2)}x`, seriesKey === "estimated_blended_roas" ? "Est. blended ROAS" : "Platform ROAS"];
+            if (seriesKey === "estimated_blended_roas") return [`${numericValue.toFixed(2)}x`, "Est. blended ROAS"];
+            if (seriesKey === "previous_estimated_blended_roas") return [`${numericValue.toFixed(2)}x`, "Prev. est. blended ROAS"];
+            if (seriesKey === "previous_metric") return [`${numericValue.toFixed(2)}x`, "Prev. platform ROAS"];
+            return [`${numericValue.toFixed(2)}x`, "Platform ROAS"];
           }
           return numericValue.toFixed(0);
         }}
         />
-        {showEstimatedRoas ? <Line type="monotone" dataKey="estimated_blended_roas" name="Est. blended ROAS" stroke="#f7f2e8" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} strokeDasharray="6 5" connectNulls /> : null}
+        {showEstimatedRoas ? <Line type="monotone" dataKey="estimated_blended_roas" name="Est. blended ROAS" stroke="#f7f2e8" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls /> : null}
         <Line type="monotone" dataKey={metric} name={metric === "roas" ? "Platform ROAS" : metric} stroke="#ff6a1a" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls={metric === "roas"} />
-        {showEstimatedRoas ? <Legend /> : null}
+        {compare && showEstimatedRoas ? <Line type="monotone" dataKey="previous_estimated_blended_roas" name="Prev. est. blended ROAS" stroke="#f7f2e8" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls /> : null}
+        {compare ? <Line type="monotone" dataKey="previous_metric" name={metric === "roas" ? "Prev. platform ROAS" : `Prev. ${metric}`} stroke="#ff6a1a" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls={metric === "roas"} /> : null}
+        {showEstimatedRoas || compare ? <Legend /> : null}
       </LineChart>
     </ResponsiveContainer>
   );
+}
+
+function aggregateByDate(data: DailyPerformance[]) {
+  return data.reduce<Record<string, { date: string; label: string; spend: number; tracked_spend: number; revenue: number; conversions: number; store_visits: number; has_store_visits: boolean }>>((acc, item) => {
+    acc[item.date] ??= { date: item.date, label: item.date.slice(5), spend: 0, tracked_spend: 0, revenue: 0, conversions: 0, store_visits: 0, has_store_visits: false };
+    acc[item.date].spend += item.spend;
+    if (item.date >= ONLINE_ORDER_TRACKING_START) acc[item.date].tracked_spend += item.spend;
+    acc[item.date].revenue += item.revenue;
+    acc[item.date].conversions += item.conversions;
+    acc[item.date].store_visits += item.store_visits ?? 0;
+    acc[item.date].has_store_visits ||= item.store_visits !== null;
+    return acc;
+  }, {});
+}
+
+function toChartPoint(item: { date: string; label: string; spend: number; tracked_spend: number; revenue: number; conversions: number; store_visits: number; has_store_visits: boolean }) {
+  const dailyEstimatedInStorePurchases = Math.max(item.store_visits - item.conversions, 0);
+  const estimatedTotalRevenue = item.revenue + dailyEstimatedInStorePurchases * IN_STORE_AOV;
+
+  return {
+    ...item,
+    cpa: item.conversions ? item.spend / item.conversions : 0,
+    roas: item.tracked_spend ? item.revenue / item.tracked_spend : null,
+    estimated_blended_roas: item.has_store_visits && item.spend ? estimatedTotalRevenue / item.spend : null
+  };
 }
 
 export function PlatformBreakdown({ data }: { data: DailyPerformance[] }) {

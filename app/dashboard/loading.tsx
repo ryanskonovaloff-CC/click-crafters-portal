@@ -1,9 +1,11 @@
 import { MetricGrid, TileSkeleton } from "@/components/ui";
+import { LoadingMark } from "@/components/loading-mark";
 
 export default function Loading() {
   return (
     <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
       <div className="h-20 animate-pulse rounded-xl bg-white/5 sm:h-24" />
+      <LoadingMark className="py-2" />
       <MetricGrid>
         {Array.from({ length: 8 }).map((_, index) => <TileSkeleton key={index} />)}
       </MetricGrid>

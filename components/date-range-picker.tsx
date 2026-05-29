@@ -21,6 +21,7 @@ export function DateRangePicker({ range }: { range: DateRange }) {
   const [open, setOpen] = useState(false);
   const [start, setStart] = useState(range.start);
   const [end, setEnd] = useState(range.end);
+  const compare = searchParams.get("compare") === "previous";
 
   const label = useMemo(() => `${range.start} - ${range.end}`, [range.start, range.end]);
 
@@ -36,6 +37,16 @@ export function DateRangePicker({ range }: { range: DateRange }) {
     }
     router.push(`${pathname}?${params.toString()}`);
     setOpen(false);
+  }
+
+  function toggleCompare() {
+    const params = new URLSearchParams(searchParams.toString());
+    if (compare) {
+      params.delete("compare");
+    } else {
+      params.set("compare", "previous");
+    }
+    router.push(`${pathname}?${params.toString()}`);
   }
 
   function applyCustom() {
@@ -100,6 +111,21 @@ export function DateRangePicker({ range }: { range: DateRange }) {
                   <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white sm:px-4">Cancel</button>
                   <button type="button" onClick={applyCustom} className="rounded-lg border border-accent bg-accent px-3 py-2 text-sm font-semibold text-black transition hover:bg-accent/90 sm:px-4">Apply</button>
                 </div>
+              </div>
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-white/80">Compare</p>
+                  <p className="mt-1 text-xs text-white/45">Previous period: {range.previousStart} - {range.previousEnd}</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={compare}
+                  onClick={toggleCompare}
+                  className={cn("relative h-6 w-11 rounded-full border border-white/10 transition", compare ? "bg-accent" : "bg-white/10")}
+                >
+                  <span className={cn("absolute top-0.5 size-5 rounded-full bg-white transition", compare ? "left-5" : "left-0.5")} />
+                </button>
               </div>
             </div>
           </div>
