@@ -1,18 +1,20 @@
 import { DateRangePicker } from "@/components/date-range-picker";
 import { AccentText, Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
-import { getSeoDashboardData } from "@/lib/data";
+import { getSeoDashboardData, percentChange } from "@/lib/data";
 import { compact, pct } from "@/lib/utils";
 
 type PageProps = {
-  searchParams?: Promise<{ range?: string; start?: string; end?: string }>;
+  searchParams?: Promise<{ range?: string; start?: string; end?: string; compare?: string }>;
 };
 
 export default async function SeoPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const { range, totals, topQueries, topPages, status } = await getSeoDashboardData(params?.range, params?.start, params?.end);
+  const compare = params?.compare === "previous";
+  const { range, totals, previousTotals, topQueries, topPages, status } = await getSeoDashboardData(params?.range, params?.start, params?.end);
   const hasData = !status.error && !status.isEmpty;
   const tileState = status.error ? "error" : hasData ? "ready" : "empty";
   const outboundClickRate = totals.organicClicks && totals.outboundClicks !== null ? totals.outboundClicks / totals.organicClicks : null;
+  const previousOutboundClickRate = previousTotals.organicClicks && previousTotals.outboundClicks !== null ? previousTotals.outboundClicks / previousTotals.organicClicks : null;
   const opportunities = organicOpportunities(topQueries, topPages);
 
   return (
@@ -27,14 +29,14 @@ export default async function SeoPage({ searchParams }: PageProps) {
       </header>
 
       <MetricGrid>
-        <StatCard label={<AccentText>Organic clicks</AccentText>} value={totals.organicClicks === null ? "Unavailable" : compact.format(totals.organicClicks)} state={tileState} />
-        <StatCard label={<AccentText>Organic impressions</AccentText>} value={totals.organicImpressions === null ? "Unavailable" : compact.format(totals.organicImpressions)} state={tileState} />
-        <StatCard label={<AccentText>Organic CTR</AccentText>} value={totals.ctr === null ? "Unavailable" : pct(totals.ctr * 100)} state={status.error ? "error" : totals.ctr === null ? "empty" : "ready"} />
-        <StatCard label={<AccentText>Average position</AccentText>} value={totals.averagePosition === null ? "Unavailable" : totals.averagePosition.toFixed(1)} state={status.error ? "error" : totals.averagePosition === null ? "empty" : "ready"} />
-        <StatCard label={<AccentText>Organic sessions</AccentText>} value={totals.organicSessions === null ? "Unavailable" : compact.format(totals.organicSessions)} state={tileState} />
-        <StatCard label={<AccentText>Outbound clicks</AccentText>} value={totals.outboundClicks === null ? "Unavailable" : compact.format(totals.outboundClicks)} state={status.error ? "error" : totals.outboundClicks === null ? "empty" : "ready"} />
-        <StatCard label={<AccentText>Indexed pages</AccentText>} value={totals.indexedPages === null ? "Unavailable" : compact.format(totals.indexedPages)} state={status.error ? "error" : totals.indexedPages === null ? "empty" : "ready"} />
-        <StatCard label={<AccentText>Outbound click rate</AccentText>} value={outboundClickRate === null ? "Unavailable" : pct(outboundClickRate * 100)} state={status.error ? "error" : outboundClickRate === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Organic clicks</AccentText>} value={totals.organicClicks === null ? "Unavailable" : compact.format(totals.organicClicks)} helper={compare ? trendHelper(percentChange(totals.organicClicks, previousTotals.organicClicks)) : undefined} state={tileState} />
+        <StatCard label={<AccentText>Organic impressions</AccentText>} value={totals.organicImpressions === null ? "Unavailable" : compact.format(totals.organicImpressions)} helper={compare ? trendHelper(percentChange(totals.organicImpressions, previousTotals.organicImpressions)) : undefined} state={tileState} />
+        <StatCard label={<AccentText>Organic CTR</AccentText>} value={totals.ctr === null ? "Unavailable" : pct(totals.ctr * 100)} helper={compare ? trendHelper(percentChange(totals.ctr, previousTotals.ctr)) : undefined} state={status.error ? "error" : totals.ctr === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Average position</AccentText>} value={totals.averagePosition === null ? "Unavailable" : totals.averagePosition.toFixed(1)} helper={compare ? trendHelper(percentChange(totals.averagePosition, previousTotals.averagePosition)) : undefined} state={status.error ? "error" : totals.averagePosition === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Organic sessions</AccentText>} value={totals.organicSessions === null ? "Unavailable" : compact.format(totals.organicSessions)} helper={compare ? trendHelper(percentChange(totals.organicSessions, previousTotals.organicSessions)) : undefined} state={tileState} />
+        <StatCard label={<AccentText>Outbound clicks</AccentText>} value={totals.outboundClicks === null ? "Unavailable" : compact.format(totals.outboundClicks)} helper={compare ? trendHelper(percentChange(totals.outboundClicks, previousTotals.outboundClicks)) : undefined} state={status.error ? "error" : totals.outboundClicks === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Indexed pages</AccentText>} value={totals.indexedPages === null ? "Unavailable" : compact.format(totals.indexedPages)} helper={compare ? trendHelper(percentChange(totals.indexedPages, previousTotals.indexedPages)) : undefined} state={status.error ? "error" : totals.indexedPages === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Outbound click rate</AccentText>} value={outboundClickRate === null ? "Unavailable" : pct(outboundClickRate * 100)} helper={compare ? trendHelper(percentChange(outboundClickRate, previousOutboundClickRate)) : undefined} state={status.error ? "error" : outboundClickRate === null ? "empty" : "ready"} />
       </MetricGrid>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load SEO data: {status.error}</Card> : null}
@@ -189,6 +191,12 @@ function normalizeRatio(value: number | null) {
 
 function formatPercentRatio(value: number | null) {
   return value === null ? "Not available" : pct(value * 100);
+}
+
+function trendHelper(change: number | null) {
+  if (change === null) return undefined;
+  const sign = change > 0 ? "+" : "";
+  return `${sign}${change.toFixed(1)}% vs prior period`;
 }
 
 function formatNumber(value: number | null) {

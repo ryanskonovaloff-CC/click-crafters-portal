@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { DailyPerformance } from "@/lib/types";
-import { currency } from "@/lib/utils";
+import { cn, currency } from "@/lib/utils";
 
 const IN_STORE_AOV = 24.87;
 const ONLINE_ORDER_TRACKING_START = "2026-05-14";
@@ -22,6 +22,7 @@ export function TrendChart({ data, metric, previousData = [], compare = false }:
   const byDate = aggregateByDate(data);
   const previousPoints = Object.values(aggregateByDate(previousData)).map(toChartPoint);
   const showEstimatedRoas = metric === "roas" && Object.values(byDate).some((item) => item.has_store_visits);
+  const metricName = metricLabel(metric);
   const chartData = Object.values(byDate).map((item, index) => {
     const point = toChartPoint(item);
     const previousPoint = previousPoints[index];
@@ -56,13 +57,39 @@ export function TrendChart({ data, metric, previousData = [], compare = false }:
         }}
         />
         {showEstimatedRoas ? <Line type="monotone" dataKey="estimated_blended_roas" name="Est. blended ROAS" stroke="#f7f2e8" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls /> : null}
-        <Line type="monotone" dataKey={metric} name={metric === "roas" ? "Platform ROAS" : metric} stroke="#ff6a1a" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls={metric === "roas"} />
+        <Line type="monotone" dataKey={metric} name={metricName} stroke="#ff6a1a" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls={metric === "roas"} />
         {compare && showEstimatedRoas ? <Line type="monotone" dataKey="previous_estimated_blended_roas" name="Prev. est. blended ROAS" stroke="#f7f2e8" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls /> : null}
-        {compare ? <Line type="monotone" dataKey="previous_metric" name={metric === "roas" ? "Prev. platform ROAS" : `Prev. ${metric}`} stroke="#ff6a1a" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls={metric === "roas"} /> : null}
-        {showEstimatedRoas || compare ? <Legend /> : null}
+        {compare ? <Line type="monotone" dataKey="previous_metric" name={metric === "roas" ? "Prev. platform ROAS" : `Prev. ${metricName.toLowerCase()}`} stroke="#ff6a1a" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls={metric === "roas"} /> : null}
+        {showEstimatedRoas || compare ? <Legend content={<LineLegend />} /> : null}
       </LineChart>
     </ResponsiveContainer>
   );
+}
+
+function LineLegend({ payload }: { payload?: Array<{ value?: string; color?: string; dataKey?: string | number }> }) {
+  if (!payload?.length) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pt-2 text-sm text-white/70">
+      {payload.map((entry) => {
+        const dataKey = String(entry.dataKey ?? "");
+        const previous = dataKey.startsWith("previous_");
+        return (
+          <div key={`${dataKey}-${entry.value}`} className="inline-flex items-center gap-2">
+            <span className={cn("h-0 w-8 border-t-2", previous && "border-dashed")} style={{ borderColor: entry.color ?? "#ffffff" }} />
+            <span>{entry.value}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function metricLabel(metric: "spend" | "conversions" | "store_visits" | "cpa" | "roas") {
+  if (metric === "conversions") return "Online orders";
+  if (metric === "store_visits") return "Store visits";
+  if (metric === "cpa") return "CPA";
+  if (metric === "roas") return "Platform ROAS";
+  return "Spend";
 }
 
 function aggregateByDate(data: DailyPerformance[]) {

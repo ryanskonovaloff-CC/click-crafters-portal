@@ -814,18 +814,22 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
   const range = getDateRange(rangeKey, customStart, customEnd);
 
   if (!client) {
-    return { profile, client, range, totals: emptySeoTotals(), topQueries: [], topPages: [], technicalIssues: [], status: queryStatus(null, 0) };
+    return { profile, client, range, totals: emptySeoTotals(), previousTotals: emptySeoTotals(), topQueries: [], topPages: [], technicalIssues: [], status: queryStatus(null, 0) };
   }
 
-  const [daily, analytics, keywords, pages] = await Promise.all([
+  const [daily, previousDaily, analytics, previousAnalytics, keywords, pages] = await Promise.all([
     supabase.from("seo_daily_performance").select("date,organic_clicks,organic_impressions,organic_sessions,organic_conversions,outbound_clicks,outbound_click_rate,average_position,indexed_pages,technical_issues").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: true }),
+    supabase.from("seo_daily_performance").select("date,organic_clicks,organic_impressions,organic_sessions,organic_conversions,outbound_clicks,outbound_click_rate,average_position,indexed_pages,technical_issues").eq("client_id", client.id).gte("date", range.previousStart).lte("date", range.previousEnd).order("date", { ascending: true }),
     supabase.from("analytics_daily_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: true }),
+    supabase.from("analytics_daily_performance").select("*").eq("client_id", client.id).gte("date", range.previousStart).lte("date", range.previousEnd).order("date", { ascending: true }),
     supabase.from("seo_keyword_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10),
     supabase.from("seo_pages_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10)
   ]);
 
   const dailyRows = (daily.data ?? []) as Record<string, unknown>[];
+  const previousDailyRows = (previousDaily.data ?? []) as Record<string, unknown>[];
   const analyticsRows = organicAnalyticsRows((analytics.data ?? []) as Record<string, unknown>[]);
+  const previousAnalyticsRows = organicAnalyticsRows((previousAnalytics.data ?? []) as Record<string, unknown>[]);
   const topQueries = ((keywords.data ?? []) as Record<string, unknown>[]).map((row) => ({
     query: String(row.query ?? row.keyword ?? "Unknown query"),
     clicks: toNumber(row.organic_clicks ?? row.clicks),
@@ -856,9 +860,12 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
   const searchTotals = seoSearchTotalsFromRows(dailyRows);
   const analyticsTotals = analyticsTotalsFromRows(analyticsRows);
   const totals = reconcileSeoOutboundTotals(mergeSeoTotals(searchTotals, analyticsTotals), topPages);
+  const previousTotals = mergeSeoTotals(seoSearchTotalsFromRows(previousDailyRows), analyticsTotalsFromRows(previousAnalyticsRows));
   const statusError = [
     queryErrorMessage(daily.error),
+    queryErrorMessage(previousDaily.error),
     queryErrorMessage(analytics.error),
+    queryErrorMessage(previousAnalytics.error),
     queryErrorMessage(keywords.error),
     queryErrorMessage(pages.error)
   ].filter(Boolean).join("; ") || null;
@@ -869,6 +876,7 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     client,
     range,
     totals,
+    previousTotals,
     topQueries,
     topPages,
     technicalIssues: [],
