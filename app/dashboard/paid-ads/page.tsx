@@ -22,6 +22,8 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
   const hasStoreVisitData = daily.some((item) => item.store_visits !== null);
   const inStorePurchases = estimatedInStorePurchases(totals);
   const inStoreRevenue = inStorePurchases === null ? null : inStorePurchases * IN_STORE_AOV;
+  const estimatedTotalRevenue = inStoreRevenue === null ? null : totals.revenue + inStoreRevenue;
+  const estimatedBlendedRoas = estimatedTotalRevenue === null || totals.spend <= 0 ? null : estimatedTotalRevenue / totals.spend;
   const rows = channelRows(daily);
   const campaignRows = aggregateCampaignRows(campaigns);
   const topRoasRows = topCampaignsByRoas(campaignRows);
@@ -49,12 +51,13 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
         <StatCard label="Store visits" value={hasStoreVisitData && totals.store_visits !== null ? compact.format(totals.store_visits) : "Unavailable"} helper={trendHelper(percentChange(totals.store_visits, previousTotals.store_visits))} state={status.error ? "error" : hasStoreVisitData ? "ready" : "empty"} />
         <StatCard label="Est. in-store purchases" value={inStorePurchases === null ? "Unavailable" : compact.format(Math.round(inStorePurchases))} helper="Store visits minus online conversions" state={status.error ? "error" : inStorePurchases === null ? "empty" : "ready"} />
         <StatCard label="Est. in-store revenue" value={inStoreRevenue === null ? "Unavailable" : currency.format(inStoreRevenue)} helper={`At ${currencyCents.format(IN_STORE_AOV)} AOV`} state={status.error ? "error" : inStoreRevenue === null ? "empty" : "ready"} />
+        <StatCard label="Est. blended ROAS" value={estimatedBlendedRoas === null ? "Unavailable" : `${estimatedBlendedRoas.toFixed(2)}x`} helper="Online + est. in-store revenue" state={status.error ? "error" : estimatedBlendedRoas === null ? "empty" : "ready"} />
       </MetricGrid>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load paid ads data: {status.error}</Card> : null}
       {campaignStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load campaign data: {campaignStatus.error}</Card> : null}
       {lifetimeAdStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load lifetime ad data: {lifetimeAdStatus.error}</Card> : null}
-      {hasStoreVisitData && inStorePurchases !== null ? <InStoreEstimateCard storeVisits={totals.store_visits ?? 0} conversions={totals.conversions} inStorePurchases={inStorePurchases} inStoreRevenue={inStoreRevenue ?? 0} /> : null}
+      {hasStoreVisitData && inStorePurchases !== null ? <InStoreEstimateCard storeVisits={totals.store_visits ?? 0} conversions={totals.conversions} onlineRevenue={totals.revenue} spend={totals.spend} reportedRoas={ratios.roas} inStorePurchases={inStorePurchases} inStoreRevenue={inStoreRevenue ?? 0} estimatedBlendedRoas={estimatedBlendedRoas} /> : null}
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Conversions</AccentText> over time</h2>{hasData ? <TrendChart data={daily} metric="conversions" /> : <EmptyState />}</Card>
@@ -190,10 +193,20 @@ function AdPerformanceCard({ ad }: { ad: AdLifetimePerformance }) {
   );
 }
 
-function InStoreEstimateCard({ storeVisits, conversions, inStorePurchases, inStoreRevenue }: { storeVisits: number; conversions: number; inStorePurchases: number; inStoreRevenue: number }) {
+function InStoreEstimateCard({ storeVisits, conversions, onlineRevenue, spend, reportedRoas, inStorePurchases, inStoreRevenue, estimatedBlendedRoas }: {
+  storeVisits: number;
+  conversions: number;
+  onlineRevenue: number;
+  spend: number;
+  reportedRoas: number | null;
+  inStorePurchases: number;
+  inStoreRevenue: number;
+  estimatedBlendedRoas: number | null;
+}) {
   const total = Math.max(storeVisits, conversions, inStorePurchases, 1);
   const onlineShare = Math.min(100, Math.max(0, conversions / total * 100));
   const inStoreShare = Math.min(100, Math.max(0, inStorePurchases / total * 100));
+  const estimatedTotalRevenue = onlineRevenue + inStoreRevenue;
 
   return (
     <Card>
@@ -204,22 +217,36 @@ function InStoreEstimateCard({ storeVisits, conversions, inStorePurchases, inSto
             Estimate based on store visits from ads that did not become online orders: store visits minus conversions.
           </p>
         </div>
-        <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-3 text-left sm:text-right">
-          <p className="text-xs uppercase tracking-[0.14em] text-white/45">Estimated value</p>
-          <p className="mt-1 text-2xl font-semibold text-white">{currency.format(inStoreRevenue)}</p>
-          <p className="mt-1 text-xs text-white/45">At {currencyCents.format(IN_STORE_AOV)} AOV</p>
+        <div className="grid gap-3 sm:min-w-[22rem] sm:grid-cols-2">
+          <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-3 text-left sm:text-right">
+            <p className="text-xs uppercase tracking-[0.14em] text-white/45">Est. in-store value</p>
+            <p className="mt-1 text-2xl font-semibold text-white">{currency.format(inStoreRevenue)}</p>
+            <p className="mt-1 text-xs text-white/45">At {currencyCents.format(IN_STORE_AOV)} AOV</p>
+          </div>
+          <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-3 text-left sm:text-right">
+            <p className="text-xs uppercase tracking-[0.14em] text-white/45">Est. blended ROAS</p>
+            <p className="mt-1 text-2xl font-semibold text-white">{estimatedBlendedRoas === null ? "Unavailable" : `${estimatedBlendedRoas.toFixed(2)}x`}</p>
+            <p className="mt-1 text-xs text-white/45">Online + est. in-store</p>
+          </div>
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+      <div className="mt-5 grid gap-3 sm:grid-cols-4">
         <InStoreMetric label="Store visits from ads" value={compact.format(Math.round(storeVisits))} />
         <InStoreMetric label="Online conversions" value={compact.format(conversions)} />
         <InStoreMetric label="Est. in-store purchases" value={compact.format(Math.round(inStorePurchases))} accent />
+        <InStoreMetric label="Estimated total revenue" value={currency.format(estimatedTotalRevenue)} accent />
       </div>
 
       <div className="mt-5 space-y-3">
         <EstimateBar label="Online orders" value={conversions} share={onlineShare} />
         <EstimateBar label="Likely in-store purchases" value={inStorePurchases} share={inStoreShare} accent />
+      </div>
+
+      <div className="mt-5 grid gap-3 border-t border-white/10 pt-5 sm:grid-cols-3">
+        <InStoreMetric label="Reported online revenue" value={currency.format(onlineRevenue)} />
+        <InStoreMetric label="Ad spend" value={currency.format(spend)} />
+        <InStoreMetric label="Reported platform ROAS" value={reportedRoas === null ? "Unavailable" : `${reportedRoas.toFixed(2)}x`} />
       </div>
     </Card>
   );
