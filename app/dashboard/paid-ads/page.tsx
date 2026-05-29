@@ -49,8 +49,6 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
         <StatCard label="Store visits" value={hasStoreVisitData && totals.store_visits !== null ? compact.format(totals.store_visits) : "Unavailable"} helper={trendHelper(percentChange(totals.store_visits, previousTotals.store_visits))} state={status.error ? "error" : hasStoreVisitData ? "ready" : "empty"} />
         <StatCard label="Est. in-store purchases" value={inStorePurchases === null ? "Unavailable" : compact.format(Math.round(inStorePurchases))} helper="Store visits minus online conversions" state={status.error ? "error" : inStorePurchases === null ? "empty" : "ready"} />
         <StatCard label="Est. in-store revenue" value={inStoreRevenue === null ? "Unavailable" : currency.format(inStoreRevenue)} helper={`At ${currencyCents.format(IN_STORE_AOV)} AOV`} state={status.error ? "error" : inStoreRevenue === null ? "empty" : "ready"} />
-        <StatCard label="Clicks" value={hasData ? compact.format(totals.clicks) : "Unavailable"} state={tileState} />
-        <StatCard label="Impressions" value={hasData ? compact.format(totals.impressions) : "Unavailable"} state={tileState} />
       </MetricGrid>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load paid ads data: {status.error}</Card> : null}
