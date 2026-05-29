@@ -31,32 +31,15 @@ export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric:
   }, {});
 
   const showEstimatedRoas = metric === "roas" && Object.values(byDate).some((item) => item.has_store_visits);
-  let cumulativeSpend = 0;
-  let cumulativeTrackedSpend = 0;
-  let cumulativeRevenue = 0;
-  let cumulativeConversions = 0;
-  let cumulativeStoreVisits = 0;
-  let cumulativeHasStoreVisits = false;
-
   const chartData = Object.values(byDate).map((item) => {
-    cumulativeSpend += item.spend;
-    cumulativeTrackedSpend += item.tracked_spend;
-    cumulativeRevenue += item.revenue;
-    cumulativeConversions += item.conversions;
-    cumulativeStoreVisits += item.store_visits;
-    cumulativeHasStoreVisits ||= item.has_store_visits;
-
     const dailyEstimatedInStorePurchases = Math.max(item.store_visits - item.conversions, 0);
-    const cumulativeEstimatedInStorePurchases = Math.max(cumulativeStoreVisits - cumulativeConversions, 0);
-    const estimatedTotalRevenue = metric === "roas"
-      ? cumulativeRevenue + cumulativeEstimatedInStorePurchases * IN_STORE_AOV
-      : item.revenue + dailyEstimatedInStorePurchases * IN_STORE_AOV;
+    const estimatedTotalRevenue = item.revenue + dailyEstimatedInStorePurchases * IN_STORE_AOV;
 
     return {
       ...item,
       cpa: item.conversions ? item.spend / item.conversions : 0,
-      roas: metric === "roas" ? (cumulativeTrackedSpend ? cumulativeRevenue / cumulativeTrackedSpend : null) : (item.spend ? item.revenue / item.spend : 0),
-      estimated_blended_roas: cumulativeHasStoreVisits && cumulativeSpend ? estimatedTotalRevenue / cumulativeSpend : null
+      roas: metric === "roas" ? (item.tracked_spend ? item.revenue / item.tracked_spend : null) : (item.spend ? item.revenue / item.spend : 0),
+      estimated_blended_roas: item.has_store_visits && item.spend ? estimatedTotalRevenue / item.spend : null
     };
   });
 
