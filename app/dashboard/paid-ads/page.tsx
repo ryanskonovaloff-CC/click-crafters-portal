@@ -1,7 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { PlatformBreakdown, TrendChart } from "@/components/charts";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { AccentText, Badge, Card, ClientPageTitle, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
+import { AccentText, Badge, Card, ClientPageTitle, EmptyState, HoverNote, MetricGrid, StatCard, Table } from "@/components/ui";
 import { getPaidAdsDashboardData, metricRatios, percentChange } from "@/lib/data";
 import { clientLogoSrc } from "@/lib/client-branding";
 import { cn, compact, currency, currencyCents } from "@/lib/utils";
@@ -243,7 +243,9 @@ function InStoreEstimateCard({ storeVisits, conversions, onlineRevenue, inStoreP
         <div className="grid gap-3 sm:min-w-[22rem] sm:grid-cols-2">
           <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-3 text-left sm:text-right">
             <p className="text-xs uppercase tracking-[0.14em] text-white/45">Est. in-store revenue</p>
-            <p title={`At ${currencyCents.format(IN_STORE_AOV)} AOV`} className="mt-1 cursor-help text-2xl font-semibold text-white">{currency.format(inStoreRevenue)}</p>
+            <HoverNote note={`At ${currencyCents.format(IN_STORE_AOV)} AOV`} align="right">
+              <p className="mt-1 text-2xl font-semibold text-white">{currency.format(inStoreRevenue)}</p>
+            </HoverNote>
           </div>
           <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-3 text-left sm:text-right">
             <p className="text-xs uppercase tracking-[0.14em] text-white/45">Est. blended ROAS</p>
@@ -272,7 +274,9 @@ function InStoreMetric({ label, value, valueTitle, accent = false }: { label: st
   return (
     <div className="rounded-xl border border-white/10 bg-black/20 p-4">
       <p className="text-xs text-white/50">{label}</p>
-      <p title={valueTitle} className={cn("mt-2 text-2xl font-semibold", valueTitle && "cursor-help", accent ? "text-accent" : "text-white")}>{value}</p>
+      <HoverNote note={valueTitle}>
+        <p className={cn("mt-2 text-2xl font-semibold", accent ? "text-accent" : "text-white")}>{value}</p>
+      </HoverNote>
     </div>
   );
 }

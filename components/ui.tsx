@@ -39,9 +39,30 @@ export function StatCard({ label, value, helper, valueTitle, state = "ready" }: 
   return (
     <Card className="min-h-[92px] sm:min-h-28">
       <p className="text-xs text-white/60 sm:text-sm">{label}</p>
-      <p title={valueTitle} className={cn("mt-2 break-words text-xl font-semibold tracking-normal sm:mt-3 sm:text-2xl", valueTitle && "cursor-help", muted ? "text-white/45" : "text-white")}>{value}</p>
+      <HoverNote note={valueTitle}>
+        <p className={cn("mt-2 break-words text-xl font-semibold tracking-normal sm:mt-3 sm:text-2xl", muted ? "text-white/45" : "text-white")}>{value}</p>
+      </HoverNote>
       {helper ? <p className="mt-1.5 text-[11px] leading-4 text-white/50 sm:mt-2 sm:text-xs">{helper}</p> : null}
     </Card>
+  );
+}
+
+export function HoverNote({ note, children, align = "left" }: { note?: string; children: ReactNode; align?: "left" | "right" }) {
+  if (!note) return <>{children}</>;
+
+  return (
+    <span className="group relative inline-block max-w-full">
+      {children}
+      <span
+        className={cn(
+          "pointer-events-none absolute bottom-full z-40 mb-2 hidden max-w-[16rem] rounded-lg border border-white/12 bg-[#101010] px-3 py-2 text-left text-xs font-semibold leading-4 text-white shadow-[0_18px_60px_rgba(0,0,0,0.48)] group-hover:block",
+          "after:absolute after:top-full after:size-2 after:rotate-45 after:border-b after:border-r after:border-white/12 after:bg-[#101010]",
+          align === "right" ? "right-0 after:right-4" : "left-0 after:left-4"
+        )}
+      >
+        <span className="text-accent">{note}</span>
+      </span>
+    </span>
   );
 }
 
