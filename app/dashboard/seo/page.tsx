@@ -30,11 +30,11 @@ export default async function SeoPage({ searchParams }: PageProps) {
         <StatCard label={<><AccentText>Organic</AccentText> clicks</>} value={totals.organicClicks === null ? "Unavailable" : compact.format(totals.organicClicks)} state={tileState} />
         <StatCard label={<><AccentText>Organic</AccentText> impressions</>} value={totals.organicImpressions === null ? "Unavailable" : compact.format(totals.organicImpressions)} state={tileState} />
         <StatCard label={<><AccentText>Organic</AccentText> CTR</>} value={totals.ctr === null ? "Unavailable" : pct(totals.ctr * 100)} state={status.error ? "error" : totals.ctr === null ? "empty" : "ready"} />
-        <StatCard label="Average position" value={totals.averagePosition === null ? "Unavailable" : totals.averagePosition.toFixed(1)} state={status.error ? "error" : totals.averagePosition === null ? "empty" : "ready"} />
-        <StatCard label="Organic sessions" value={totals.organicSessions === null ? "Unavailable" : compact.format(totals.organicSessions)} state={tileState} />
-        <StatCard label="Outbound clicks" value={totals.outboundClicks === null ? "Unavailable" : compact.format(totals.outboundClicks)} state={status.error ? "error" : totals.outboundClicks === null ? "empty" : "ready"} />
-        <StatCard label="Indexed pages" value={totals.indexedPages === null ? "Unavailable" : compact.format(totals.indexedPages)} state={status.error ? "error" : totals.indexedPages === null ? "empty" : "ready"} />
-        <StatCard label="Outbound click rate" value={outboundClickRate === null ? "Unavailable" : pct(outboundClickRate * 100)} state={status.error ? "error" : outboundClickRate === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Average position</AccentText>} value={totals.averagePosition === null ? "Unavailable" : totals.averagePosition.toFixed(1)} state={status.error ? "error" : totals.averagePosition === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Organic sessions</AccentText>} value={totals.organicSessions === null ? "Unavailable" : compact.format(totals.organicSessions)} state={tileState} />
+        <StatCard label={<AccentText>Outbound clicks</AccentText>} value={totals.outboundClicks === null ? "Unavailable" : compact.format(totals.outboundClicks)} state={status.error ? "error" : totals.outboundClicks === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Indexed pages</AccentText>} value={totals.indexedPages === null ? "Unavailable" : compact.format(totals.indexedPages)} state={status.error ? "error" : totals.indexedPages === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Outbound click rate</AccentText>} value={outboundClickRate === null ? "Unavailable" : pct(outboundClickRate * 100)} state={status.error ? "error" : outboundClickRate === null ? "empty" : "ready"} />
       </MetricGrid>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load SEO data: {status.error}</Card> : null}

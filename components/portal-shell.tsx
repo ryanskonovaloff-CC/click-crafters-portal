@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { BarChart3, Building2, FileText, Gauge, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, Users } from "lucide-react";
+import { LogoutButton } from "@/components/logout-button";
 import type { Profile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -78,26 +79,32 @@ export function PortalShell({ profile, children }: { profile: Profile; children:
             <p className="mt-1 text-sm capitalize text-white/45">{profile.role.replace("_", " ")}</p>
           </div>
 
-          <nav className="mt-7 space-y-2 sm:mt-10 sm:space-y-3">
+          <nav className="mt-6 space-y-2 sm:mt-8">
             {nav.map((item) => (
               <NavItem key={item.href} item={item} active={isActive(pathname, item.href)} collapsed={collapsed} onClick={() => setMobileOpen(false)} />
             ))}
           </nav>
 
-          {profile.role === "admin" ? (
-            <div className="mt-8 border-t border-white/10 pt-7">
-              <p className={cn("mb-4 px-3 text-xs font-bold uppercase tracking-[0.22em] text-white/35", collapsed && "lg:hidden")}>Admin</p>
-              <div className="space-y-3">
-                {adminNav.map((item) => (
+          {profile.role === "admin" || profile.role === "client_admin" ? (
+            <div className="mt-6 border-t border-white/10 pt-5">
+              <p className={cn("mb-3 px-3 text-xs font-bold uppercase tracking-[0.22em] text-white/35", collapsed && "lg:hidden")}>{profile.role === "admin" ? "Admin" : "Team"}</p>
+              <div className="space-y-2">
+                {(profile.role === "admin" ? adminNav : adminNav.filter((item) => item.href === "/admin/users")).map((item) => (
                   <NavItem key={item.href} item={item} active={isActive(pathname, item.href)} collapsed={collapsed} onClick={() => setMobileOpen(false)} />
                 ))}
               </div>
             </div>
           ) : null}
 
-          <div className={cn("mt-auto rounded-2xl border border-white/10 bg-white/[0.035] p-4", collapsed && "lg:hidden")}>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/38">Click Crafters</p>
-            <p className="mt-3 text-sm leading-5 text-white/58">Clear reporting for marketing performance, revenue, and next steps.</p>
+          <div className="mt-auto space-y-3 pt-5">
+            <div className={cn("rounded-2xl border border-white/10 bg-white/[0.035] p-4", collapsed && "lg:hidden")}>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/38">Click Crafters</p>
+              <p className="mt-3 text-sm leading-5 text-white/58">Clear reporting for marketing performance, revenue, and next steps.</p>
+            </div>
+            <LogoutButton
+              collapsed={collapsed}
+              className={cn("w-full justify-center bg-black/25", collapsed && "lg:px-0")}
+            />
           </div>
         </div>
       </aside>
@@ -119,7 +126,7 @@ function NavItem({ item, active, collapsed, onClick }: { item: typeof nav[number
       onClick={onClick}
       title={collapsed ? item.label : undefined}
       className={cn(
-        "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-white/68 transition hover:bg-white/[0.06] hover:text-white sm:gap-4 sm:py-3",
+        "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-white/68 transition hover:bg-white/[0.06] hover:text-white sm:gap-4",
         active && "bg-accentSoft text-white ring-1 ring-accent/25",
         collapsed && "lg:justify-center lg:px-0"
       )}

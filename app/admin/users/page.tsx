@@ -56,7 +56,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
             <select name="role" defaultValue="client_viewer" className="h-11 w-full rounded-lg border border-border bg-black/25 px-3 text-sm text-white outline-none transition focus:border-accent/70">
               <option value="client_viewer">Client viewer</option>
               <option value="client_admin">Client admin</option>
-              <option value="admin">Portal admin</option>
+              {currentProfile.role === "admin" ? <option value="admin">Portal admin</option> : null}
             </select>
           </label>
           <div className="flex items-end">
@@ -74,6 +74,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
           assignments={assignmentsByUser[selectedProfile.id] ?? []}
           clients={clients}
           isSelf={currentProfile.id === selectedProfile.id}
+          canManagePortalAdmins={currentProfile.role === "admin"}
         />
       ) : null}
 
@@ -103,12 +104,13 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   );
 }
 
-function ManageUserCard({ profile, authUser, assignments, clients, isSelf }: {
+function ManageUserCard({ profile, authUser, assignments, clients, isSelf, canManagePortalAdmins }: {
   profile: any;
   authUser: any;
   assignments: Array<{ id: string; name: string }>;
   clients: any[];
   isSelf: boolean;
+  canManagePortalAdmins: boolean;
 }) {
   const selectedClientId = assignments[0]?.id ?? "";
 
@@ -139,7 +141,7 @@ function ManageUserCard({ profile, authUser, assignments, clients, isSelf }: {
             <select name="role" defaultValue={profile.role} className="h-11 w-full rounded-lg border border-border bg-black/25 px-3 text-sm text-white outline-none transition focus:border-accent/70">
               <option value="client_viewer">Client viewer</option>
               <option value="client_admin">Client admin</option>
-              <option value="admin">Portal admin</option>
+              {canManagePortalAdmins ? <option value="admin">Portal admin</option> : null}
             </select>
           </label>
           <div className="flex items-end">

@@ -1,7 +1,6 @@
 import { CalendarDays } from "lucide-react";
 import { PlatformBreakdown, TrendChart } from "@/components/charts";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { LogoutButton } from "@/components/logout-button";
 import { AccentText, Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
 import { getOverviewDashboardData, metricRatios, percentChange } from "@/lib/data";
 import { compact, currency } from "@/lib/utils";
@@ -56,10 +55,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-4xl">{client?.name ?? "No client assigned"}</h1>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">Updated at {formatUpdatedAt(latestDataUpdatedAt ?? client?.last_updated_at ?? null)}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <DateRangePicker range={range} />
-          <LogoutButton />
-        </div>
+        <DateRangePicker range={range} />
       </header>
 
       <MetricGrid>

@@ -826,9 +826,6 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
 
   const dailyRows = (daily.data ?? []) as Record<string, unknown>[];
   const analyticsRows = organicAnalyticsRows((analytics.data ?? []) as Record<string, unknown>[]);
-  const searchTotals = seoSearchTotalsFromRows(dailyRows);
-  const analyticsTotals = analyticsTotalsFromRows(analyticsRows);
-  const totals = mergeSeoTotals(searchTotals, analyticsTotals);
   const topQueries = ((keywords.data ?? []) as Record<string, unknown>[]).map((row) => ({
     query: String(row.query ?? row.keyword ?? "Unknown query"),
     clicks: toNumber(row.organic_clicks ?? row.clicks),
@@ -856,6 +853,9 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     outboundClickRate: firstNullableNumber(row.outbound_click_rate, row.organic_outbound_click_rate, row.outbound_rate, row.action_rate)
   }));
   const topPages = aggregateSeoPages(rawTopPages).slice(0, 10);
+  const searchTotals = seoSearchTotalsFromRows(dailyRows);
+  const analyticsTotals = analyticsTotalsFromRows(analyticsRows);
+  const totals = reconcileSeoOutboundTotals(mergeSeoTotals(searchTotals, analyticsTotals), topPages);
   const statusError = [
     queryErrorMessage(daily.error),
     queryErrorMessage(analytics.error),
@@ -873,6 +873,24 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     topPages,
     technicalIssues: [],
     status: queryStatus(statusError, count)
+  };
+}
+
+function reconcileSeoOutboundTotals(totals: SeoTotals, topPages: Array<{ clicks: number | null; outboundClicks: number | null }>): SeoTotals {
+  if (totals.organicClicks === null || totals.outboundClicks === null || totals.outboundClicks <= totals.organicClicks) {
+    return totals;
+  }
+
+  const pageOutboundClicks = topPages.reduce((sum, page) => sum + (page.outboundClicks ?? 0), 0);
+  const pageOrganicClicks = topPages.reduce((sum, page) => sum + (page.clicks ?? 0), 0);
+
+  if (pageOutboundClicks <= 0 || pageOrganicClicks <= 0 || pageOutboundClicks > pageOrganicClicks) {
+    return totals;
+  }
+
+  return {
+    ...totals,
+    outboundClicks: pageOutboundClicks
   };
 }
 
@@ -894,13 +912,15 @@ export async function getOverviewDashboardData(rangeKey?: string, customStart?: 
 }
 
 export async function getAdminData() {
-  const { supabase, profile } = await getSessionProfile();
-  if (profile.role !== "admin") {
+  const { supabase, profile, client } = await getActiveClient();
+  if (profile.role !== "admin" && profile.role !== "client_admin") {
     redirect("/dashboard");
   }
 
   const [clients, profiles, assignments] = await Promise.all([
-    supabase.from("clients").select("*").order("name"),
+    profile.role === "admin"
+      ? supabase.from("clients").select("*").order("name")
+      : supabase.from("clients").select("*").eq("id", client?.id ?? "").order("name"),
     supabase.from("profiles").select("id,email,full_name,role,created_at").order("created_at", { ascending: false }),
     supabase.from("client_users").select("user_id,client_id,clients(name)").order("created_at", { ascending: false })
   ]);
@@ -908,7 +928,14 @@ export async function getAdminData() {
     .from("profiles")
     .select("id,last_seen_at");
   const lastSeenById = new Map((lastSeenRows ?? []).map((row: any) => [row.id, row.last_seen_at]));
-  const profilesWithLastSeen = (profiles.data ?? []).map((row: any) => ({
+  const visibleAssignments = profile.role === "admin"
+    ? assignments.data ?? []
+    : (assignments.data ?? []).filter((assignment: any) => assignment.client_id === client?.id);
+  const visibleUserIds = new Set(visibleAssignments.map((assignment: any) => assignment.user_id));
+  const visibleProfiles = profile.role === "admin"
+    ? profiles.data ?? []
+    : (profiles.data ?? []).filter((row: any) => visibleUserIds.has(row.id) || row.id === profile.id);
+  const profilesWithLastSeen = visibleProfiles.map((row: any) => ({
     ...row,
     last_seen_at: lastSeenById.get(row.id) ?? null
   }));
@@ -926,7 +953,7 @@ export async function getAdminData() {
     profile,
     clients: clients.data ?? [],
     profiles: profilesWithLastSeen,
-    clientUsers: assignments.data ?? [],
-    authUsers
+    clientUsers: visibleAssignments,
+    authUsers: profile.role === "admin" ? authUsers : authUsers.filter((user) => visibleUserIds.has(user.id) || user.id === profile.id)
   };
 }

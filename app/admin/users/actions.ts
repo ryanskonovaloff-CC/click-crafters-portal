@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getSessionProfile } from "@/lib/data";
+import { getActiveClient, getSessionProfile } from "@/lib/data";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Role } from "@/lib/types";
 
@@ -16,6 +16,32 @@ async function requireAdmin() {
   }
 
   return profile;
+}
+
+async function requireUserManager() {
+  const { profile, client } = await getActiveClient();
+
+  if (profile.role !== "admin" && profile.role !== "client_admin") {
+    throw new Error("You do not have permission to manage users.");
+  }
+
+  if (profile.role === "client_admin" && !client) {
+    throw new Error("No client is assigned to this account.");
+  }
+
+  return { profile, client };
+}
+
+function scopedRoleAndClient(currentRole: Role, requestedRole: Role, requestedClientId: string, assignedClientId?: string) {
+  if (currentRole === "admin") {
+    return { role: requestedRole, clientId: requestedClientId };
+  }
+
+  if (requestedRole === "admin") {
+    throw new Error("Client admins cannot create Click Crafters admin users.");
+  }
+
+  return { role: (requestedRole === "client_admin" ? "client_admin" : "client_viewer") as Role, clientId: assignedClientId ?? requestedClientId };
 }
 
 async function findAuthUserByEmail(admin: ReturnType<typeof createAdminClient>, email: string) {
@@ -52,6 +78,25 @@ async function setClientAccess(admin: ReturnType<typeof createAdminClient>, user
   }
 }
 
+async function assertManagedClientUser(admin: ReturnType<typeof createAdminClient>, managerRole: Role, userId: string, clientId?: string) {
+  if (managerRole === "admin") return;
+
+  const { data: assignment, error } = await admin
+    .from("client_users")
+    .select("user_id")
+    .eq("user_id", userId)
+    .eq("client_id", clientId ?? "")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!assignment) {
+    throw new Error("You can only manage users assigned to your business.");
+  }
+}
+
 export async function saveUserAccess(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const fullName = String(formData.get("fullName") ?? "").trim();
@@ -62,15 +107,16 @@ export async function saveUserAccess(formData: FormData) {
     throw new Error("Enter a valid email address.");
   }
 
-  if (!allowedRoles.includes(role)) {
+  const { profile, client } = await requireUserManager();
+  const scoped = scopedRoleAndClient(profile.role, role, clientId, client?.id);
+
+  if (!allowedRoles.includes(scoped.role)) {
     throw new Error("Select a valid access level.");
   }
 
-  if (clientRoles.includes(role) && !clientId) {
+  if (clientRoles.includes(scoped.role) && !scoped.clientId) {
     throw new Error("Select a client for client access.");
   }
-
-  await requireAdmin();
 
   const admin = createAdminClient();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://portal.clickcrafters.click";
@@ -113,7 +159,7 @@ export async function saveUserAccess(formData: FormData) {
       id: userId,
       email,
       full_name: fullName || null,
-      role,
+      role: scoped.role,
       updated_at: new Date().toISOString()
     }, { onConflict: "id" });
 
@@ -121,7 +167,7 @@ export async function saveUserAccess(formData: FormData) {
     throw new Error(profileError.message);
   }
 
-  await setClientAccess(admin, userId, role, clientId);
+  await setClientAccess(admin, userId, scoped.role, scoped.clientId);
 
   revalidatePath("/admin/users");
 }
@@ -135,27 +181,29 @@ export async function updateUserAccess(formData: FormData) {
     throw new Error("Missing user ID.");
   }
 
-  if (!allowedRoles.includes(role)) {
+  const { profile: currentProfile, client } = await requireUserManager();
+  const scoped = scopedRoleAndClient(currentProfile.role, role, clientId, client?.id);
+
+  if (!allowedRoles.includes(scoped.role)) {
     throw new Error("Select a valid access level.");
   }
 
-  if (clientRoles.includes(role) && !clientId) {
+  if (clientRoles.includes(scoped.role) && !scoped.clientId) {
     throw new Error("Select a client for client access.");
   }
 
-  const currentProfile = await requireAdmin();
-
-  if (currentProfile.id === userId && role !== "admin") {
+  if (currentProfile.id === userId && currentProfile.role === "admin" && scoped.role !== "admin") {
     throw new Error("You cannot remove your own admin access.");
   }
 
   const admin = createAdminClient();
   const now = new Date().toISOString();
+  await assertManagedClientUser(admin, currentProfile.role, userId, client?.id);
 
   const { error: profileError } = await admin
     .from("profiles")
     .update({
-      role,
+      role: scoped.role,
       updated_at: now
     })
     .eq("id", userId);
@@ -164,7 +212,7 @@ export async function updateUserAccess(formData: FormData) {
     throw new Error(profileError.message);
   }
 
-  await setClientAccess(admin, userId, role, clientId);
+  await setClientAccess(admin, userId, scoped.role, scoped.clientId);
 
   revalidatePath("/admin/users");
 }
@@ -176,13 +224,14 @@ export async function removeUserAccess(formData: FormData) {
     throw new Error("Missing user ID.");
   }
 
-  const currentProfile = await requireAdmin();
+  const { profile: currentProfile, client } = await requireUserManager();
 
   if (currentProfile.id === userId) {
     throw new Error("You cannot remove your own account.");
   }
 
   const admin = createAdminClient();
+  await assertManagedClientUser(admin, currentProfile.role, userId, client?.id);
   const { error } = await admin.auth.admin.deleteUser(userId);
 
   if (error) {

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays } from "lucide-react";
 import { AccentText, Badge, Card, EmptyState, MetricGrid, StatCard } from "@/components/ui";
-import { publishMonthlyReport } from "../actions";
+import { publishMonthlyReport, unpublishMonthlyReport } from "../actions";
 import { getMonthlyReportData } from "@/lib/data";
 import { compact, currency, currencyCents, pct } from "@/lib/utils";
 import type { MonthlyReport } from "@/lib/types";
@@ -39,12 +39,17 @@ function ReportContent({ report, showStatus }: { report: MonthlyReport; showStat
             <Badge className="gap-1"><CalendarDays size={13} /> {formatMonth(report.report_month)}</Badge>
             {showStatus ? <StatusBadge status={report.status} /> : null}
           </div>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-4xl">Monthly <AccentText>Performance</AccentText> Report</h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-4xl">{report.title ?? <>Monthly <AccentText>Performance</AccentText> Report</>}</h1>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">
             {[report.client_name, periodLabel(report), report.published_at ? `Published ${formatDate(report.published_at)}` : null].filter(Boolean).join(" · ")}
           </p>
         </div>
-        {showStatus && report.status === "draft" ? <PublishReportButton reportId={report.id} /> : null}
+        {showStatus ? (
+          <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+            {report.status === "draft" ? <PublishReportButton reportId={report.id} /> : null}
+            {report.status === "published" ? <UnpublishReportButton reportId={report.id} /> : null}
+          </div>
+        ) : null}
       </header>
 
       <Card>
@@ -108,6 +113,20 @@ function PublishReportButton({ reportId }: { reportId: string }) {
         className="inline-flex w-full items-center justify-center rounded-lg border border-accent/50 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition hover:border-accent hover:bg-accent/20 sm:w-auto"
       >
         Publish Report
+      </button>
+    </form>
+  );
+}
+
+function UnpublishReportButton({ reportId }: { reportId: string }) {
+  return (
+    <form action={unpublishMonthlyReport} className="shrink-0">
+      <input type="hidden" name="reportId" value={reportId} />
+      <button
+        type="submit"
+        className="inline-flex w-full items-center justify-center rounded-lg border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white/65 transition hover:border-accent/50 hover:text-white sm:w-auto"
+      >
+        Unpublish
       </button>
     </form>
   );
