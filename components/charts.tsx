@@ -5,6 +5,8 @@ import { CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, Responsive
 import type { DailyPerformance } from "@/lib/types";
 import { currency } from "@/lib/utils";
 
+const IN_STORE_AOV = 24.87;
+
 function tooltipStyle() {
   return {
     background: "#101010",
@@ -16,20 +18,28 @@ function tooltipStyle() {
 
 export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric: "spend" | "conversions" | "store_visits" | "cpa" | "roas" }) {
   const height = useMobileChartHeight();
-  const byDate = data.reduce<Record<string, { date: string; spend: number; revenue: number; conversions: number; store_visits: number }>>((acc, item) => {
-    acc[item.date] ??= { date: item.date.slice(5), spend: 0, revenue: 0, conversions: 0, store_visits: 0 };
+  const byDate = data.reduce<Record<string, { date: string; spend: number; revenue: number; conversions: number; store_visits: number; has_store_visits: boolean }>>((acc, item) => {
+    acc[item.date] ??= { date: item.date.slice(5), spend: 0, revenue: 0, conversions: 0, store_visits: 0, has_store_visits: false };
     acc[item.date].spend += item.spend;
     acc[item.date].revenue += item.revenue;
     acc[item.date].conversions += item.conversions;
     acc[item.date].store_visits += item.store_visits ?? 0;
+    acc[item.date].has_store_visits ||= item.store_visits !== null;
     return acc;
   }, {});
 
-  const chartData = Object.values(byDate).map((item) => ({
-    ...item,
-    cpa: item.conversions ? item.spend / item.conversions : 0,
-    roas: item.spend ? item.revenue / item.spend : 0
-  }));
+  const showEstimatedRoas = metric === "roas" && Object.values(byDate).some((item) => item.has_store_visits);
+  const chartData = Object.values(byDate).map((item) => {
+    const estimatedInStorePurchases = Math.max(item.store_visits - item.conversions, 0);
+    const estimatedTotalRevenue = item.revenue + estimatedInStorePurchases * IN_STORE_AOV;
+
+    return {
+      ...item,
+      cpa: item.conversions ? item.spend / item.conversions : 0,
+      roas: item.spend ? item.revenue / item.spend : 0,
+      estimated_blended_roas: item.has_store_visits && item.spend ? estimatedTotalRevenue / item.spend : null
+    };
+  });
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -37,12 +47,16 @@ export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric:
         <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
         <XAxis dataKey="date" tickLine={false} axisLine={false} />
         <YAxis tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={tooltipStyle()} formatter={(value: number) => {
-          if (metric === "spend" || metric === "cpa") return currency.format(value);
-          if (metric === "roas") return `${value.toFixed(2)}x`;
-          return value.toFixed(0);
+        <Tooltip contentStyle={tooltipStyle()} formatter={(value, name) => {
+          const numericValue = Number(value);
+          if (value === null || Number.isNaN(numericValue)) return ["Unavailable", name];
+          if (metric === "spend" || metric === "cpa") return currency.format(numericValue);
+          if (metric === "roas") return [`${numericValue.toFixed(2)}x`, name === "estimated_blended_roas" ? "Est. blended ROAS" : "Platform ROAS"];
+          return numericValue.toFixed(0);
         }} />
-        <Line type="monotone" dataKey={metric} stroke="#ff6a1a" strokeWidth={2.5} dot={false} />
+        <Line type="monotone" dataKey={metric} name={metric === "roas" ? "Platform ROAS" : metric} stroke="#ff6a1a" strokeWidth={2.5} dot={false} />
+        {showEstimatedRoas ? <Line type="monotone" dataKey="estimated_blended_roas" name="Est. blended ROAS" stroke="#f7f2e8" strokeWidth={2.5} dot={false} strokeDasharray="6 5" connectNulls /> : null}
+        {showEstimatedRoas ? <Legend /> : null}
       </LineChart>
     </ResponsiveContainer>
   );
