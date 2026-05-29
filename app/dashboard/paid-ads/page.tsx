@@ -33,7 +33,9 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
   const tileState = status.error ? "error" : hasData ? "ready" : "empty";
   const hasStoreVisitData = daily.some((item) => item.store_visits !== null);
   const inStorePurchases = estimatedInStorePurchases(totals);
+  const previousInStorePurchases = estimatedInStorePurchases(previousTotals);
   const inStoreRevenue = inStorePurchases === null ? null : inStorePurchases * IN_STORE_AOV;
+  const previousInStoreRevenue = previousInStorePurchases === null ? null : previousInStorePurchases * IN_STORE_AOV;
   const estimatedTotalRevenue = inStoreRevenue === null ? null : totals.revenue + inStoreRevenue;
   const estimatedBlendedRoas = estimatedTotalRevenue === null || totals.spend <= 0 ? null : estimatedTotalRevenue / totals.spend;
   const rows = channelRows(daily);
@@ -61,8 +63,8 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
         <StatCard label={<AccentText>ROAS</AccentText>} value={ratios.roas === null ? "Unavailable" : `${ratios.roas.toFixed(2)}x`} helper={trendHelper(percentChange(ratios.roas, previousRatios.roas))} state={status.error ? "error" : ratios.roas === null ? "empty" : "ready"} />
         <StatCard label={<AccentText>CPA</AccentText>} value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} state={status.error ? "error" : ratios.cpa === null ? "empty" : "ready"} />
         <StatCard label={<AccentText>Store visits</AccentText>} value={hasStoreVisitData && totals.store_visits !== null ? compact.format(totals.store_visits) : "Unavailable"} helper={trendHelper(percentChange(totals.store_visits, previousTotals.store_visits))} state={status.error ? "error" : hasStoreVisitData ? "ready" : "empty"} />
-        <StatCard label={<AccentText>Est. in-store purchases</AccentText>} value={inStorePurchases === null ? "Unavailable" : compact.format(Math.round(inStorePurchases))} helper="Store visits minus online conversions" state={status.error ? "error" : inStorePurchases === null ? "empty" : "ready"} />
-        <StatCard label={<AccentText>Est. in-store revenue</AccentText>} value={inStoreRevenue === null ? "Unavailable" : currency.format(inStoreRevenue)} helper={`At ${currencyCents.format(IN_STORE_AOV)} AOV`} state={status.error ? "error" : inStoreRevenue === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Est. in-store purchases</AccentText>} value={inStorePurchases === null ? "Unavailable" : compact.format(Math.round(inStorePurchases))} helper={trendHelper(percentChange(inStorePurchases, previousInStorePurchases))} valueTitle="Store visits minus online conversions" state={status.error ? "error" : inStorePurchases === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Est. in-store revenue</AccentText>} value={inStoreRevenue === null ? "Unavailable" : currency.format(inStoreRevenue)} helper={trendHelper(percentChange(inStoreRevenue, previousInStoreRevenue))} valueTitle={`At ${currencyCents.format(IN_STORE_AOV)} AOV`} state={status.error ? "error" : inStoreRevenue === null ? "empty" : "ready"} />
       </MetricGrid>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load paid ads data: {status.error}</Card> : null}
@@ -238,9 +240,8 @@ function InStoreEstimateCard({ storeVisits, conversions, onlineRevenue, inStoreP
         </div>
         <div className="grid gap-3 sm:min-w-[22rem] sm:grid-cols-2">
           <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-3 text-left sm:text-right">
-            <p className="text-xs uppercase tracking-[0.14em] text-white/45">Est. in-store value</p>
-            <p className="mt-1 text-2xl font-semibold text-white">{currency.format(inStoreRevenue)}</p>
-            <p className="mt-1 text-xs text-white/45">At {currencyCents.format(IN_STORE_AOV)} AOV</p>
+            <p className="text-xs uppercase tracking-[0.14em] text-white/45">Est. in-store revenue</p>
+            <p title={`At ${currencyCents.format(IN_STORE_AOV)} AOV`} className="mt-1 cursor-help text-2xl font-semibold text-white">{currency.format(inStoreRevenue)}</p>
           </div>
           <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-3 text-left sm:text-right">
             <p className="text-xs uppercase tracking-[0.14em] text-white/45">Est. blended ROAS</p>
@@ -253,7 +254,7 @@ function InStoreEstimateCard({ storeVisits, conversions, onlineRevenue, inStoreP
       <div className="mt-5 grid gap-3 sm:grid-cols-4">
         <InStoreMetric label="Store visits from ads" value={compact.format(Math.round(storeVisits))} />
         <InStoreMetric label="Online orders" value={compact.format(conversions)} />
-        <InStoreMetric label="Est. in-store purchases" value={compact.format(Math.round(inStorePurchases))} accent />
+        <InStoreMetric label="Est. in-store purchases" value={compact.format(Math.round(inStorePurchases))} valueTitle="Store visits minus online conversions" accent />
         <InStoreMetric label="Estimated total revenue" value={currency.format(estimatedTotalRevenue)} accent />
       </div>
 
@@ -265,11 +266,11 @@ function InStoreEstimateCard({ storeVisits, conversions, onlineRevenue, inStoreP
   );
 }
 
-function InStoreMetric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+function InStoreMetric({ label, value, valueTitle, accent = false }: { label: string; value: string; valueTitle?: string; accent?: boolean }) {
   return (
     <div className="rounded-xl border border-white/10 bg-black/20 p-4">
       <p className="text-xs text-white/50">{label}</p>
-      <p className={cn("mt-2 text-2xl font-semibold", accent ? "text-accent" : "text-white")}>{value}</p>
+      <p title={valueTitle} className={cn("mt-2 text-2xl font-semibold", valueTitle && "cursor-help", accent ? "text-accent" : "text-white")}>{value}</p>
     </div>
   );
 }

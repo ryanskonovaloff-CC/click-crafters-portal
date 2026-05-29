@@ -21,12 +21,12 @@ export function AccentText({ children }: { children: ReactNode }) {
   return <span className="text-accent">{children}</span>;
 }
 
-export function StatCard({ label, value, helper, state = "ready" }: { label: ReactNode; value: string; helper?: string; state?: "ready" | "empty" | "error" | "loading" }) {
+export function StatCard({ label, value, helper, valueTitle, state = "ready" }: { label: ReactNode; value: string; helper?: string; valueTitle?: string; state?: "ready" | "empty" | "error" | "loading" }) {
   const muted = state !== "ready";
   return (
     <Card className="min-h-[92px] sm:min-h-28">
       <p className="text-xs text-white/60 sm:text-sm">{label}</p>
-      <p className={cn("mt-2 break-words text-xl font-semibold tracking-normal sm:mt-3 sm:text-2xl", muted ? "text-white/45" : "text-white")}>{value}</p>
+      <p title={valueTitle} className={cn("mt-2 break-words text-xl font-semibold tracking-normal sm:mt-3 sm:text-2xl", valueTitle && "cursor-help", muted ? "text-white/45" : "text-white")}>{value}</p>
       {helper ? <p className="mt-1.5 text-[11px] leading-4 text-white/50 sm:mt-2 sm:text-xs">{helper}</p> : null}
     </Card>
   );
