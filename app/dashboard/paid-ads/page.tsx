@@ -56,7 +56,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load paid ads data: {status.error}</Card> : null}
       {campaignStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load campaign data: {campaignStatus.error}</Card> : null}
       {lifetimeAdStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load lifetime ad data: {lifetimeAdStatus.error}</Card> : null}
-      {hasStoreVisitData && inStorePurchases !== null ? <InStoreEstimateCard storeVisits={totals.store_visits ?? 0} conversions={totals.conversions} onlineRevenue={totals.revenue} spend={totals.spend} reportedRoas={ratios.roas} inStorePurchases={inStorePurchases} inStoreRevenue={inStoreRevenue ?? 0} estimatedBlendedRoas={estimatedBlendedRoas} /> : null}
+      {hasStoreVisitData && inStorePurchases !== null ? <InStoreEstimateCard storeVisits={totals.store_visits ?? 0} conversions={totals.conversions} onlineRevenue={totals.revenue} inStorePurchases={inStorePurchases} inStoreRevenue={inStoreRevenue ?? 0} estimatedBlendedRoas={estimatedBlendedRoas} /> : null}
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Conversions</AccentText> over time</h2>{hasData ? <TrendChart data={daily} metric="conversions" /> : <EmptyState />}</Card>
@@ -192,12 +192,10 @@ function AdPerformanceCard({ ad }: { ad: AdLifetimePerformance }) {
   );
 }
 
-function InStoreEstimateCard({ storeVisits, conversions, onlineRevenue, spend, reportedRoas, inStorePurchases, inStoreRevenue, estimatedBlendedRoas }: {
+function InStoreEstimateCard({ storeVisits, conversions, onlineRevenue, inStorePurchases, inStoreRevenue, estimatedBlendedRoas }: {
   storeVisits: number;
   conversions: number;
   onlineRevenue: number;
-  spend: number;
-  reportedRoas: number | null;
   inStorePurchases: number;
   inStoreRevenue: number;
   estimatedBlendedRoas: number | null;
@@ -240,12 +238,6 @@ function InStoreEstimateCard({ storeVisits, conversions, onlineRevenue, spend, r
       <div className="mt-5 space-y-3">
         <EstimateBar label="Online orders" value={conversions} share={onlineShare} />
         <EstimateBar label="Likely in-store purchases" value={inStorePurchases} share={inStoreShare} accent />
-      </div>
-
-      <div className="mt-5 grid gap-3 border-t border-white/10 pt-5 sm:grid-cols-3">
-        <InStoreMetric label="Reported online revenue" value={currency.format(onlineRevenue)} />
-        <InStoreMetric label="Ad spend" value={currency.format(spend)} />
-        <InStoreMetric label="Reported platform ROAS" value={reportedRoas === null ? "Unavailable" : `${reportedRoas.toFixed(2)}x`} />
       </div>
     </Card>
   );
