@@ -80,8 +80,8 @@ export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric:
           return numericValue.toFixed(0);
         }}
         />
-        <Line type="monotone" dataKey={metric} name={metric === "roas" ? "Platform ROAS" : metric} stroke="#ff6a1a" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls={metric === "roas"} />
         {showEstimatedRoas ? <Line type="monotone" dataKey="estimated_blended_roas" name="Est. blended ROAS" stroke="#f7f2e8" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} strokeDasharray="6 5" connectNulls /> : null}
+        <Line type="monotone" dataKey={metric} name={metric === "roas" ? "Platform ROAS" : metric} stroke="#ff6a1a" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls={metric === "roas"} />
         {showEstimatedRoas ? <Legend /> : null}
       </LineChart>
     </ResponsiveContainer>
