@@ -7,6 +7,8 @@ import { getOverviewDashboardData, metricRatios, percentChange } from "@/lib/dat
 import { compact, currency } from "@/lib/utils";
 import type { DailyPerformance } from "@/lib/types";
 
+const IN_STORE_AOV = 24.87;
+
 type PageProps = {
   searchParams?: Promise<{ range?: string; start?: string; end?: string }>;
 };
@@ -19,6 +21,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const previousPaidRatios = metricRatios(paid.previousTotals);
   const hasPaidData = !paid.status.error && !paid.status.isEmpty;
   const hasStoreVisitData = paid.daily.some((item) => item.store_visits !== null);
+  const inStorePurchases = estimatedInStorePurchases(performance);
+  const inStoreRevenue = inStorePurchases === null ? null : inStorePurchases * IN_STORE_AOV;
+  const estimatedTotalRevenue = inStoreRevenue === null ? null : performance.revenue + inStoreRevenue;
+  const estimatedBlendedRoas = estimatedTotalRevenue === null || performance.spend <= 0 ? null : estimatedTotalRevenue / performance.spend;
   const hasOrganicVisibilityData = !seo.status.error && [
     seo.totals.organicClicks,
     seo.totals.organicImpressions,
@@ -51,8 +57,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <StatCard label={<AccentText>ROAS</AccentText>} value={paidRatios.roas === null ? "Unavailable" : `${paidRatios.roas.toFixed(2)}x`} helper={trendHelper("vs prior period", percentChange(paidRatios.roas, previousPaidRatios.roas))} state={paid.status.error ? "error" : paidRatios.roas === null ? "empty" : "ready"} />
         <StatCard label={<AccentText>CPA</AccentText>} value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} state={tileState} />
         <StatCard label="Store visits" value={hasStoreVisitData && performance.store_visits !== null ? compact.format(performance.store_visits) : "Unavailable"} state={paid.status.error ? "error" : hasStoreVisitData ? "ready" : "empty"} />
-        <StatCard label="Clicks" value={hasPaidData ? compact.format(performance.clicks) : "Unavailable"} state={tileState} />
-        <StatCard label="Impressions" value={hasPaidData ? compact.format(performance.impressions) : "Unavailable"} state={tileState} />
+        <StatCard label="Estimated total revenue" value={estimatedTotalRevenue === null ? "Unavailable" : currency.format(estimatedTotalRevenue)} state={paid.status.error ? "error" : estimatedTotalRevenue === null ? "empty" : "ready"} />
+        <StatCard label="Estimated blended ROAS" value={estimatedBlendedRoas === null ? "Unavailable" : `${estimatedBlendedRoas.toFixed(2)}x`} state={paid.status.error ? "error" : estimatedBlendedRoas === null ? "empty" : "ready"} />
       </MetricGrid>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
@@ -100,6 +106,11 @@ function trendHelper(label: string, change: number | null) {
   if (change === null) return undefined;
   const sign = change > 0 ? "+" : "";
   return `${sign}${change.toFixed(1)}% ${label}`;
+}
+
+function estimatedInStorePurchases(totals: { store_visits: number | null; conversions: number }) {
+  if (totals.store_visits === null) return null;
+  return Math.max(totals.store_visits - totals.conversions, 0);
 }
 
 function channelRows(rows: DailyPerformance[]) {
