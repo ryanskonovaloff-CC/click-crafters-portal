@@ -94,7 +94,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaign</AccentText> comparison</h2>
-          <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "Store visits", "Est. in-store", "ROAS", "Est. blended ROAS"]} rows={campaignRows.map((item) => [
+          <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "Est. in-store orders", "ROAS", "Est. blended ROAS"]} rows={campaignRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             item.platform,
             item.channel ?? "Unspecified",
@@ -102,7 +102,6 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
             currency.format(item.onlineRevenue),
             item.estimatedTotalRevenue === null ? "Unavailable" : currency.format(item.estimatedTotalRevenue),
             compact.format(item.onlineOrders),
-            item.store_visits === null ? "Unavailable" : compact.format(item.store_visits),
             item.estimatedInStorePurchases === null ? "Unavailable" : compact.format(Math.round(item.estimatedInStorePurchases)),
             item.platformRoas === null ? "Unavailable" : `${item.platformRoas.toFixed(2)}x`,
             item.estimatedBlendedRoas === null ? "Unavailable" : `${item.estimatedBlendedRoas.toFixed(2)}x`
@@ -110,38 +109,38 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
         </Card>
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top campaigns by <AccentText>ROAS</AccentText></h2>
-          <Table headers={["Campaign", "Spend", "Revenue", "Est. total rev.", "Online orders", "Store visits", "ROAS", "Est. blended ROAS"]} rows={topRoasRows.map((item) => [
+          <Table headers={["Campaign", "Spend", "Revenue", "Est. total rev.", "Online orders", "Est. in-store orders", "ROAS", "Est. blended ROAS"]} rows={topRoasRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             currency.format(item.spend),
             currency.format(item.onlineRevenue),
             item.estimatedTotalRevenue === null ? "Unavailable" : currency.format(item.estimatedTotalRevenue),
             compact.format(item.onlineOrders),
-            item.store_visits === null ? "Unavailable" : compact.format(item.store_visits),
+            item.estimatedInStorePurchases === null ? "Unavailable" : compact.format(Math.round(item.estimatedInStorePurchases)),
             item.platformRoas === null ? "Unavailable" : `${item.platformRoas.toFixed(2)}x`,
             item.estimatedBlendedRoas === null ? "Unavailable" : `${item.estimatedBlendedRoas.toFixed(2)}x`
           ])} />
         </Card>
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top campaigns by <AccentText>online orders</AccentText></h2>
-          <Table headers={["Campaign", "Spend", "Revenue", "Est. total rev.", "Online orders", "Store visits", "ROAS", "Est. blended ROAS"]} rows={topConversionRows.map((item) => [
+          <Table headers={["Campaign", "Spend", "Revenue", "Est. total rev.", "Online orders", "Est. in-store orders", "ROAS", "Est. blended ROAS"]} rows={topConversionRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             currency.format(item.spend),
             currency.format(item.onlineRevenue),
             item.estimatedTotalRevenue === null ? "Unavailable" : currency.format(item.estimatedTotalRevenue),
             compact.format(item.onlineOrders),
-            item.store_visits === null ? "Unavailable" : compact.format(item.store_visits),
+            item.estimatedInStorePurchases === null ? "Unavailable" : compact.format(Math.round(item.estimatedInStorePurchases)),
             item.platformRoas === null ? "Unavailable" : `${item.platformRoas.toFixed(2)}x`,
             item.estimatedBlendedRoas === null ? "Unavailable" : `${item.estimatedBlendedRoas.toFixed(2)}x`
           ])} />
         </Card>
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaigns</AccentText> to watch</h2>
-          <Table headers={["Campaign", "Spend", "Revenue", "Online orders", "Store visits", "ROAS", "Est. blended ROAS", "Wasted spend"]} rows={campaignWatchRows.map((item) => [
+          <Table headers={["Campaign", "Spend", "Revenue", "Online orders", "Est. in-store orders", "ROAS", "Est. blended ROAS", "Wasted spend"]} rows={campaignWatchRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             currency.format(item.spend),
             currency.format(item.onlineRevenue),
             compact.format(item.onlineOrders),
-            item.store_visits === null ? "Unavailable" : compact.format(item.store_visits),
+            item.estimatedInStorePurchases === null ? "Unavailable" : compact.format(Math.round(item.estimatedInStorePurchases)),
             item.platformRoas === null ? "Unavailable" : `${item.platformRoas.toFixed(2)}x`,
             item.estimatedBlendedRoas === null ? "Unavailable" : `${item.estimatedBlendedRoas.toFixed(2)}x`,
             currency.format(effectiveWastedSpend(item))
@@ -394,8 +393,8 @@ function campaignKey(row: CampaignDailyPerformance) {
 
 function topCampaignsByRoas(rows: Array<EstimatedPerformanceRow<CampaignDailyPerformance>>) {
   return [...rows]
-    .filter((item) => item.estimatedBlendedRoas !== null || item.platformRoas !== null)
-    .sort((a, b) => (b.estimatedBlendedRoas ?? b.platformRoas ?? 0) - (a.estimatedBlendedRoas ?? a.platformRoas ?? 0) || (b.estimatedTotalRevenue ?? b.onlineRevenue) - (a.estimatedTotalRevenue ?? a.onlineRevenue))
+    .filter((item) => item.platformRoas !== null)
+    .sort((a, b) => (b.platformRoas ?? 0) - (a.platformRoas ?? 0) || b.onlineRevenue - a.onlineRevenue)
     .slice(0, 8);
 }
 
@@ -464,7 +463,6 @@ function channelRows(rows: DailyPerformance[]) {
 function withEstimatedRevenue<T extends DailyPerformance>(row: T, tracked?: { onlineOrders: number; onlineRevenue: number; trackedSpend: number }): EstimatedPerformanceRow<T> {
   const onlineOrders = tracked?.onlineOrders ?? row.conversions;
   const onlineRevenue = tracked?.onlineRevenue ?? row.revenue;
-  const platformSpend = tracked?.trackedSpend ?? row.spend;
   const estimatedInStorePurchasesValue = estimatedInStorePurchases({ store_visits: row.store_visits, conversions: onlineOrders });
   const estimatedInStoreRevenue = estimatedInStorePurchasesValue === null ? null : estimatedInStorePurchasesValue * IN_STORE_AOV;
   const estimatedTotalRevenue = estimatedInStoreRevenue === null ? null : onlineRevenue + estimatedInStoreRevenue;
@@ -476,7 +474,7 @@ function withEstimatedRevenue<T extends DailyPerformance>(row: T, tracked?: { on
     estimatedInStorePurchases: estimatedInStorePurchasesValue,
     estimatedTotalRevenue,
     estimatedBlendedRoas,
-    platformRoas: platformSpend > 0 ? onlineRevenue / platformSpend : null,
-    platformCpa: onlineOrders > 0 ? platformSpend / onlineOrders : null
+    platformRoas: row.spend > 0 ? onlineRevenue / row.spend : null,
+    platformCpa: onlineOrders > 0 ? row.spend / onlineOrders : null
   };
 }

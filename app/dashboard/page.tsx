@@ -109,7 +109,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         {paid.campaignStatus.error ? (
           <div className="rounded-lg border border-red-400/30 bg-red-950/20 px-4 py-3 text-sm text-red-100/80">Unable to load campaign data: {paid.campaignStatus.error}</div>
         ) : campaignRows.length > 0 ? (
-          <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "Store visits", "Est. in-store", "ROAS", "Est. blended ROAS"]} rows={campaignRows.slice(0, 8).map((item) => [
+          <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "Est. in-store orders", "ROAS", "Est. blended ROAS"]} rows={campaignRows.slice(0, 8).map((item) => [
             item.campaign_name ?? item.campaign_id,
             item.platform,
             item.channel ?? "Unspecified",
@@ -117,7 +117,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             currency.format(item.onlineRevenue),
             item.estimatedTotalRevenue === null ? "Unavailable" : currency.format(item.estimatedTotalRevenue),
             compact.format(item.onlineOrders),
-            item.store_visits === null ? "Unavailable" : compact.format(item.store_visits),
             item.estimatedInStorePurchases === null ? "Unavailable" : compact.format(Math.round(item.estimatedInStorePurchases)),
             item.platformRoas === null ? "Unavailable" : `${item.platformRoas.toFixed(2)}x`,
             item.estimatedBlendedRoas === null ? "Unavailable" : `${item.estimatedBlendedRoas.toFixed(2)}x`
@@ -211,7 +210,6 @@ function aggregateCampaignRows(rows: CampaignDailyPerformance[]) {
 function withEstimatedRevenue(row: DailyPerformance, tracked?: { onlineOrders: number; onlineRevenue: number; trackedSpend: number }) {
   const onlineOrders = tracked?.onlineOrders ?? row.conversions;
   const onlineRevenue = tracked?.onlineRevenue ?? row.revenue;
-  const platformSpend = tracked?.trackedSpend ?? row.spend;
   const estimatedPurchases = estimatedInStorePurchases({ store_visits: row.store_visits, conversions: onlineOrders });
   const estimatedInStoreRevenue = estimatedPurchases === null ? null : estimatedPurchases * IN_STORE_AOV;
   const estimatedTotalRevenue = estimatedInStoreRevenue === null ? null : onlineRevenue + estimatedInStoreRevenue;
@@ -220,7 +218,7 @@ function withEstimatedRevenue(row: DailyPerformance, tracked?: { onlineOrders: n
     ...row,
     conversions: onlineOrders,
     revenue: onlineRevenue,
-    roas: platformSpend > 0 ? onlineRevenue / platformSpend : null,
+    roas: row.spend > 0 ? onlineRevenue / row.spend : null,
     estimatedTotalRevenue,
     estimatedBlendedRoas
   };
@@ -229,7 +227,6 @@ function withEstimatedRevenue(row: DailyPerformance, tracked?: { onlineOrders: n
 function withEstimatedCampaignRevenue(row: CampaignDailyPerformance, tracked?: { onlineOrders: number; onlineRevenue: number; trackedSpend: number }): EstimatedCampaignRow {
   const onlineOrders = tracked?.onlineOrders ?? row.conversions;
   const onlineRevenue = tracked?.onlineRevenue ?? row.revenue;
-  const platformSpend = tracked?.trackedSpend ?? row.spend;
   const estimatedPurchases = estimatedInStorePurchases({ store_visits: row.store_visits, conversions: onlineOrders });
   const estimatedInStoreRevenue = estimatedPurchases === null ? null : estimatedPurchases * IN_STORE_AOV;
   const estimatedTotalRevenue = estimatedInStoreRevenue === null ? null : onlineRevenue + estimatedInStoreRevenue;
@@ -241,6 +238,6 @@ function withEstimatedCampaignRevenue(row: CampaignDailyPerformance, tracked?: {
     estimatedInStorePurchases: estimatedPurchases,
     estimatedTotalRevenue,
     estimatedBlendedRoas,
-    platformRoas: platformSpend > 0 ? onlineRevenue / platformSpend : null
+    platformRoas: row.spend > 0 ? onlineRevenue / row.spend : null
   };
 }
