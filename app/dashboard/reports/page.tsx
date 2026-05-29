@@ -1,20 +1,22 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays } from "lucide-react";
-import { AccentText, Badge, Card, EmptyState } from "@/components/ui";
+import { AccentText, Badge, Card, ClientPageTitle, EmptyState } from "@/components/ui";
 import { publishMonthlyReport, unpublishMonthlyReport } from "./actions";
 import { getReportsData } from "@/lib/data";
+import { clientLogoSrc } from "@/lib/client-branding";
 import type { MonthlyReport } from "@/lib/types";
 
 export default async function ReportsPage() {
-  const { profile, reports, status } = await getReportsData();
+  const { profile, client, reports, status } = await getReportsData();
   const isAdmin = profile.role === "admin";
+  const logoSrc = clientLogoSrc(client?.name);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 sm:space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <Badge>Monthly reporting</Badge>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl"><AccentText>Reports</AccentText></h1>
+          <ClientPageTitle logoSrc={logoSrc} logoAlt={client?.name ?? undefined}><AccentText>Reports</AccentText></ClientPageTitle>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">Completed monthly reports</p>
         </div>
       </header>

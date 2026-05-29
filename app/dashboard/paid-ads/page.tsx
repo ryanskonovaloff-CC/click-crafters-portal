@@ -1,8 +1,9 @@
 import { ExternalLink } from "lucide-react";
 import { PlatformBreakdown, TrendChart } from "@/components/charts";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { AccentText, Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
+import { AccentText, Badge, Card, ClientPageTitle, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
 import { getPaidAdsDashboardData, metricRatios, percentChange } from "@/lib/data";
+import { clientLogoSrc } from "@/lib/client-branding";
 import { cn, compact, currency, currencyCents } from "@/lib/utils";
 import type { AdLifetimePerformance, CampaignDailyPerformance, DailyPerformance } from "@/lib/types";
 
@@ -26,7 +27,7 @@ type PageProps = {
 export default async function PaidAdsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const compare = params?.compare === "previous";
-  const { range, daily, previousDaily, campaigns, lifetimeAds, totals, previousTotals, status, campaignStatus, lifetimeAdStatus } = await getPaidAdsDashboardData(params?.range, params?.start, params?.end);
+  const { client, range, daily, previousDaily, campaigns, lifetimeAds, totals, previousTotals, status, campaignStatus, lifetimeAdStatus } = await getPaidAdsDashboardData(params?.range, params?.start, params?.end);
   const ratios = metricRatios(totals);
   const previousRatios = metricRatios(previousTotals);
   const hasData = !status.error && !status.isEmpty;
@@ -44,13 +45,14 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
   const topConversionRows = topCampaignsByConversions(campaignRows);
   const campaignWatchRows = campaignsToWatch(campaignRows, [...topRoasRows, ...topConversionRows]);
   const adRows = topLifetimeAdRows(lifetimeAds);
+  const logoSrc = clientLogoSrc(client?.name);
 
   return (
     <div className="mx-auto min-w-0 max-w-7xl space-y-4 sm:space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <Badge>Paid media</Badge>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl">Paid Ads <AccentText>Performance</AccentText></h1>
+          <ClientPageTitle logoSrc={logoSrc} logoAlt={client?.name ?? undefined}>Paid Ads <AccentText>Performance</AccentText></ClientPageTitle>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">{range.label}</p>
         </div>
         <DateRangePicker range={range} />

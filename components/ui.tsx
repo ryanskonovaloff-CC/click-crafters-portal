@@ -21,6 +21,19 @@ export function AccentText({ children }: { children: ReactNode }) {
   return <span className="text-accent">{children}</span>;
 }
 
+export function ClientPageTitle({ logoSrc, logoAlt, children, className }: { logoSrc?: string | null; logoAlt?: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("mt-2 flex min-w-0 items-center gap-3 sm:mt-3 sm:gap-4", className)}>
+      {logoSrc ? (
+        <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full border border-white/10 bg-black/35 p-1.5 shadow-[0_0_35px_rgba(255,255,255,0.06)] sm:size-14">
+          <img src={logoSrc} alt={logoAlt ?? ""} className="h-full w-full object-contain" />
+        </span>
+      ) : null}
+      <h1 className="min-w-0 text-2xl font-semibold tracking-normal sm:text-3xl">{children}</h1>
+    </div>
+  );
+}
+
 export function StatCard({ label, value, helper, valueTitle, state = "ready" }: { label: ReactNode; value: string; helper?: string; valueTitle?: string; state?: "ready" | "empty" | "error" | "loading" }) {
   const muted = state !== "ready";
   return (

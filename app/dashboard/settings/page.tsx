@@ -1,13 +1,15 @@
-import { AccentText, Badge, Card } from "@/components/ui";
-import { getSessionProfile } from "@/lib/data";
+import { AccentText, Badge, Card, ClientPageTitle } from "@/components/ui";
+import { getActiveClient } from "@/lib/data";
+import { clientLogoSrc } from "@/lib/client-branding";
 
 export default async function SettingsPage() {
-  const { profile } = await getSessionProfile();
+  const { profile, client } = await getActiveClient();
+  const logoSrc = clientLogoSrc(client?.name);
   return (
     <div className="mx-auto max-w-4xl space-y-4 sm:space-y-6">
       <header>
         <Badge>Account</Badge>
-        <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl"><AccentText>Settings</AccentText></h1>
+        <ClientPageTitle logoSrc={logoSrc} logoAlt={client?.name ?? undefined}><AccentText>Settings</AccentText></ClientPageTitle>
       </header>
       <Card>
         <dl className="grid grid-cols-2 gap-3 sm:gap-4">

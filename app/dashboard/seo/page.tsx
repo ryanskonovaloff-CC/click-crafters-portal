@@ -1,5 +1,6 @@
 import { DateRangePicker } from "@/components/date-range-picker";
-import { AccentText, Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
+import { AccentText, Badge, Card, ClientPageTitle, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
+import { clientLogoSrc } from "@/lib/client-branding";
 import { getSeoDashboardData, percentChange } from "@/lib/data";
 import { compact, pct } from "@/lib/utils";
 
@@ -10,19 +11,20 @@ type PageProps = {
 export default async function SeoPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const compare = params?.compare === "previous";
-  const { range, totals, previousTotals, topQueries, topPages, status } = await getSeoDashboardData(params?.range, params?.start, params?.end);
+  const { client, range, totals, previousTotals, topQueries, topPages, status } = await getSeoDashboardData(params?.range, params?.start, params?.end);
   const hasData = !status.error && !status.isEmpty;
   const tileState = status.error ? "error" : hasData ? "ready" : "empty";
   const outboundClickRate = totals.organicClicks && totals.outboundClicks !== null ? totals.outboundClicks / totals.organicClicks : null;
   const previousOutboundClickRate = previousTotals.organicClicks && previousTotals.outboundClicks !== null ? previousTotals.outboundClicks / previousTotals.organicClicks : null;
   const opportunities = organicOpportunities(topQueries, topPages);
+  const logoSrc = clientLogoSrc(client?.name);
 
   return (
     <div className="mx-auto min-w-0 max-w-7xl space-y-4 sm:space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <Badge>Organic visibility</Badge>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl"><AccentText>SEO</AccentText> Dashboard</h1>
+          <ClientPageTitle logoSrc={logoSrc} logoAlt={client?.name ?? undefined}><AccentText>SEO</AccentText> Dashboard</ClientPageTitle>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">{range.label}</p>
         </div>
         <DateRangePicker range={range} />

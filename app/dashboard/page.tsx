@@ -1,7 +1,8 @@
 import { CalendarDays } from "lucide-react";
 import { PlatformBreakdown, TrendChart } from "@/components/charts";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { AccentText, Badge, Card, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
+import { AccentText, Badge, Card, ClientPageTitle, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
+import { clientLogoSrc } from "@/lib/client-branding";
 import { getOverviewDashboardData, metricRatios, percentChange } from "@/lib/data";
 import { compact, currency } from "@/lib/utils";
 import type { CampaignDailyPerformance, DailyPerformance } from "@/lib/types";
@@ -48,6 +49,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     seo.totals.organicConversions
   ].some((value) => value !== null);
   const tileState = paid.status.error ? "error" : hasPaidData ? "ready" : "empty";
+  const logoSrc = clientLogoSrc(client?.name);
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
@@ -57,7 +59,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             <Badge>{client?.industry ?? "No client"}</Badge>
             <Badge className="gap-1"><CalendarDays size={13} /> {range.label}</Badge>
           </div>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-4xl">{client?.name ?? "No client assigned"}</h1>
+          <ClientPageTitle logoSrc={logoSrc} logoAlt={client?.name ?? undefined} className="[&_h1]:sm:text-4xl">{client?.name ?? "No client assigned"}</ClientPageTitle>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">Updated at {formatUpdatedAt(latestDataUpdatedAt ?? client?.last_updated_at ?? null)}</p>
         </div>
         <DateRangePicker range={range} />

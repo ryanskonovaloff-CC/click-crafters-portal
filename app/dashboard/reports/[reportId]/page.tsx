@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays } from "lucide-react";
-import { AccentText, Badge, Card, EmptyState, MetricGrid, StatCard } from "@/components/ui";
+import { AccentText, Badge, Card, ClientPageTitle, EmptyState, MetricGrid, StatCard } from "@/components/ui";
 import { publishMonthlyReport, unpublishMonthlyReport } from "../actions";
 import { getMonthlyReportData } from "@/lib/data";
+import { clientLogoSrc } from "@/lib/client-branding";
 import { compact, currency, currencyCents, pct } from "@/lib/utils";
 import type { MonthlyReport } from "@/lib/types";
 
@@ -31,6 +32,7 @@ export default async function ReportDetailPage({ params }: PageProps) {
 }
 
 function ReportContent({ report, showStatus }: { report: MonthlyReport; showStatus: boolean }) {
+  const logoSrc = clientLogoSrc(report.client_name);
   return (
     <>
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
@@ -39,7 +41,7 @@ function ReportContent({ report, showStatus }: { report: MonthlyReport; showStat
             <Badge className="gap-1"><CalendarDays size={13} /> {formatMonth(report.report_month)}</Badge>
             {showStatus ? <StatusBadge status={report.status} /> : null}
           </div>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-4xl">{report.title ?? <>Monthly <AccentText>Performance</AccentText> Report</>}</h1>
+          <ClientPageTitle logoSrc={logoSrc} logoAlt={report.client_name ?? undefined} className="[&_h1]:sm:text-4xl">{report.title ?? <>Monthly <AccentText>Performance</AccentText> Report</>}</ClientPageTitle>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">
             {[report.client_name, periodLabel(report), report.published_at ? `Published ${formatDate(report.published_at)}` : null].filter(Boolean).join(" · ")}
           </p>
