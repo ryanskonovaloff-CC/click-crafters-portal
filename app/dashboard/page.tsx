@@ -8,6 +8,16 @@ import { compact, currency } from "@/lib/utils";
 import type { CampaignDailyPerformance, DailyPerformance } from "@/lib/types";
 
 const IN_STORE_AOV = 24.87;
+const ONLINE_ORDER_TRACKING_START = "2026-05-14";
+
+type EstimatedCampaignRow = CampaignDailyPerformance & {
+  onlineOrders: number;
+  onlineRevenue: number;
+  estimatedInStorePurchases: number | null;
+  estimatedTotalRevenue: number | null;
+  estimatedBlendedRoas: number | null;
+  platformRoas: number | null;
+};
 
 type PageProps = {
   searchParams?: Promise<{ range?: string; start?: string; end?: string }>;
@@ -55,7 +65,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       <MetricGrid>
         <StatCard label={<><AccentText>Total spend</AccentText></>} value={hasPaidData ? currency.format(performance.spend) : "Unavailable"} helper={trendHelper("vs prior period", percentChange(paid.totals.spend, paid.previousTotals.spend))} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
         <StatCard label={<><AccentText>Total revenue</AccentText></>} value={hasPaidData ? currency.format(performance.revenue) : "Unavailable"} helper={trendHelper("vs prior period", percentChange(paid.totals.revenue, paid.previousTotals.revenue))} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
-        <StatCard label={<AccentText>Conversions</AccentText>} value={hasPaidData ? compact.format(performance.conversions) : "Unavailable"} state={tileState} />
+        <StatCard label={<AccentText>Online orders</AccentText>} value={hasPaidData ? compact.format(performance.conversions) : "Unavailable"} state={tileState} />
         <StatCard label={<AccentText>ROAS</AccentText>} value={paidRatios.roas === null ? "Unavailable" : `${paidRatios.roas.toFixed(2)}x`} helper={trendHelper("vs prior period", percentChange(paidRatios.roas, previousPaidRatios.roas))} state={paid.status.error ? "error" : paidRatios.roas === null ? "empty" : "ready"} />
         <StatCard label={<AccentText>CPA</AccentText>} value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} state={tileState} />
         <StatCard label={<AccentText>Store visits</AccentText>} value={hasStoreVisitData && performance.store_visits !== null ? compact.format(performance.store_visits) : "Unavailable"} state={paid.status.error ? "error" : hasStoreVisitData ? "ready" : "empty"} />
@@ -82,7 +92,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
       <Card>
         <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Paid</AccentText> channel performance</h2>
-        <Table headers={["Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Conv.", "ROAS", "Est. blended ROAS"]} rows={paidChannelRows.slice(0, 6).map((item) => [
+        <Table headers={["Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "ROAS", "Est. blended ROAS"]} rows={paidChannelRows.slice(0, 6).map((item) => [
           item.platform,
           item.channel ?? "Unspecified",
           currency.format(item.spend),
@@ -99,15 +109,18 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         {paid.campaignStatus.error ? (
           <div className="rounded-lg border border-red-400/30 bg-red-950/20 px-4 py-3 text-sm text-red-100/80">Unable to load campaign data: {paid.campaignStatus.error}</div>
         ) : campaignRows.length > 0 ? (
-          <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Conv.", "ROAS", "CPA"]} rows={campaignRows.slice(0, 8).map((item) => [
+          <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "Store visits", "Est. in-store", "ROAS", "Est. blended ROAS"]} rows={campaignRows.slice(0, 8).map((item) => [
             item.campaign_name ?? item.campaign_id,
             item.platform,
             item.channel ?? "Unspecified",
             currency.format(item.spend),
-            currency.format(item.revenue),
-            compact.format(item.conversions),
-            item.roas === null ? "Unavailable" : `${item.roas.toFixed(2)}x`,
-            item.cpa === null ? "Unavailable" : currency.format(item.cpa)
+            currency.format(item.onlineRevenue),
+            item.estimatedTotalRevenue === null ? "Unavailable" : currency.format(item.estimatedTotalRevenue),
+            compact.format(item.onlineOrders),
+            item.store_visits === null ? "Unavailable" : compact.format(item.store_visits),
+            item.estimatedInStorePurchases === null ? "Unavailable" : compact.format(Math.round(item.estimatedInStorePurchases)),
+            item.platformRoas === null ? "Unavailable" : `${item.platformRoas.toFixed(2)}x`,
+            item.estimatedBlendedRoas === null ? "Unavailable" : `${item.estimatedBlendedRoas.toFixed(2)}x`
           ])} />
         ) : (
           <EmptyState>No campaign data available for this date range yet.</EmptyState>
@@ -133,6 +146,17 @@ function estimatedInStorePurchases(totals: { store_visits: number | null; conver
 }
 
 function channelRows(rows: DailyPerformance[]) {
+  const trackedByChannel = rows.reduce<Record<string, { onlineOrders: number; onlineRevenue: number; trackedSpend: number }>>((acc, row) => {
+    const key = `${row.platform}|${row.channel ?? ""}`;
+    acc[key] ??= { onlineOrders: 0, onlineRevenue: 0, trackedSpend: 0 };
+    if (row.date >= ONLINE_ORDER_TRACKING_START) {
+      acc[key].onlineOrders += row.conversions;
+      acc[key].onlineRevenue += row.revenue;
+      acc[key].trackedSpend += row.spend;
+    }
+    return acc;
+  }, {});
+
   const byChannel = rows.reduce<Record<string, DailyPerformance>>((acc, row) => {
     const key = `${row.platform}|${row.channel ?? ""}`;
     acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, store_visits: 0, clicks: 0, impressions: 0, cpa: null, roas: null, ctr: null, cpc: null };
@@ -147,10 +171,21 @@ function channelRows(rows: DailyPerformance[]) {
     return acc;
   }, {});
 
-  return Object.values(byChannel).map(withEstimatedRevenue).sort((a, b) => b.spend - a.spend);
+  return Object.values(byChannel).map((row) => withEstimatedRevenue(row, trackedByChannel[`${row.platform}|${row.channel ?? ""}`])).sort((a, b) => b.spend - a.spend);
 }
 
 function aggregateCampaignRows(rows: CampaignDailyPerformance[]) {
+  const trackedByCampaign = rows.reduce<Record<string, { onlineOrders: number; onlineRevenue: number; trackedSpend: number }>>((acc, row) => {
+    const key = `${row.platform}|${row.campaign_id}`;
+    acc[key] ??= { onlineOrders: 0, onlineRevenue: 0, trackedSpend: 0 };
+    if (row.date >= ONLINE_ORDER_TRACKING_START) {
+      acc[key].onlineOrders += row.conversions;
+      acc[key].onlineRevenue += row.revenue;
+      acc[key].trackedSpend += row.spend;
+    }
+    return acc;
+  }, {});
+
   const byCampaign = rows.reduce<Record<string, CampaignDailyPerformance>>((acc, row) => {
     const key = `${row.platform}|${row.campaign_id}`;
     acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, store_visits: 0, clicks: 0, impressions: 0, wasted_spend: 0, cpa: null, roas: null, ctr: null, cpc: null };
@@ -168,17 +203,44 @@ function aggregateCampaignRows(rows: CampaignDailyPerformance[]) {
     return acc;
   }, {});
 
-  return Object.values(byCampaign).sort((a, b) => b.spend - a.spend);
+  return Object.values(byCampaign)
+    .map((row) => withEstimatedCampaignRevenue(row, trackedByCampaign[`${row.platform}|${row.campaign_id}`]))
+    .sort((a, b) => b.spend - a.spend);
 }
 
-function withEstimatedRevenue(row: DailyPerformance) {
-  const estimatedPurchases = estimatedInStorePurchases(row);
+function withEstimatedRevenue(row: DailyPerformance, tracked?: { onlineOrders: number; onlineRevenue: number; trackedSpend: number }) {
+  const onlineOrders = tracked?.onlineOrders ?? row.conversions;
+  const onlineRevenue = tracked?.onlineRevenue ?? row.revenue;
+  const platformSpend = tracked?.trackedSpend ?? row.spend;
+  const estimatedPurchases = estimatedInStorePurchases({ store_visits: row.store_visits, conversions: onlineOrders });
   const estimatedInStoreRevenue = estimatedPurchases === null ? null : estimatedPurchases * IN_STORE_AOV;
-  const estimatedTotalRevenue = estimatedInStoreRevenue === null ? null : row.revenue + estimatedInStoreRevenue;
+  const estimatedTotalRevenue = estimatedInStoreRevenue === null ? null : onlineRevenue + estimatedInStoreRevenue;
   const estimatedBlendedRoas = estimatedTotalRevenue === null || row.spend <= 0 ? null : estimatedTotalRevenue / row.spend;
   return {
     ...row,
+    conversions: onlineOrders,
+    revenue: onlineRevenue,
+    roas: platformSpend > 0 ? onlineRevenue / platformSpend : null,
     estimatedTotalRevenue,
     estimatedBlendedRoas
+  };
+}
+
+function withEstimatedCampaignRevenue(row: CampaignDailyPerformance, tracked?: { onlineOrders: number; onlineRevenue: number; trackedSpend: number }): EstimatedCampaignRow {
+  const onlineOrders = tracked?.onlineOrders ?? row.conversions;
+  const onlineRevenue = tracked?.onlineRevenue ?? row.revenue;
+  const platformSpend = tracked?.trackedSpend ?? row.spend;
+  const estimatedPurchases = estimatedInStorePurchases({ store_visits: row.store_visits, conversions: onlineOrders });
+  const estimatedInStoreRevenue = estimatedPurchases === null ? null : estimatedPurchases * IN_STORE_AOV;
+  const estimatedTotalRevenue = estimatedInStoreRevenue === null ? null : onlineRevenue + estimatedInStoreRevenue;
+  const estimatedBlendedRoas = estimatedTotalRevenue === null || row.spend <= 0 ? null : estimatedTotalRevenue / row.spend;
+  return {
+    ...row,
+    onlineOrders,
+    onlineRevenue,
+    estimatedInStorePurchases: estimatedPurchases,
+    estimatedTotalRevenue,
+    estimatedBlendedRoas,
+    platformRoas: platformSpend > 0 ? onlineRevenue / platformSpend : null
   };
 }
