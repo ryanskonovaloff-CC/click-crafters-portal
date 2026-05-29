@@ -6,6 +6,7 @@ import type { DailyPerformance } from "@/lib/types";
 import { currency } from "@/lib/utils";
 
 const IN_STORE_AOV = 24.87;
+const ONLINE_ORDER_TRACKING_START = "2026-05-14";
 
 function tooltipStyle() {
   return {
@@ -18,9 +19,10 @@ function tooltipStyle() {
 
 export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric: "spend" | "conversions" | "store_visits" | "cpa" | "roas" }) {
   const height = useMobileChartHeight();
-  const byDate = data.reduce<Record<string, { date: string; spend: number; revenue: number; conversions: number; store_visits: number; has_store_visits: boolean }>>((acc, item) => {
-    acc[item.date] ??= { date: item.date.slice(5), spend: 0, revenue: 0, conversions: 0, store_visits: 0, has_store_visits: false };
+  const byDate = data.reduce<Record<string, { date: string; label: string; spend: number; tracked_spend: number; revenue: number; conversions: number; store_visits: number; has_store_visits: boolean }>>((acc, item) => {
+    acc[item.date] ??= { date: item.date, label: item.date.slice(5), spend: 0, tracked_spend: 0, revenue: 0, conversions: 0, store_visits: 0, has_store_visits: false };
     acc[item.date].spend += item.spend;
+    if (item.date >= ONLINE_ORDER_TRACKING_START) acc[item.date].tracked_spend += item.spend;
     acc[item.date].revenue += item.revenue;
     acc[item.date].conversions += item.conversions;
     acc[item.date].store_visits += item.store_visits ?? 0;
@@ -30,6 +32,7 @@ export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric:
 
   const showEstimatedRoas = metric === "roas" && Object.values(byDate).some((item) => item.has_store_visits);
   let cumulativeSpend = 0;
+  let cumulativeTrackedSpend = 0;
   let cumulativeRevenue = 0;
   let cumulativeConversions = 0;
   let cumulativeStoreVisits = 0;
@@ -37,6 +40,7 @@ export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric:
 
   const chartData = Object.values(byDate).map((item) => {
     cumulativeSpend += item.spend;
+    cumulativeTrackedSpend += item.tracked_spend;
     cumulativeRevenue += item.revenue;
     cumulativeConversions += item.conversions;
     cumulativeStoreVisits += item.store_visits;
@@ -51,7 +55,7 @@ export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric:
     return {
       ...item,
       cpa: item.conversions ? item.spend / item.conversions : 0,
-      roas: metric === "roas" ? (cumulativeSpend ? cumulativeRevenue / cumulativeSpend : null) : (item.spend ? item.revenue / item.spend : 0),
+      roas: metric === "roas" ? (cumulativeTrackedSpend ? cumulativeRevenue / cumulativeTrackedSpend : null) : (item.spend ? item.revenue / item.spend : 0),
       estimated_blended_roas: cumulativeHasStoreVisits && cumulativeSpend ? estimatedTotalRevenue / cumulativeSpend : null
     };
   });
@@ -60,7 +64,7 @@ export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric:
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={chartData}>
         <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-        <XAxis dataKey="date" tickLine={false} axisLine={false} />
+        <XAxis dataKey="label" tickLine={false} axisLine={false} />
         <YAxis tickLine={false} axisLine={false} />
         <Tooltip
           contentStyle={tooltipStyle()}
