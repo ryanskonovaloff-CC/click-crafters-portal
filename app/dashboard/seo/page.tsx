@@ -20,16 +20,16 @@ export default async function SeoPage({ searchParams }: PageProps) {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <Badge>Organic visibility</Badge>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl"><AccentText>SEO Dashboard</AccentText></h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl"><AccentText>SEO</AccentText> Dashboard</h1>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">{range.label}</p>
         </div>
         <DateRangePicker range={range} />
       </header>
 
       <MetricGrid>
-        <StatCard label={<><AccentText>Organic</AccentText> clicks</>} value={totals.organicClicks === null ? "Unavailable" : compact.format(totals.organicClicks)} state={tileState} />
-        <StatCard label={<><AccentText>Organic</AccentText> impressions</>} value={totals.organicImpressions === null ? "Unavailable" : compact.format(totals.organicImpressions)} state={tileState} />
-        <StatCard label={<><AccentText>Organic</AccentText> CTR</>} value={totals.ctr === null ? "Unavailable" : pct(totals.ctr * 100)} state={status.error ? "error" : totals.ctr === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Organic clicks</AccentText>} value={totals.organicClicks === null ? "Unavailable" : compact.format(totals.organicClicks)} state={tileState} />
+        <StatCard label={<AccentText>Organic impressions</AccentText>} value={totals.organicImpressions === null ? "Unavailable" : compact.format(totals.organicImpressions)} state={tileState} />
+        <StatCard label={<AccentText>Organic CTR</AccentText>} value={totals.ctr === null ? "Unavailable" : pct(totals.ctr * 100)} state={status.error ? "error" : totals.ctr === null ? "empty" : "ready"} />
         <StatCard label={<AccentText>Average position</AccentText>} value={totals.averagePosition === null ? "Unavailable" : totals.averagePosition.toFixed(1)} state={status.error ? "error" : totals.averagePosition === null ? "empty" : "ready"} />
         <StatCard label={<AccentText>Organic sessions</AccentText>} value={totals.organicSessions === null ? "Unavailable" : compact.format(totals.organicSessions)} state={tileState} />
         <StatCard label={<AccentText>Outbound clicks</AccentText>} value={totals.outboundClicks === null ? "Unavailable" : compact.format(totals.outboundClicks)} state={status.error ? "error" : totals.outboundClicks === null ? "empty" : "ready"} />
@@ -41,7 +41,7 @@ export default async function SeoPage({ searchParams }: PageProps) {
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Top queries</AccentText></h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Top</AccentText> queries</h2>
           <Table headers={["Query", "Clicks", "Impressions", "CTR", "Position"]} rows={topQueries.map((item) => [
             item.query,
             compact.format(item.clicks),
@@ -51,7 +51,7 @@ export default async function SeoPage({ searchParams }: PageProps) {
           ])} />
         </Card>
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Top landing pages</AccentText></h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Top</AccentText> landing pages</h2>
           <Table headers={["Page", "Clicks", "Impressions", "CTR", "Position", "Outbound clicks"]} rows={topPages.map((item) => [
             item.page,
             formatNumber(item.clicks),
@@ -64,7 +64,7 @@ export default async function SeoPage({ searchParams }: PageProps) {
       </div>
 
       <Card>
-        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Organic growth opportunities</AccentText></h2>
+        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Organic</AccentText> growth opportunities</h2>
         {opportunities.length > 0 ? (
           <Table headers={["Opportunity", "Signal", "Why it matters", "Recommended action"]} rows={opportunities.map((item) => [
             item.name,

@@ -48,7 +48,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <Badge>Paid media</Badge>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl"><AccentText>Paid Ads Performance</AccentText></h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-normal sm:mt-3 sm:text-3xl">Paid Ads <AccentText>Performance</AccentText></h1>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">{range.label}</p>
         </div>
         <DateRangePicker range={range} />
@@ -71,13 +71,13 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       {hasStoreVisitData && inStorePurchases !== null ? <InStoreEstimateCard storeVisits={totals.store_visits ?? 0} conversions={totals.conversions} onlineRevenue={totals.revenue} inStorePurchases={inStorePurchases} inStoreRevenue={inStoreRevenue ?? 0} estimatedBlendedRoas={estimatedBlendedRoas} /> : null}
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Online orders over time</AccentText></h2>{hasData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="conversions" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Store visits over time</AccentText></h2>{hasStoreVisitData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="store_visits" /> : <EmptyState>Store visit data is not available yet.</EmptyState>}</Card>
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>CPA over time</AccentText></h2>{hasData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="cpa" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>ROAS over time</AccentText></h2>{hasData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="roas" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Platform breakdown</AccentText></h2>{hasData ? <PlatformBreakdown data={daily} /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Online orders</AccentText> over time</h2>{hasData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="conversions" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Store visits</AccentText> over time</h2>{hasStoreVisitData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="store_visits" /> : <EmptyState>Store visit data is not available yet.</EmptyState>}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>CPA</AccentText> over time</h2>{hasData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="cpa" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>ROAS</AccentText> over time</h2>{hasData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="roas" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Platform</AccentText> breakdown</h2>{hasData ? <PlatformBreakdown data={daily} /> : <EmptyState />}</Card>
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Channel mix</AccentText></h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Channel</AccentText> mix</h2>
           <Table headers={["Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "Store visits", "Est. in-store", "ROAS", "Est. blended ROAS"]} rows={rows.map((item) => [
             item.channel ?? "Unspecified",
             currency.format(item.spend),
@@ -94,7 +94,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaign comparison</AccentText></h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaign</AccentText> comparison</h2>
           <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "Est. in-store orders", "ROAS", "Est. blended ROAS"]} rows={campaignRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             item.platform,
@@ -109,7 +109,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
           ])} />
         </Card>
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Top campaigns by ROAS</AccentText></h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top campaigns by <AccentText>ROAS</AccentText></h2>
           <Table headers={["Campaign", "Spend", "Revenue", "Est. total rev.", "Online orders", "Est. in-store orders", "ROAS", "Est. blended ROAS"]} rows={topRoasRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             currency.format(item.spend),
@@ -122,7 +122,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
           ])} />
         </Card>
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Top campaigns by online orders</AccentText></h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top campaigns by <AccentText>online orders</AccentText></h2>
           <Table headers={["Campaign", "Spend", "Revenue", "Est. total rev.", "Online orders", "Est. in-store orders", "ROAS", "Est. blended ROAS"]} rows={topConversionRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             currency.format(item.spend),
@@ -135,7 +135,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
           ])} />
         </Card>
         <Card>
-          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaigns to watch</AccentText></h2>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaigns</AccentText> to watch</h2>
           <Table headers={["Campaign", "Spend", "Revenue", "Online orders", "Est. in-store orders", "ROAS", "Est. blended ROAS", "Wasted spend"]} rows={campaignWatchRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             currency.format(item.spend),
@@ -150,7 +150,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       </div>
 
       <Card>
-        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Top ads by performance</AccentText></h2>
+        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top ads by <AccentText>performance</AccentText></h2>
         {adRows.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 2xl:grid-cols-3">
             {adRows.map((item) => <AdPerformanceCard key={`${item.platform}-${item.ad_id}`} ad={item} />)}

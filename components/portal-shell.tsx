@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { BarChart3, Building2, FileText, Gauge, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, Users } from "lucide-react";
@@ -24,8 +24,17 @@ const adminNav = [
 
 export function PortalShell({ profile, children }: { profile: Profile; children: ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const preservedDashboardQuery = new URLSearchParams();
+
+  ["range", "start", "end", "compare"].forEach((key) => {
+    const value = searchParams.get(key);
+    if (value) preservedDashboardQuery.set(key, value);
+  });
+
+  const preservedQueryString = preservedDashboardQuery.toString();
 
   useEffect(() => {
     const saved = window.localStorage.getItem("portal-sidebar-collapsed");
@@ -81,7 +90,7 @@ export function PortalShell({ profile, children }: { profile: Profile; children:
 
           <nav className="mt-6 space-y-2 sm:mt-8">
             {nav.map((item) => (
-              <NavItem key={item.href} item={item} active={isActive(pathname, item.href)} collapsed={collapsed} onClick={() => setMobileOpen(false)} />
+              <NavItem key={item.href} item={item} href={withDashboardQuery(item.href, preservedQueryString)} active={isActive(pathname, item.href)} collapsed={collapsed} onClick={() => setMobileOpen(false)} />
             ))}
           </nav>
 
@@ -118,11 +127,11 @@ export function PortalShell({ profile, children }: { profile: Profile; children:
   );
 }
 
-function NavItem({ item, active, collapsed, onClick }: { item: typeof nav[number]; active: boolean; collapsed: boolean; onClick: () => void }) {
+function NavItem({ item, href = item.href, active, collapsed, onClick }: { item: typeof nav[number]; href?: string; active: boolean; collapsed: boolean; onClick: () => void }) {
   const Icon = item.icon;
   return (
     <Link
-      href={item.href}
+      href={href}
       onClick={onClick}
       title={collapsed ? item.label : undefined}
       className={cn(
@@ -143,4 +152,10 @@ function NavItem({ item, active, collapsed, onClick }: { item: typeof nav[number
 function isActive(pathname: string, href: string) {
   if (href === "/dashboard") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function withDashboardQuery(href: string, query: string) {
+  if (!query) return href;
+  if (!["/dashboard", "/dashboard/paid-ads", "/dashboard/seo"].includes(href)) return href;
+  return `${href}?${query}`;
 }
