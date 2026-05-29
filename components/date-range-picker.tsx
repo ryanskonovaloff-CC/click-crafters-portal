@@ -2,7 +2,7 @@
 
 import { CalendarDays, Check, ChevronDown } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DateRange, DateRangeKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -19,38 +19,52 @@ export function DateRangePicker({ range }: { range: DateRange }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
-  const [start, setStart] = useState(range.start);
-  const [end, setEnd] = useState(range.end);
   const compare = searchParams.get("compare") === "previous";
+  const [draftKey, setDraftKey] = useState<DateRangeKey>(range.key);
+  const [draftStart, setDraftStart] = useState(range.start);
+  const [draftEnd, setDraftEnd] = useState(range.end);
+  const [draftCompare, setDraftCompare] = useState(compare);
 
   const label = useMemo(() => `${range.start} - ${range.end}`, [range.start, range.end]);
 
-  function setRange(key: DateRangeKey, nextStart = start, nextEnd = end) {
+  useEffect(() => {
+    if (open) return;
+    setDraftKey(range.key);
+    setDraftStart(range.start);
+    setDraftEnd(range.end);
+    setDraftCompare(compare);
+  }, [compare, open, range.end, range.key, range.start]);
+
+  function selectDraftRange(key: DateRangeKey) {
+    setDraftKey(key);
+    setOpen(true);
+  }
+
+  function applyDraft() {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("range", key);
-    if (key === "custom") {
-      params.set("start", nextStart);
-      params.set("end", nextEnd);
+    params.set("range", draftKey);
+    if (draftKey === "custom") {
+      params.set("start", draftStart);
+      params.set("end", draftEnd);
     } else {
       params.delete("start");
       params.delete("end");
+    }
+    if (draftCompare) {
+      params.set("compare", "previous");
+    } else {
+      params.delete("compare");
     }
     router.push(`${pathname}?${params.toString()}`);
     setOpen(false);
   }
 
-  function toggleCompare() {
-    const params = new URLSearchParams(searchParams.toString());
-    if (compare) {
-      params.delete("compare");
-    } else {
-      params.set("compare", "previous");
-    }
-    router.push(`${pathname}?${params.toString()}`);
-  }
-
-  function applyCustom() {
-    setRange("custom", start, end);
+  function cancelDraft() {
+    setDraftKey(range.key);
+    setDraftStart(range.start);
+    setDraftEnd(range.end);
+    setDraftCompare(compare);
+    setOpen(false);
   }
 
   return (
@@ -65,11 +79,11 @@ export function DateRangePicker({ range }: { range: DateRange }) {
           <button
             key={preset.key}
             type="button"
-            onClick={() => setRange(preset.key)}
+            onClick={() => selectDraftRange(preset.key)}
             className={cn(
               "border-r border-white/10 px-2.5 py-2 font-semibold text-white/48 transition last:border-r-0 hover:bg-white/[0.03] hover:text-white sm:px-3.5 sm:py-2.5",
               preset.key === "mtd" ? "basis-[58px] sm:basis-auto" : "flex-1 basis-1/3 sm:flex-none sm:basis-auto",
-              range.key === preset.key && "bg-accent/15 text-accent"
+              draftKey === preset.key && "bg-accent/15 text-accent"
             )}
           >
             {preset.compact ?? preset.label}
@@ -85,11 +99,11 @@ export function DateRangePicker({ range }: { range: DateRange }) {
                 <button
                   key={preset.key}
                   type="button"
-                  onClick={() => preset.key === "custom" ? setRange("custom", start, end) : setRange(preset.key)}
-                  className={cn("flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-left text-sm text-white/64 transition hover:bg-white/5 hover:text-white", range.key === preset.key && "bg-accent/15 text-accent hover:bg-accent/15 hover:text-accent")}
+                  onClick={() => selectDraftRange(preset.key)}
+                  className={cn("flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-left text-sm text-white/64 transition hover:bg-white/5 hover:text-white", draftKey === preset.key && "bg-accent/15 text-accent hover:bg-accent/15 hover:text-accent")}
                 >
                   {preset.label}
-                  {range.key === preset.key ? <Check size={15} /> : null}
+                  {draftKey === preset.key ? <Check size={15} /> : null}
                 </button>
               ))}
             </div>
@@ -98,18 +112,18 @@ export function DateRangePicker({ range }: { range: DateRange }) {
               <div className="mt-3 grid gap-3 sm:mt-4 sm:grid-cols-2">
                 <label className="space-y-2 text-sm text-white/60">
                   <span>Start date</span>
-                  <input type="date" value={start} onChange={(event) => setStart(event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/35 px-3 py-2 font-mono text-white outline-none focus:border-accent" />
+                  <input type="date" value={draftStart} onChange={(event) => { setDraftStart(event.target.value); setDraftKey("custom"); }} className="w-full rounded-lg border border-white/10 bg-black/35 px-3 py-2 font-mono text-white outline-none focus:border-accent" />
                 </label>
                 <label className="space-y-2 text-sm text-white/60">
                   <span>End date</span>
-                  <input type="date" value={end} onChange={(event) => setEnd(event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/35 px-3 py-2 font-mono text-white outline-none focus:border-accent" />
+                  <input type="date" value={draftEnd} onChange={(event) => { setDraftEnd(event.target.value); setDraftKey("custom"); }} className="w-full rounded-lg border border-white/10 bg-black/35 px-3 py-2 font-mono text-white outline-none focus:border-accent" />
                 </label>
               </div>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3 sm:mt-5 sm:pt-4">
-                <p className="font-mono text-xs text-white/70 sm:text-sm">{start} - {end}</p>
+                <p className="font-mono text-xs text-white/70 sm:text-sm">{draftKey === "custom" ? `${draftStart} - ${draftEnd}` : presets.find((preset) => preset.key === draftKey)?.label}</p>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white sm:px-4">Cancel</button>
-                  <button type="button" onClick={applyCustom} className="rounded-lg border border-accent bg-accent px-3 py-2 text-sm font-semibold text-black transition hover:bg-accent/90 sm:px-4">Apply</button>
+                  <button type="button" onClick={cancelDraft} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white sm:px-4">Cancel</button>
+                  <button type="button" onClick={applyDraft} className="rounded-lg border border-accent bg-accent px-3 py-2 text-sm font-semibold text-black transition hover:bg-accent/90 sm:px-4">Apply</button>
                 </div>
               </div>
               <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
@@ -120,11 +134,11 @@ export function DateRangePicker({ range }: { range: DateRange }) {
                 <button
                   type="button"
                   role="switch"
-                  aria-checked={compare}
-                  onClick={toggleCompare}
-                  className={cn("relative h-6 w-11 rounded-full border border-white/10 transition", compare ? "bg-accent" : "bg-white/10")}
+                  aria-checked={draftCompare}
+                  onClick={() => setDraftCompare((value) => !value)}
+                  className={cn("relative h-6 w-11 rounded-full border border-white/10 transition", draftCompare ? "bg-accent" : "bg-white/10")}
                 >
-                  <span className={cn("absolute top-0.5 size-5 rounded-full bg-white transition", compare ? "left-5" : "left-0.5")} />
+                  <span className={cn("absolute top-0.5 size-5 rounded-full bg-white transition", draftCompare ? "left-5" : "left-0.5")} />
                 </button>
               </div>
             </div>
