@@ -29,15 +29,30 @@ export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric:
   }, {});
 
   const showEstimatedRoas = metric === "roas" && Object.values(byDate).some((item) => item.has_store_visits);
+  let cumulativeSpend = 0;
+  let cumulativeRevenue = 0;
+  let cumulativeConversions = 0;
+  let cumulativeStoreVisits = 0;
+  let cumulativeHasStoreVisits = false;
+
   const chartData = Object.values(byDate).map((item) => {
-    const estimatedInStorePurchases = Math.max(item.store_visits - item.conversions, 0);
-    const estimatedTotalRevenue = item.revenue + estimatedInStorePurchases * IN_STORE_AOV;
+    cumulativeSpend += item.spend;
+    cumulativeRevenue += item.revenue;
+    cumulativeConversions += item.conversions;
+    cumulativeStoreVisits += item.store_visits;
+    cumulativeHasStoreVisits ||= item.has_store_visits;
+
+    const dailyEstimatedInStorePurchases = Math.max(item.store_visits - item.conversions, 0);
+    const cumulativeEstimatedInStorePurchases = Math.max(cumulativeStoreVisits - cumulativeConversions, 0);
+    const estimatedTotalRevenue = metric === "roas"
+      ? cumulativeRevenue + cumulativeEstimatedInStorePurchases * IN_STORE_AOV
+      : item.revenue + dailyEstimatedInStorePurchases * IN_STORE_AOV;
 
     return {
       ...item,
       cpa: item.conversions ? item.spend / item.conversions : 0,
-      roas: item.spend ? item.revenue / item.spend : 0,
-      estimated_blended_roas: item.has_store_visits && item.spend ? estimatedTotalRevenue / item.spend : null
+      roas: metric === "roas" ? (cumulativeSpend ? cumulativeRevenue / cumulativeSpend : null) : (item.spend ? item.revenue / item.spend : 0),
+      estimated_blended_roas: cumulativeHasStoreVisits && cumulativeSpend ? estimatedTotalRevenue / cumulativeSpend : null
     };
   });
 
@@ -47,15 +62,22 @@ export function TrendChart({ data, metric }: { data: DailyPerformance[]; metric:
         <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
         <XAxis dataKey="date" tickLine={false} axisLine={false} />
         <YAxis tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={tooltipStyle()} formatter={(value, name) => {
+        <Tooltip
+          contentStyle={tooltipStyle()}
+          cursor={{ stroke: "rgba(247,242,232,0.22)", strokeWidth: 1 }}
+          formatter={(value, name, item) => {
           const numericValue = Number(value);
           if (value === null || Number.isNaN(numericValue)) return ["Unavailable", name];
           if (metric === "spend" || metric === "cpa") return currency.format(numericValue);
-          if (metric === "roas") return [`${numericValue.toFixed(2)}x`, name === "estimated_blended_roas" ? "Est. blended ROAS" : "Platform ROAS"];
+          if (metric === "roas") {
+            const seriesKey = String(item.dataKey ?? name);
+            return [`${numericValue.toFixed(2)}x`, seriesKey === "estimated_blended_roas" ? "Est. blended ROAS" : "Platform ROAS"];
+          }
           return numericValue.toFixed(0);
-        }} />
-        <Line type="monotone" dataKey={metric} name={metric === "roas" ? "Platform ROAS" : metric} stroke="#ff6a1a" strokeWidth={2.5} dot={false} />
-        {showEstimatedRoas ? <Line type="monotone" dataKey="estimated_blended_roas" name="Est. blended ROAS" stroke="#f7f2e8" strokeWidth={2.5} dot={false} strokeDasharray="6 5" connectNulls /> : null}
+        }}
+        />
+        <Line type="monotone" dataKey={metric} name={metric === "roas" ? "Platform ROAS" : metric} stroke="#ff6a1a" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls={metric === "roas"} />
+        {showEstimatedRoas ? <Line type="monotone" dataKey="estimated_blended_roas" name="Est. blended ROAS" stroke="#f7f2e8" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} strokeDasharray="6 5" connectNulls /> : null}
         {showEstimatedRoas ? <Legend /> : null}
       </LineChart>
     </ResponsiveContainer>
