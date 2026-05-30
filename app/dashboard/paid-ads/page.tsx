@@ -232,7 +232,7 @@ function InStoreEstimateCard({ storeVisits, conversions, onlineRevenue, inStoreP
   const estimatedTotalRevenue = onlineRevenue + inStoreRevenue;
 
   return (
-    <Card>
+    <Card className="overflow-visible">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-base font-semibold sm:text-lg"><AccentText>In-store</AccentText> purchases from ads</h2>
