@@ -37,7 +37,7 @@ export function ClientPageTitle({ logoSrc, logoAlt, children, className }: { log
 export function StatCard({ label, value, helper, valueTitle, state = "ready" }: { label: ReactNode; value: string; helper?: string; valueTitle?: string; state?: "ready" | "empty" | "error" | "loading" }) {
   const muted = state !== "ready";
   return (
-    <Card className="min-h-[92px] sm:min-h-28">
+    <Card className="min-h-[92px] overflow-visible sm:min-h-28">
       <p className="text-xs text-white/60 sm:text-sm">{label}</p>
       <HoverNote note={valueTitle}>
         <p className={cn("mt-2 break-words text-xl font-semibold tracking-normal sm:mt-3 sm:text-2xl", muted ? "text-white/45" : "text-white")}>{value}</p>
