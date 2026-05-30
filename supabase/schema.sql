@@ -318,9 +318,9 @@ create policy "Admin manage seo performance" on public.seo_performance for all u
 create policy "Read assigned reports" on public.reports for select using (public.can_access_client(client_id));
 create policy "Admin manage reports" on public.reports for all using (public.is_admin()) with check (public.is_admin());
 
-create policy "Authenticated read campaign daily performance" on public.campaign_daily_performance for select to authenticated using (true);
-create policy "Authenticated read ad lifetime performance" on public.ad_lifetime_performance for select to authenticated using (true);
-create policy "Authenticated read seo technical issues" on public.seo_technical_issues for select to authenticated using (true);
+create policy "Authenticated read campaign daily performance" on public.campaign_daily_performance for select to authenticated using (public.can_access_client(client_id));
+create policy "Authenticated read ad lifetime performance" on public.ad_lifetime_performance for select to authenticated using (public.can_access_client(client_id));
+create policy "Authenticated read seo technical issues" on public.seo_technical_issues for select to authenticated using (public.can_access_client(client_id));
 create policy "Read assigned monthly reports" on public.monthly_reports for select to authenticated using (public.is_admin() or (status = 'published' and public.can_access_client(client_id)));
 create policy "Admin manage monthly reports" on public.monthly_reports for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
