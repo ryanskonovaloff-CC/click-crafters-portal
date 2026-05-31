@@ -19,7 +19,7 @@ async function requireAdmin() {
 }
 
 async function requireUserManager() {
-  const { profile, client } = await getActiveClient();
+  const { supabase, profile, client } = await getActiveClient();
 
   if (profile.role !== "admin" && profile.role !== "client_admin") {
     throw new Error("You do not have permission to manage users.");
@@ -29,7 +29,7 @@ async function requireUserManager() {
     throw new Error("No client is assigned to this account.");
   }
 
-  return { profile, client };
+  return { supabase, profile, client };
 }
 
 function scopedRoleAndClient(currentRole: Role, requestedRole: Role, requestedClientId: string, assignedClientId?: string) {
@@ -54,30 +54,6 @@ async function findAuthUserByEmail(admin: ReturnType<typeof createAdminClient>, 
   return data.users.find((user) => user.email?.toLowerCase() === email) ?? null;
 }
 
-async function setClientAccess(admin: ReturnType<typeof createAdminClient>, userId: string, role: Role, clientId: string) {
-  const { error: deleteError } = await admin
-    .from("client_users")
-    .delete()
-    .eq("user_id", userId);
-
-  if (deleteError) {
-    throw new Error(deleteError.message);
-  }
-
-  if (role === "admin") return;
-
-  const { error: assignmentError } = await admin
-    .from("client_users")
-    .insert({
-      client_id: clientId,
-      user_id: userId
-    });
-
-  if (assignmentError) {
-    throw new Error(assignmentError.message);
-  }
-}
-
 async function assertManagedClientUser(admin: ReturnType<typeof createAdminClient>, managerRole: Role, userId: string, clientId?: string) {
   if (managerRole === "admin") return;
 
@@ -97,6 +73,38 @@ async function assertManagedClientUser(admin: ReturnType<typeof createAdminClien
   }
 }
 
+async function setUserAccess(
+  supabase: Awaited<ReturnType<typeof getSessionProfile>>["supabase"],
+  {
+    userId,
+    email,
+    fullName,
+    role,
+    clientId,
+    requireExistingAssignment
+  }: {
+    userId: string;
+    email?: string | null;
+    fullName?: string | null;
+    role: Role;
+    clientId?: string | null;
+    requireExistingAssignment: boolean;
+  }
+) {
+  const { error } = await supabase.rpc("set_user_access", {
+    p_user_id: userId,
+    p_role: role,
+    p_client_id: role === "admin" ? null : clientId,
+    p_email: email ?? null,
+    p_full_name: fullName ?? null,
+    p_require_existing_assignment: requireExistingAssignment
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function saveUserAccess(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const fullName = String(formData.get("fullName") ?? "").trim();
@@ -107,7 +115,7 @@ export async function saveUserAccess(formData: FormData) {
     throw new Error("Enter a valid email address.");
   }
 
-  const { profile, client } = await requireUserManager();
+  const { supabase, profile, client } = await requireUserManager();
   const scoped = scopedRoleAndClient(profile.role, role, clientId, client?.id);
 
   if (!allowedRoles.includes(scoped.role)) {
@@ -153,21 +161,14 @@ export async function saveUserAccess(formData: FormData) {
     throw new Error("Unable to create or find this user.");
   }
 
-  const { error: profileError } = await admin
-    .from("profiles")
-    .upsert({
-      id: userId,
-      email,
-      full_name: fullName || null,
-      role: scoped.role,
-      updated_at: new Date().toISOString()
-    }, { onConflict: "id" });
-
-  if (profileError) {
-    throw new Error(profileError.message);
-  }
-
-  await setClientAccess(admin, userId, scoped.role, scoped.clientId);
+  await setUserAccess(supabase, {
+    userId,
+    email,
+    fullName: fullName || null,
+    role: scoped.role,
+    clientId: scoped.clientId || null,
+    requireExistingAssignment: false
+  });
 
   revalidatePath("/admin/users");
 }
@@ -181,7 +182,7 @@ export async function updateUserAccess(formData: FormData) {
     throw new Error("Missing user ID.");
   }
 
-  const { profile: currentProfile, client } = await requireUserManager();
+  const { supabase, profile: currentProfile, client } = await requireUserManager();
   const scoped = scopedRoleAndClient(currentProfile.role, role, clientId, client?.id);
 
   if (!allowedRoles.includes(scoped.role)) {
@@ -197,22 +198,14 @@ export async function updateUserAccess(formData: FormData) {
   }
 
   const admin = createAdminClient();
-  const now = new Date().toISOString();
   await assertManagedClientUser(admin, currentProfile.role, userId, client?.id);
 
-  const { error: profileError } = await admin
-    .from("profiles")
-    .update({
-      role: scoped.role,
-      updated_at: now
-    })
-    .eq("id", userId);
-
-  if (profileError) {
-    throw new Error(profileError.message);
-  }
-
-  await setClientAccess(admin, userId, scoped.role, scoped.clientId);
+  await setUserAccess(supabase, {
+    userId,
+    role: scoped.role,
+    clientId: scoped.clientId || null,
+    requireExistingAssignment: currentProfile.role !== "admin"
+  });
 
   revalidatePath("/admin/users");
 }
