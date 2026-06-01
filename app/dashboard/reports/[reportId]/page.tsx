@@ -266,8 +266,15 @@ function ListSection({ title, items, empty }: { title: string; items: string[]; 
     <Card>
       <h2 className="text-lg font-semibold">{sectionTitle(title)}</h2>
       {items.length > 0 ? (
-        <ul className="mt-3 space-y-2 text-sm leading-6 text-white/65">
-          {items.map((item) => <li key={item}>{item}</li>)}
+        <ul className="mt-4 space-y-3 text-sm leading-6 text-white/65">
+          {items.map((item) => (
+            <li key={item} className="flex gap-3">
+              <span className="mt-1 flex size-5 shrink-0 items-center justify-center rounded-md border border-accent/30 bg-accent/10">
+                <img src="/assets/logo-mark.svg" alt="" className="size-3.5" aria-hidden="true" />
+              </span>
+              <span>{item}</span>
+            </li>
+          ))}
         </ul>
       ) : (
         <div className="mt-4"><EmptyState>{empty}</EmptyState></div>
