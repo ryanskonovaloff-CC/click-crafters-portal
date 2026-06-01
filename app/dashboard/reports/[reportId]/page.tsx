@@ -12,6 +12,12 @@ type PageProps = {
   params: Promise<{ reportId: string }>;
 };
 
+type ReportEntityRow = {
+  name: string;
+  context: string | null;
+  details: string[];
+};
+
 export default async function ReportDetailPage({ params }: PageProps) {
   const { reportId } = await params;
   const { profile, report, status } = await getMonthlyReportData(reportId);
@@ -73,20 +79,8 @@ function ReportContent({ report, showStatus }: { report: MonthlyReport; showStat
       </section>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
-        <SummarySection
-          title="Paid Ads"
-          unavailable="Paid Ads data not available for this report."
-          summary={report.paid_ads_summary}
-          commentary={report.paid_ads_commentary}
-          metrics={paidAdsMetrics(report.paid_ads_summary)}
-        />
-        <SummarySection
-          title="SEO"
-          unavailable="SEO data not available for this report."
-          summary={report.seo_summary}
-          commentary={report.seo_commentary}
-          metrics={seoMetrics(report.seo_summary)}
-        />
+        <PaidAdsReportSection summary={report.paid_ads_summary} commentary={report.paid_ads_commentary} />
+        <SeoReportSection summary={report.seo_summary} commentary={report.seo_commentary} />
       </div>
 
       <SummarySection
@@ -134,6 +128,63 @@ function UnpublishReportButton({ reportId }: { reportId: string }) {
   );
 }
 
+function PaidAdsReportSection({ summary, commentary }: { summary: Record<string, unknown> | null; commentary: string | null }) {
+  const metrics = paidAdsMetrics(summary);
+  const topCampaigns = reportRows(readArray(summary, "top_campaigns"), "campaign");
+  const topAdsByRoas = reportRows(readArray(summary, "top_ads_by_roas"), "ad");
+  const topAdsBySpend = reportRows(readArray(summary, "top_ads_by_spend"), "ad");
+
+  return (
+    <Card>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold"><AccentText>Paid Ads</AccentText></h2>
+          {commentary ? <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white/65">{commentary}</p> : null}
+        </div>
+        <Badge>Google Ads</Badge>
+      </div>
+
+      {summary && metrics.length > 0 ? (
+        <div className="mt-4 space-y-4">
+          <MetricPanelGrid metrics={metrics} />
+          <div className="grid gap-3 lg:grid-cols-2">
+            <RankedList title="Top campaigns" rows={topCampaigns} empty="No campaign rankings available for this report." />
+            <RankedList title="Top ads by ROAS" rows={topAdsByRoas} empty="No ad ROAS rankings available for this report." />
+            <RankedList title="Top ads by spend" rows={topAdsBySpend} empty="No ad spend rankings available for this report." />
+            <RankedList title="Campaigns to watch" rows={reportRows(readArray(summary, "campaign_watchouts"), "campaign")} empty="No campaign watchouts for this report." />
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4"><EmptyState>Paid Ads data not available for this report.</EmptyState></div>
+      )}
+    </Card>
+  );
+}
+
+function SeoReportSection({ summary, commentary }: { summary: Record<string, unknown> | null; commentary: string | null }) {
+  const metrics = seoMetrics(summary);
+  const topPages = reportRows(readArray(summary, "top_pages"), "page");
+  const topQueries = reportRows(readArray(summary, "top_queries"), "query");
+
+  return (
+    <Card>
+      <h2 className="text-lg font-semibold"><AccentText>SEO</AccentText></h2>
+      {commentary ? <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white/65">{commentary}</p> : null}
+      {summary && metrics.length > 0 ? (
+        <div className="mt-4 space-y-4">
+          <MetricPanelGrid metrics={metrics} />
+          <div className="grid gap-3 lg:grid-cols-2">
+            <RankedList title="Top landing pages" rows={topPages} empty="No landing page rankings available for this report." />
+            <RankedList title="Top queries" rows={topQueries} empty="No query rankings available for this report." />
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4"><EmptyState>SEO data not available for this report.</EmptyState></div>
+      )}
+    </Card>
+  );
+}
+
 function SummarySection({ title, unavailable, summary, commentary, metrics }: {
   title: string;
   unavailable: string;
@@ -166,6 +217,46 @@ function SummarySection({ title, unavailable, summary, commentary, metrics }: {
         <div className="mt-4"><EmptyState>{unavailable}</EmptyState></div>
       )}
     </Card>
+  );
+}
+
+function MetricPanelGrid({ metrics }: { metrics: Array<{ label: string; value: string; helper?: string }> }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      {metrics.map((metric) => (
+        <div key={metric.label} className="rounded-lg border border-white/10 bg-black/20 p-3">
+          <p className="text-xs text-white/45">{metric.label}</p>
+          <p className="mt-1 text-base font-semibold text-white/85">{metric.value}</p>
+          {metric.helper ? <p className="mt-1 text-xs text-accent/80">{metric.helper}</p> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RankedList({ title, rows, empty }: { title: string; rows: ReportEntityRow[]; empty: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+      <h3 className="text-sm font-semibold text-white/85">{title}</h3>
+      {rows.length > 0 ? (
+        <div className="mt-3 space-y-3">
+          {rows.slice(0, 5).map((row, index) => (
+            <div key={`${row.name}-${index}`} className="border-t border-white/10 pt-3 first:border-t-0 first:pt-0">
+              <div className="flex gap-2">
+                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-accent/35 bg-accent/10 text-xs font-semibold text-accent">{index + 1}</span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white/85">{row.name}</p>
+                  {row.context ? <p className="mt-1 truncate text-xs text-white/45">{row.context}</p> : null}
+                  <p className="mt-2 text-xs leading-5 text-white/55">{row.details.join(" · ")}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-white/45">{empty}</p>
+      )}
+    </div>
   );
 }
 
@@ -256,21 +347,33 @@ function renderSummaryValue(value: unknown) {
 }
 
 function overviewMetrics(report: MonthlyReport) {
+  const paid = readObject(report.paid_ads_summary ?? {}, "current") ?? report.paid_ads_summary;
+  const seo = readObject(report.seo_summary ?? {}, "summary") ?? report.seo_summary;
   return [
-    ...paidAdsMetrics(report.paid_ads_summary).slice(0, 4),
-    ...seoMetrics(report.seo_summary).slice(0, 4)
-  ];
+    ["Spend", formatCurrency(paid ? readNumber(paid, "spend", "total_spend") : null)],
+    ["Revenue", formatCurrency(paid ? readNumber(paid, "revenue", "conversion_value", "total_revenue") : null)],
+    ["Est. total revenue", formatCurrency(paid ? readNumber(paid, "estimated_total_revenue", "estimatedTotalRevenue") : null)],
+    ["ROAS", formatMultiplier(paid ? readNumber(paid, "roas") : null)],
+    ["Est. blended ROAS", formatMultiplier(paid ? readNumber(paid, "estimated_blended_roas", "estimatedBlendedRoas") : null)],
+    ["Organic clicks", formatCount(seo ? readNumber(seo, "organic_clicks", "clicks") : null)],
+    ["Organic impressions", formatCount(seo ? readNumber(seo, "organic_impressions", "impressions") : null)],
+    ["Organic CTR", formatRatio(seo ? readNumber(seo, "organic_ctr", "ctr") : null)]
+  ].map(([label, value]) => ({ label, value })).filter((metric) => metric.value !== "Not available");
 }
 
-function paidAdsMetrics(summary: Record<string, unknown> | null) {
+function paidAdsMetrics(summary: Record<string, unknown> | null): Array<{ label: string; value: string; helper?: string }> {
   if (!summary) return [];
   const current = readObject(summary, "current") ?? summary;
   return compactMetrics([
     ["Spend", formatCurrency(readNumber(current, "spend", "total_spend"))],
     ["Revenue", formatCurrency(readNumber(current, "revenue", "conversion_value", "total_revenue"))],
+    ["Estimated total revenue", formatCurrency(readNumber(current, "estimated_total_revenue", "estimatedTotalRevenue"))],
     ["Conversions", formatCount(readNumber(current, "conversions"))],
     ["ROAS", formatMultiplier(readNumber(current, "roas"))],
+    ["Estimated blended ROAS", formatMultiplier(readNumber(current, "estimated_blended_roas", "estimatedBlendedRoas"))],
     ["CPA", formatCurrency(readNumber(current, "cpa"))],
+    ["Store visits", formatCount(readNumber(current, "store_visits", "storeVisits"))],
+    ["Est. in-store orders", formatCount(readNumber(current, "estimated_in_store_purchases", "estimatedInStorePurchases"))],
     ["Clicks", formatCount(readNumber(current, "clicks"))],
     ["CPC", formatCurrencyCents(readNumber(current, "cpc"))],
     ["CTR", formatRatio(readNumber(current, "ctr"))]
@@ -287,7 +390,7 @@ function sectionTitle(title: string) {
   return title;
 }
 
-function seoMetrics(summary: Record<string, unknown> | null) {
+function seoMetrics(summary: Record<string, unknown> | null): Array<{ label: string; value: string; helper?: string }> {
   if (!summary) return [];
   const current = readObject(summary, "summary") ?? summary;
   return compactMetrics([
@@ -320,6 +423,65 @@ function momMetrics(summary: Record<string, unknown> | null) {
 
 function compactMetrics(rows: Array<[string, string]>) {
   return rows.map(([label, value]) => ({ label, value })).filter((item) => item.value !== "Not available");
+}
+
+function readArray(source: Record<string, unknown> | null, key: string) {
+  if (!source) return [];
+  const value = source[key];
+  return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item)) : [];
+}
+
+function reportRows(rows: Record<string, unknown>[], kind: "campaign" | "ad" | "page" | "query"): ReportEntityRow[] {
+  return rows.map((row) => {
+    const name = entityName(row, kind);
+    const context = kind === "ad" ? stringValue(row, "campaign_name") : kind === "campaign" ? stringValue(row, "channel") : null;
+    const details = entityDetails(row, kind);
+    return { name, context, details };
+  }).filter((row) => row.name && row.details.length > 0);
+}
+
+function entityName(row: Record<string, unknown>, kind: "campaign" | "ad" | "page" | "query") {
+  if (kind === "campaign") return stringValue(row, "campaign_name") ?? stringValue(row, "campaign_id") ?? "Unnamed campaign";
+  if (kind === "ad") return stringValue(row, "ad_name") ?? stringValue(row, "headline") ?? stringValue(row, "ad_id") ?? "Unnamed ad";
+  if (kind === "page") return cleanPageLabel(stringValue(row, "page") ?? stringValue(row, "url") ?? "Unknown page");
+  return stringValue(row, "query") ?? "Unknown query";
+}
+
+function entityDetails(row: Record<string, unknown>, kind: "campaign" | "ad" | "page" | "query") {
+  if (kind === "page" || kind === "query") {
+    return compactDetailValues([
+      ["Clicks", formatCount(readNumber(row, "clicks", "organic_clicks"))],
+      ["Impressions", formatCount(readNumber(row, "impressions", "organic_impressions"))],
+      ["CTR", formatRatio(readNumber(row, "ctr", "organic_ctr"))],
+      ["Position", formatDecimal(readNumber(row, "average_position", "position"))]
+    ]);
+  }
+
+  return compactDetailValues([
+    ["Spend", formatCurrency(readNumber(row, "spend", "total_spend"))],
+    ["Revenue", formatCurrency(readNumber(row, "revenue", "conversion_value", "total_revenue"))],
+    ["Conversions", formatCount(readNumber(row, "conversions"))],
+    ["ROAS", formatMultiplier(readNumber(row, "roas"))],
+    ["CPA", formatCurrency(readNumber(row, "cpa"))]
+  ]);
+}
+
+function compactDetailValues(rows: Array<[string, string]>) {
+  return rows.filter(([, value]) => value !== "Not available").slice(0, 4).map(([label, value]) => `${label}: ${value}`);
+}
+
+function stringValue(source: Record<string, unknown>, key: string) {
+  const value = source[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function cleanPageLabel(value: string) {
+  try {
+    const url = new URL(value);
+    return `${url.hostname}${url.pathname === "/" ? "/" : url.pathname}`;
+  } catch {
+    return value;
+  }
 }
 
 function readNumber(source: Record<string, unknown>, ...keys: string[]) {

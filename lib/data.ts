@@ -16,6 +16,8 @@ import type {
   SeoTotals
 } from "@/lib/types";
 
+const IN_STORE_AOV = 24.87;
+
 const rangeLabels: Record<DateRangeKey, string> = {
   today: "Today",
   yesterday: "Yesterday",
@@ -546,12 +548,49 @@ export async function getMonthlyReportData(reportId: string) {
 
   const { data, error } = await query.single();
   const errorMessage = queryErrorMessage(error);
+  const report = data ? normalizeMonthlyReport(data as Record<string, unknown>) : null;
+
+  if (report?.paid_ads_summary) {
+    const { rows } = await getPaidRowsForRange(supabase, report.client_id, report.period_start, report.period_end);
+    enrichPaidAdsReportSummary(report, rows);
+  }
 
   return {
     profile,
-    report: data ? normalizeMonthlyReport(data as Record<string, unknown>) : null,
+    report,
     status: queryStatus(errorMessage, data ? 1 : 0)
   };
+}
+
+function enrichPaidAdsReportSummary(report: MonthlyReport, rows: DailyPerformance[]) {
+  if (!report.paid_ads_summary || rows.length === 0) return;
+
+  const totals = sumPaidPerformance(rows);
+  if (totals.store_visits === null) return;
+
+  const current = readMutableObject(report.paid_ads_summary, "current");
+  const onlineRevenue = nullableNumber(current.revenue) ?? totals.revenue;
+  const onlineOrders = nullableNumber(current.conversions) ?? totals.conversions;
+  const spend = nullableNumber(current.spend) ?? totals.spend;
+  const estimatedInStorePurchases = Math.max(totals.store_visits - onlineOrders, 0);
+  const estimatedInStoreRevenue = estimatedInStorePurchases * IN_STORE_AOV;
+  const estimatedTotalRevenue = onlineRevenue + estimatedInStoreRevenue;
+  const estimatedBlendedRoas = spend > 0 ? estimatedTotalRevenue / spend : null;
+
+  current.store_visits = totals.store_visits;
+  current.estimated_in_store_purchases = estimatedInStorePurchases;
+  current.estimated_in_store_revenue = estimatedInStoreRevenue;
+  current.estimated_total_revenue = estimatedTotalRevenue;
+  current.estimated_blended_roas = estimatedBlendedRoas;
+  current.in_store_aov = IN_STORE_AOV;
+}
+
+function readMutableObject(source: Record<string, unknown>, key: string) {
+  const value = source[key];
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  const next: Record<string, unknown> = {};
+  source[key] = next;
+  return next;
 }
 
 async function getPaidRowsForRange(supabase: any, clientId: string, start: string, end: string) {
