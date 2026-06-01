@@ -550,14 +550,16 @@ export async function getMonthlyReportData(reportId: string) {
   const errorMessage = queryErrorMessage(error);
   const report = data ? normalizeMonthlyReport(data as Record<string, unknown>) : null;
 
+  const paidDailyRows = report ? (await getPaidRowsForRange(supabase, report.client_id, report.period_start, report.period_end)).rows : [];
+
   if (report?.paid_ads_summary) {
-    const { rows } = await getPaidRowsForRange(supabase, report.client_id, report.period_start, report.period_end);
-    enrichPaidAdsReportSummary(report, rows);
+    enrichPaidAdsReportSummary(report, paidDailyRows);
   }
 
   return {
     profile,
     report,
+    paidDailyRows,
     status: queryStatus(errorMessage, data ? 1 : 0)
   };
 }

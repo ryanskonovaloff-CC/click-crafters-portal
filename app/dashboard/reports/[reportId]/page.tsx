@@ -6,7 +6,8 @@ import { publishMonthlyReport, unpublishMonthlyReport } from "../actions";
 import { getMonthlyReportData } from "@/lib/data";
 import { clientLogoSrc } from "@/lib/client-branding";
 import { compact, currency, currencyCents, pct } from "@/lib/utils";
-import type { MonthlyReport } from "@/lib/types";
+import { ReportImpactChart } from "@/components/report-impact-chart";
+import type { DailyPerformance, MonthlyReport } from "@/lib/types";
 
 type PageProps = {
   params: Promise<{ reportId: string }>;
@@ -20,7 +21,7 @@ type ReportEntityRow = {
 
 export default async function ReportDetailPage({ params }: PageProps) {
   const { reportId } = await params;
-  const { profile, report, status } = await getMonthlyReportData(reportId);
+  const { profile, report, paidDailyRows, status } = await getMonthlyReportData(reportId);
 
   if (!report && !status.error) notFound();
   const isAdmin = profile.role === "admin";
@@ -32,12 +33,12 @@ export default async function ReportDetailPage({ params }: PageProps) {
       </Link>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load report: {status.error}</Card> : null}
-      {report ? <ReportContent report={report} showStatus={isAdmin} /> : null}
+      {report ? <ReportContent report={report} paidDailyRows={paidDailyRows} showStatus={isAdmin} /> : null}
     </div>
   );
 }
 
-function ReportContent({ report, showStatus }: { report: MonthlyReport; showStatus: boolean }) {
+function ReportContent({ report, paidDailyRows, showStatus }: { report: MonthlyReport; paidDailyRows: DailyPerformance[]; showStatus: boolean }) {
   const logoSrc = clientLogoSrc(report.client_name);
   const executiveSummary = reportExecutiveSummary(report);
   const wins = report.wins.length > 0 ? report.wins : fallbackWins(report);
@@ -78,6 +79,23 @@ function ReportContent({ report, showStatus }: { report: MonthlyReport; showStat
         <h2 className="text-lg font-semibold"><AccentText>KPI</AccentText> Overview</h2>
         <ReportKpiOverview report={report} />
       </section>
+
+      <Card>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold"><AccentText>Paid Ads</AccentText> Impact Over Time</h2>
+            <p className="mt-2 text-sm text-white/55">Cumulative spend and reported revenue for the report period.</p>
+          </div>
+          <Badge>Running total</Badge>
+        </div>
+        {paidDailyRows.length > 0 ? (
+          <div className="mt-5">
+            <ReportImpactChart data={paidDailyRows} />
+          </div>
+        ) : (
+          <div className="mt-4"><EmptyState>Paid Ads trend data not available for this report.</EmptyState></div>
+        )}
+      </Card>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <PaidAdsReportSection summary={report.paid_ads_summary} commentary={report.paid_ads_commentary} />
