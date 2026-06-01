@@ -84,7 +84,7 @@ function ReportContent({ report, paidImpactRows, showStatus }: { report: Monthly
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold"><AccentText>Paid Ads</AccentText> Month-over-Month Impact</h2>
-            <p className="mt-2 text-sm text-white/55">Monthly spend and reported revenue through the report period.</p>
+            <p className="mt-2 text-sm text-white/55">Monthly spend, reported revenue, and estimated total revenue through the report period.</p>
           </div>
           <Badge>MoM trend</Badge>
         </div>

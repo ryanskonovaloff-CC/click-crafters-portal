@@ -4,11 +4,14 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import type { DailyPerformance } from "@/lib/types";
 import { currency } from "@/lib/utils";
 
+const IN_STORE_AOV = 24.87;
+
 type ImpactPoint = {
   label: string;
   month: string;
   spend: number;
   revenue: number;
+  estimated_total_revenue: number | null;
 };
 
 export function ReportImpactChart({ data }: { data: DailyPerformance[] }) {
@@ -30,6 +33,7 @@ export function ReportImpactChart({ data }: { data: DailyPerformance[] }) {
           cursor={{ stroke: "rgba(247,242,232,0.22)", strokeWidth: 1 }}
           formatter={(value, name) => [currency.format(Number(value)), String(name)]}
         />
+        <Line type="monotone" dataKey="estimated_total_revenue" name="Estimated total revenue" stroke="#a7a7a7" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 1 }} activeDot={{ r: 5, strokeWidth: 2 }} connectNulls />
         <Line type="monotone" dataKey="revenue" name="Revenue" stroke="#f7f2e8" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 1 }} activeDot={{ r: 5, strokeWidth: 2 }} />
         <Line type="monotone" dataKey="spend" name="Spend" stroke="#ff6a1a" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 1 }} activeDot={{ r: 5, strokeWidth: 2 }} />
         <Legend content={<ImpactLegend />} />
@@ -39,22 +43,29 @@ export function ReportImpactChart({ data }: { data: DailyPerformance[] }) {
 }
 
 function monthlyImpactData(data: DailyPerformance[]): ImpactPoint[] {
-  const byMonth = data.reduce<Record<string, { spend: number; revenue: number }>>((acc, item) => {
+  const byMonth = data.reduce<Record<string, { spend: number; revenue: number; conversions: number; storeVisits: number; hasStoreVisits: boolean }>>((acc, item) => {
     const monthKey = item.date.slice(0, 7);
-    acc[monthKey] ??= { spend: 0, revenue: 0 };
+    acc[monthKey] ??= { spend: 0, revenue: 0, conversions: 0, storeVisits: 0, hasStoreVisits: false };
     acc[monthKey].spend += item.spend;
     acc[monthKey].revenue += item.revenue;
+    acc[monthKey].conversions += item.conversions;
+    acc[monthKey].storeVisits += item.store_visits ?? 0;
+    acc[monthKey].hasStoreVisits ||= item.store_visits !== null;
     return acc;
   }, {});
 
   return Object.entries(byMonth)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([monthKey, item]) => {
+      const estimatedInStorePurchases = Math.max(item.storeVisits - item.conversions, 0);
+      const estimatedTotalRevenue = item.hasStoreVisits ? item.revenue + estimatedInStorePurchases * IN_STORE_AOV : null;
+
       return {
         label: shortMonthLabel(monthKey),
         month: longMonthLabel(monthKey),
         spend: item.spend,
-        revenue: item.revenue
+        revenue: item.revenue,
+        estimated_total_revenue: estimatedTotalRevenue
       };
     });
 }
