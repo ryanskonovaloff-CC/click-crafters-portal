@@ -21,7 +21,7 @@ type ReportEntityRow = {
 
 export default async function ReportDetailPage({ params }: PageProps) {
   const { reportId } = await params;
-  const { profile, report, paidDailyRows, status } = await getMonthlyReportData(reportId);
+  const { profile, report, paidImpactRows, status } = await getMonthlyReportData(reportId);
 
   if (!report && !status.error) notFound();
   const isAdmin = profile.role === "admin";
@@ -33,12 +33,12 @@ export default async function ReportDetailPage({ params }: PageProps) {
       </Link>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load report: {status.error}</Card> : null}
-      {report ? <ReportContent report={report} paidDailyRows={paidDailyRows} showStatus={isAdmin} /> : null}
+      {report ? <ReportContent report={report} paidImpactRows={paidImpactRows} showStatus={isAdmin} /> : null}
     </div>
   );
 }
 
-function ReportContent({ report, paidDailyRows, showStatus }: { report: MonthlyReport; paidDailyRows: DailyPerformance[]; showStatus: boolean }) {
+function ReportContent({ report, paidImpactRows, showStatus }: { report: MonthlyReport; paidImpactRows: DailyPerformance[]; showStatus: boolean }) {
   const logoSrc = clientLogoSrc(report.client_name);
   const executiveSummary = reportExecutiveSummary(report);
   const wins = report.wins.length > 0 ? report.wins : fallbackWins(report);
@@ -83,17 +83,17 @@ function ReportContent({ report, paidDailyRows, showStatus }: { report: MonthlyR
       <Card>
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold"><AccentText>Paid Ads</AccentText> Impact Over Time</h2>
-            <p className="mt-2 text-sm text-white/55">Cumulative spend and reported revenue for the report period.</p>
+            <h2 className="text-lg font-semibold"><AccentText>Paid Ads</AccentText> Month-over-Month Impact</h2>
+            <p className="mt-2 text-sm text-white/55">Monthly spend and reported revenue through the report period.</p>
           </div>
-          <Badge>Running total</Badge>
+          <Badge>MoM trend</Badge>
         </div>
-        {paidDailyRows.length > 0 ? (
+        {paidImpactRows.length > 0 ? (
           <div className="mt-5">
-            <ReportImpactChart data={paidDailyRows} />
+            <ReportImpactChart data={paidImpactRows} />
           </div>
         ) : (
-          <div className="mt-4"><EmptyState>Paid Ads trend data not available for this report.</EmptyState></div>
+          <div className="mt-4"><EmptyState>Paid Ads monthly trend data not available for this report.</EmptyState></div>
         )}
       </Card>
 

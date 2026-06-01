@@ -42,6 +42,12 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
+function addMonths(date: Date, months: number) {
+  const next = new Date(date);
+  next.setUTCMonth(next.getUTCMonth() + months);
+  return next;
+}
+
 function startOfMonth(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
@@ -551,6 +557,7 @@ export async function getMonthlyReportData(reportId: string) {
   const report = data ? normalizeMonthlyReport(data as Record<string, unknown>) : null;
 
   const paidDailyRows = report ? (await getPaidRowsForRange(supabase, report.client_id, report.period_start, report.period_end)).rows : [];
+  const paidImpactRows = report ? (await getPaidRowsForRange(supabase, report.client_id, reportImpactStart(report.period_start), report.period_end)).rows : [];
 
   if (report?.paid_ads_summary) {
     enrichPaidAdsReportSummary(report, paidDailyRows);
@@ -560,8 +567,13 @@ export async function getMonthlyReportData(reportId: string) {
     profile,
     report,
     paidDailyRows,
+    paidImpactRows,
     status: queryStatus(errorMessage, data ? 1 : 0)
   };
+}
+
+function reportImpactStart(periodStart: string) {
+  return isoDate(addMonths(startOfMonth(new Date(`${periodStart}T00:00:00Z`)), -11));
 }
 
 function enrichPaidAdsReportSummary(report: MonthlyReport, rows: DailyPerformance[]) {

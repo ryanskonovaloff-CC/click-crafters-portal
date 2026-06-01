@@ -6,12 +6,13 @@ import { currency } from "@/lib/utils";
 
 type ImpactPoint = {
   label: string;
+  month: string;
   spend: number;
   revenue: number;
 };
 
 export function ReportImpactChart({ data }: { data: DailyPerformance[] }) {
-  const chartData = cumulativeImpactData(data);
+  const chartData = monthlyImpactData(data);
 
   return (
     <ResponsiveContainer width="100%" height={300}>
@@ -27,38 +28,43 @@ export function ReportImpactChart({ data }: { data: DailyPerformance[] }) {
             color: "white"
           }}
           cursor={{ stroke: "rgba(247,242,232,0.22)", strokeWidth: 1 }}
-          formatter={(value, name) => [currency.format(Number(value)), name === "revenue" ? "Revenue" : "Spend"]}
+          formatter={(value, name) => [currency.format(Number(value)), String(name)]}
         />
-        <Line type="monotone" dataKey="revenue" name="Revenue" stroke="#f7f2e8" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} />
-        <Line type="monotone" dataKey="spend" name="Spend" stroke="#ff6a1a" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} />
+        <Line type="monotone" dataKey="revenue" name="Revenue" stroke="#f7f2e8" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 1 }} activeDot={{ r: 5, strokeWidth: 2 }} />
+        <Line type="monotone" dataKey="spend" name="Spend" stroke="#ff6a1a" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 1 }} activeDot={{ r: 5, strokeWidth: 2 }} />
         <Legend content={<ImpactLegend />} />
       </LineChart>
     </ResponsiveContainer>
   );
 }
 
-function cumulativeImpactData(data: DailyPerformance[]): ImpactPoint[] {
-  const byDate = data.reduce<Record<string, { label: string; spend: number; revenue: number }>>((acc, item) => {
-    acc[item.date] ??= { label: item.date.slice(5), spend: 0, revenue: 0 };
-    acc[item.date].spend += item.spend;
-    acc[item.date].revenue += item.revenue;
+function monthlyImpactData(data: DailyPerformance[]): ImpactPoint[] {
+  const byMonth = data.reduce<Record<string, { spend: number; revenue: number }>>((acc, item) => {
+    const monthKey = item.date.slice(0, 7);
+    acc[monthKey] ??= { spend: 0, revenue: 0 };
+    acc[monthKey].spend += item.spend;
+    acc[monthKey].revenue += item.revenue;
     return acc;
   }, {});
 
-  let runningSpend = 0;
-  let runningRevenue = 0;
-
-  return Object.entries(byDate)
+  return Object.entries(byMonth)
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([, item]) => {
-      runningSpend += item.spend;
-      runningRevenue += item.revenue;
+    .map(([monthKey, item]) => {
       return {
-        label: item.label,
-        spend: runningSpend,
-        revenue: runningRevenue
+        label: shortMonthLabel(monthKey),
+        month: longMonthLabel(monthKey),
+        spend: item.spend,
+        revenue: item.revenue
       };
     });
+}
+
+function shortMonthLabel(monthKey: string) {
+  return new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(`${monthKey}-01T00:00:00Z`));
+}
+
+function longMonthLabel(monthKey: string) {
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${monthKey}-01T00:00:00Z`));
 }
 
 function ImpactLegend({ payload }: { payload?: Array<{ value?: string; color?: string }> }) {
