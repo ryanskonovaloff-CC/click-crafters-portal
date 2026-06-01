@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays } from "lucide-react";
 import { AccentText, Badge, Card, ClientPageTitle, EmptyState } from "@/components/ui";
 import { publishMonthlyReport, unpublishMonthlyReport } from "./actions";
+import { DeleteReportButton } from "./delete-report-button";
 import { getReportsData } from "@/lib/data";
 import { clientLogoSrc } from "@/lib/client-branding";
 import type { MonthlyReport } from "@/lib/types";
@@ -54,6 +55,7 @@ function ReportCard({ report, showStatus }: { report: MonthlyReport; showStatus:
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
           {showStatus && report.status === "draft" ? <PublishReportButton reportId={report.id} /> : null}
           {showStatus && report.status === "published" ? <UnpublishReportButton reportId={report.id} /> : null}
+          {showStatus ? <DeleteReportButton reportId={report.id} reportTitle={report.title ?? `${formatMonth(report.report_month)} report`} /> : null}
           <Link
             href={`/dashboard/reports/${report.id}`}
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-panelStrong px-3 py-2 text-sm text-white/80 transition hover:border-accent/60 hover:text-white"

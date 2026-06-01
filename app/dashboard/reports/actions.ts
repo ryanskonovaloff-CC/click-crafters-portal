@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { getSessionProfile } from "@/lib/data";
 
 export async function publishMonthlyReport(formData: FormData) {
@@ -76,6 +77,33 @@ export async function unpublishMonthlyReport(formData: FormData) {
 
   revalidatePath("/dashboard/reports");
   revalidatePath(`/dashboard/reports/${reportId}`);
+}
+
+export async function deleteMonthlyReport(formData: FormData) {
+  const reportId = String(formData.get("reportId") ?? "");
+
+  if (!reportId) {
+    throw new Error("Missing report ID.");
+  }
+
+  const { supabase, profile } = await getSessionProfile();
+
+  if (profile.role !== "admin") {
+    throw new Error("You do not have permission to delete reports.");
+  }
+
+  const { error } = await supabase
+    .from("monthly_reports")
+    .delete()
+    .eq("id", reportId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard/reports");
+  revalidatePath(`/dashboard/reports/${reportId}`);
+  redirect("/dashboard/reports");
 }
 
 function formatReportMonth(value: string) {
