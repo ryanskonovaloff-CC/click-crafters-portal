@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays } from "lucide-react";
-import { AccentText, Badge, Card, ClientPageTitle, EmptyState, MetricGrid, StatCard } from "@/components/ui";
+import { AccentText, Badge, Card, ClientPageTitle, EmptyState } from "@/components/ui";
 import { publishMonthlyReport, unpublishMonthlyReport } from "../actions";
 import { getMonthlyReportData } from "@/lib/data";
 import { clientLogoSrc } from "@/lib/client-branding";
@@ -39,6 +39,11 @@ export default async function ReportDetailPage({ params }: PageProps) {
 
 function ReportContent({ report, showStatus }: { report: MonthlyReport; showStatus: boolean }) {
   const logoSrc = clientLogoSrc(report.client_name);
+  const executiveSummary = reportExecutiveSummary(report);
+  const wins = report.wins.length > 0 ? report.wins : fallbackWins(report);
+  const watchouts = report.watchouts.length > 0 ? report.watchouts : fallbackWatchouts(report);
+  const nextSteps = report.next_steps.length > 0 ? report.next_steps : fallbackNextSteps(report);
+
   return (
     <>
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
@@ -62,8 +67,8 @@ function ReportContent({ report, showStatus }: { report: MonthlyReport; showStat
 
       <Card>
         <h2 className="text-lg font-semibold"><AccentText>Executive</AccentText> Summary</h2>
-        {report.executive_summary ? (
-          <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white/65">{report.executive_summary}</p>
+        {executiveSummary ? (
+          <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white/65">{executiveSummary}</p>
         ) : (
           <EmptyState>Executive summary is not available for this report.</EmptyState>
         )}
@@ -71,11 +76,7 @@ function ReportContent({ report, showStatus }: { report: MonthlyReport; showStat
 
       <section className="space-y-3 sm:space-y-4">
         <h2 className="text-lg font-semibold"><AccentText>KPI</AccentText> Overview</h2>
-        <MetricGrid>
-          {overviewMetrics(report).map((metric) => (
-            <StatCard key={metric.label} label={metric.label} value={metric.value} state={metric.value === "Not available" ? "empty" : "ready"} />
-          ))}
-        </MetricGrid>
+        <ReportKpiOverview report={report} />
       </section>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
@@ -92,9 +93,9 @@ function ReportContent({ report, showStatus }: { report: MonthlyReport; showStat
       />
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-3">
-        <ListSection title="Wins" items={report.wins} empty="No wins recorded for this report." />
-        <ListSection title="Watchouts" items={report.watchouts} empty="No watchouts recorded for this report." />
-        <ListSection title="Recommended Next Steps" items={report.next_steps} empty="No next steps recorded for this report." />
+        <ListSection title="Wins" items={wins} empty="No wins recorded for this report." />
+        <ListSection title="Watchouts" items={watchouts} empty="No watchouts recorded for this report." />
+        <ListSection title="Recommended Next Steps" items={nextSteps} empty="No next steps recorded for this report." />
       </div>
     </>
   );
@@ -275,6 +276,36 @@ function ListSection({ title, items, empty }: { title: string; items: string[]; 
   );
 }
 
+function ReportKpiOverview({ report }: { report: MonthlyReport }) {
+  const paid = paidCurrent(report);
+  const seo = seoCurrent(report);
+  const metrics = [
+    ["Spend", formatCurrency(paid ? readNumber(paid, "spend", "total_spend") : null)],
+    ["Online orders", formatCount(paid ? readNumber(paid, "conversions", "online_orders") : null)],
+    ["CPA", formatCurrency(paid ? readNumber(paid, "cpa") : null)],
+    ["Store visits", formatCount(paid ? readNumber(paid, "store_visits", "storeVisits") : null)],
+    ["Revenue", formatCurrency(paid ? readNumber(paid, "revenue", "conversion_value", "total_revenue") : null)],
+    ["Est. total revenue", formatCurrency(paid ? readNumber(paid, "estimated_total_revenue", "estimatedTotalRevenue") : null)],
+    ["ROAS", formatMultiplier(paid ? readNumber(paid, "roas") : null)],
+    ["Est. blended ROAS", formatMultiplier(paid ? readNumber(paid, "estimated_blended_roas", "estimatedBlendedRoas") : null)],
+    ["Organic clicks", formatCount(seo ? readNumber(seo, "organic_clicks", "clicks") : null)],
+    ["Organic impressions", formatCount(seo ? readNumber(seo, "organic_impressions", "impressions") : null)],
+    ["Organic CTR", formatRatio(seo ? readNumber(seo, "organic_ctr", "ctr") : null)],
+    ["Average position", formatDecimal(seo ? readNumber(seo, "average_position", "position") : null)]
+  ].map(([label, value]) => ({ label, value })).filter((metric) => metric.value !== "Not available");
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6">
+      {metrics.map((metric) => (
+        <div key={metric.label} className="flex min-h-32 flex-col justify-center rounded-lg border border-white/15 bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <p className="text-sm font-medium text-white/55">{metric.label}</p>
+          <p className="mt-3 text-2xl font-bold tracking-tight text-white">{metric.value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function JsonHighlights({ entries }: { entries: Array<[string, unknown]> }) {
   if (entries.length === 0) return null;
 
@@ -346,19 +377,110 @@ function renderSummaryValue(value: unknown) {
   return <p>{formatUnknown(value)}</p>;
 }
 
-function overviewMetrics(report: MonthlyReport) {
-  const paid = readObject(report.paid_ads_summary ?? {}, "current") ?? report.paid_ads_summary;
-  const seo = readObject(report.seo_summary ?? {}, "summary") ?? report.seo_summary;
-  return [
-    ["Spend", formatCurrency(paid ? readNumber(paid, "spend", "total_spend") : null)],
-    ["Revenue", formatCurrency(paid ? readNumber(paid, "revenue", "conversion_value", "total_revenue") : null)],
-    ["Est. total revenue", formatCurrency(paid ? readNumber(paid, "estimated_total_revenue", "estimatedTotalRevenue") : null)],
-    ["ROAS", formatMultiplier(paid ? readNumber(paid, "roas") : null)],
-    ["Est. blended ROAS", formatMultiplier(paid ? readNumber(paid, "estimated_blended_roas", "estimatedBlendedRoas") : null)],
-    ["Organic clicks", formatCount(seo ? readNumber(seo, "organic_clicks", "clicks") : null)],
-    ["Organic impressions", formatCount(seo ? readNumber(seo, "organic_impressions", "impressions") : null)],
-    ["Organic CTR", formatRatio(seo ? readNumber(seo, "organic_ctr", "ctr") : null)]
-  ].map(([label, value]) => ({ label, value })).filter((metric) => metric.value !== "Not available");
+function reportExecutiveSummary(report: MonthlyReport) {
+  if (hasMeaningfulCopy(report.executive_summary)) return report.executive_summary;
+
+  const paid = paidCurrent(report);
+  const seo = seoCurrent(report);
+  const client = report.client_name ?? "the client";
+  const period = formatMonth(report.report_month);
+  const spend = paid ? readNumber(paid, "spend", "total_spend") : null;
+  const revenue = paid ? readNumber(paid, "revenue", "conversion_value", "total_revenue") : null;
+  const estimatedRevenue = paid ? readNumber(paid, "estimated_total_revenue", "estimatedTotalRevenue") : null;
+  const roas = paid ? readNumber(paid, "roas") : null;
+  const blendedRoas = paid ? readNumber(paid, "estimated_blended_roas", "estimatedBlendedRoas") : null;
+  const orders = paid ? readNumber(paid, "conversions", "online_orders") : null;
+  const organicClicks = seo ? readNumber(seo, "organic_clicks", "clicks") : null;
+  const organicImpressions = seo ? readNumber(seo, "organic_impressions", "impressions") : null;
+  const parts: string[] = [];
+
+  if (spend !== null && revenue !== null) {
+    parts.push(`${period} performance for ${client} shows ${formatCurrency(spend)} in ad spend generating ${formatCurrency(revenue)} in reported online revenue${orders !== null ? ` from ${formatCount(orders)} online orders` : ""}.`);
+  }
+  if (estimatedRevenue !== null && blendedRoas !== null) {
+    parts.push(`With estimated in-store impact included, total revenue is estimated at ${formatCurrency(estimatedRevenue)} with ${formatMultiplier(blendedRoas)} blended ROAS${roas !== null ? ` versus ${formatMultiplier(roas)} platform ROAS` : ""}.`);
+  }
+  if (organicClicks !== null || organicImpressions !== null) {
+    parts.push(`SEO visibility added ${formatCount(organicClicks)} organic clicks${organicImpressions !== null ? ` from ${formatCount(organicImpressions)} impressions` : ""}.`);
+  }
+  if (!hasMomData(report)) {
+    parts.push("Prior-month comparison data is not available for this report, so the summary is based on current-month performance.");
+  }
+
+  return parts.join(" ");
+}
+
+function fallbackWins(report: MonthlyReport) {
+  const paid = paidCurrent(report);
+  const seo = seoCurrent(report);
+  const rows: string[] = [];
+  const spend = paid ? readNumber(paid, "spend", "total_spend") : null;
+  const revenue = paid ? readNumber(paid, "revenue", "conversion_value", "total_revenue") : null;
+  const estimatedRevenue = paid ? readNumber(paid, "estimated_total_revenue", "estimatedTotalRevenue") : null;
+  const roas = paid ? readNumber(paid, "roas") : null;
+  const blendedRoas = paid ? readNumber(paid, "estimated_blended_roas", "estimatedBlendedRoas") : null;
+  const topCampaign = reportRows(readArray(report.paid_ads_summary, "top_campaigns"), "campaign")[0];
+  const topAd = reportRows(readArray(report.paid_ads_summary, "top_ads_by_roas"), "ad")[0];
+  const organicClicks = seo ? readNumber(seo, "organic_clicks", "clicks") : null;
+  const organicImpressions = seo ? readNumber(seo, "organic_impressions", "impressions") : null;
+
+  if (estimatedRevenue !== null && blendedRoas !== null) rows.push(`Estimated total revenue reached ${formatCurrency(estimatedRevenue)} with ${formatMultiplier(blendedRoas)} estimated blended ROAS.`);
+  if (spend !== null && revenue !== null && roas !== null) rows.push(`Paid ads produced ${formatCurrency(revenue)} in reported revenue on ${formatCurrency(spend)} spend, a ${formatMultiplier(roas)} platform ROAS.`);
+  if (topCampaign) rows.push(`Top campaign: ${topCampaign.name}${topCampaign.details.length > 0 ? ` (${topCampaign.details.join(" · ")})` : ""}.`);
+  if (topAd) rows.push(`Top ad by ROAS: ${topAd.name}${topAd.details.length > 0 ? ` (${topAd.details.join(" · ")})` : ""}.`);
+  if (organicClicks !== null) rows.push(`Organic search delivered ${formatCount(organicClicks)} clicks${organicImpressions !== null ? ` from ${formatCount(organicImpressions)} impressions` : ""}.`);
+
+  return rows.slice(0, 4);
+}
+
+function fallbackWatchouts(report: MonthlyReport) {
+  const paid = paidCurrent(report);
+  const rows: string[] = [];
+  const roas = paid ? readNumber(paid, "roas") : null;
+  const blendedRoas = paid ? readNumber(paid, "estimated_blended_roas", "estimatedBlendedRoas") : null;
+  const campaignWatchout = reportRows(readArray(report.paid_ads_summary, "campaign_watchouts"), "campaign")[0];
+
+  if (!hasMomData(report)) rows.push("Prior-month comparison data is unavailable, so month-over-month movement should not be used for final performance conclusions yet.");
+  if (roas !== null && blendedRoas !== null && blendedRoas > roas) rows.push("Platform ROAS understates the likely full impact because in-store purchases from ad-driven store visits are not captured as online revenue.");
+  if (campaignWatchout) rows.push(`Campaign to watch: ${campaignWatchout.name}${campaignWatchout.details.length > 0 ? ` (${campaignWatchout.details.join(" · ")})` : ""}.`);
+
+  return rows.slice(0, 3);
+}
+
+function fallbackNextSteps(report: MonthlyReport) {
+  const paid = paidCurrent(report);
+  const seo = seoCurrent(report);
+  const rows = [
+    paid ? "Use estimated blended ROAS and estimated total revenue in the client performance discussion, while clearly labeling them as estimates." : null,
+    paid ? "Review top campaign and ad performance, then keep budget focused on the assets producing the strongest revenue efficiency." : null,
+    seo ? "Use the top queries and landing pages to prioritize SEO content improvements and conversion-focused page updates." : null,
+    "Validate tracking assumptions for online orders, store visits, and estimated in-store revenue before publishing the next monthly report."
+  ];
+
+  if (!hasMomData(report)) rows.push("Use the next completed report period to establish a reliable month-over-month baseline.");
+  return rows.filter((item): item is string => Boolean(item)).slice(0, 4);
+}
+
+function hasMeaningfulCopy(value: string | null) {
+  if (!value?.trim()) return false;
+  const normalized = value.trim().toLowerCase();
+  return ![
+    "monthly report draft generated from compact source metrics.",
+    "monthly performance report draft generated from available portal data."
+  ].includes(normalized);
+}
+
+function hasMomData(report: MonthlyReport) {
+  if (momMetrics(report.mom_summary).length > 0) return true;
+  return hasMeaningfulCopy(report.mom_commentary);
+}
+
+function paidCurrent(report: MonthlyReport) {
+  return report.paid_ads_summary ? readObject(report.paid_ads_summary, "current") ?? report.paid_ads_summary : null;
+}
+
+function seoCurrent(report: MonthlyReport) {
+  return report.seo_summary ? readObject(report.seo_summary, "summary") ?? report.seo_summary : null;
 }
 
 function paidAdsMetrics(summary: Record<string, unknown> | null): Array<{ label: string; value: string; helper?: string }> {
