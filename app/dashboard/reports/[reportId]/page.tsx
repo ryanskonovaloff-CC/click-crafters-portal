@@ -141,11 +141,14 @@ function SummarySection({ title, unavailable, summary, commentary, metrics }: {
   commentary: string | null;
   metrics: Array<{ label: string; value: string }>;
 }) {
+  const highlights = summary ? summaryHighlights(summary) : [];
+  const hasContent = Boolean(commentary) || metrics.length > 0 || highlights.length > 0;
+
   return (
     <Card>
       <h2 className="text-lg font-semibold">{sectionTitle(title)}</h2>
       {commentary ? <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white/65">{commentary}</p> : null}
-      {summary ? (
+      {summary && hasContent ? (
         <div className="mt-4 space-y-4">
           {metrics.length > 0 ? (
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -157,7 +160,7 @@ function SummarySection({ title, unavailable, summary, commentary, metrics }: {
               ))}
             </div>
           ) : null}
-          <JsonHighlights summary={summary} />
+          <JsonHighlights entries={highlights} />
         </div>
       ) : (
         <div className="mt-4"><EmptyState>{unavailable}</EmptyState></div>
@@ -181,11 +184,7 @@ function ListSection({ title, items, empty }: { title: string; items: string[]; 
   );
 }
 
-function JsonHighlights({ summary }: { summary: Record<string, unknown> }) {
-  const entries = Object.entries(summary)
-    .filter(([, value]) => Array.isArray(value) || (value && typeof value === "object"))
-    .slice(0, 4);
-
+function JsonHighlights({ entries }: { entries: Array<[string, unknown]> }) {
   if (entries.length === 0) return null;
 
   return (
@@ -200,6 +199,46 @@ function JsonHighlights({ summary }: { summary: Record<string, unknown> }) {
       ))}
     </div>
   );
+}
+
+function summaryHighlights(summary: Record<string, unknown>) {
+  const hiddenKeys = new Set([
+    "debug",
+    "node_name",
+    "query_client_id",
+    "source_item_count",
+    "grouped_ad_count",
+    "grouped_campaign_count",
+    "payload_size_chars",
+    "period_start",
+    "period_end",
+    "previous_period_start",
+    "previous_period_end",
+    "source",
+    "current",
+    "previous",
+    "mom_delta",
+    "mom_deltas",
+    "previous_period"
+  ]);
+
+  return Object.entries(summary)
+    .filter(([key]) => !hiddenKeys.has(key))
+    .filter(([, value]) => Array.isArray(value) || (value && typeof value === "object"))
+    .filter(([, value]) => hasDisplayableSummaryValue(value))
+    .slice(0, 4);
+}
+
+function hasDisplayableSummaryValue(value: unknown): boolean {
+  if (Array.isArray(value)) return value.length > 0;
+  if (!value || typeof value !== "object") return false;
+  return Object.values(value as Record<string, unknown>).some((item) => {
+    if (item === null || item === undefined || item === "") return false;
+    if (typeof item === "number") return Number.isFinite(item);
+    if (Array.isArray(item)) return item.length > 0;
+    if (typeof item === "object") return hasDisplayableSummaryValue(item);
+    return true;
+  });
 }
 
 function renderSummaryValue(value: unknown) {
@@ -225,15 +264,16 @@ function overviewMetrics(report: MonthlyReport) {
 
 function paidAdsMetrics(summary: Record<string, unknown> | null) {
   if (!summary) return [];
+  const current = readObject(summary, "current") ?? summary;
   return compactMetrics([
-    ["Spend", formatCurrency(readNumber(summary, "spend", "total_spend"))],
-    ["Revenue", formatCurrency(readNumber(summary, "revenue", "conversion_value", "total_revenue"))],
-    ["Conversions", formatCount(readNumber(summary, "conversions"))],
-    ["ROAS", formatMultiplier(readNumber(summary, "roas"))],
-    ["CPA", formatCurrency(readNumber(summary, "cpa"))],
-    ["Clicks", formatCount(readNumber(summary, "clicks"))],
-    ["CPC", formatCurrencyCents(readNumber(summary, "cpc"))],
-    ["CTR", formatRatio(readNumber(summary, "ctr"))]
+    ["Spend", formatCurrency(readNumber(current, "spend", "total_spend"))],
+    ["Revenue", formatCurrency(readNumber(current, "revenue", "conversion_value", "total_revenue"))],
+    ["Conversions", formatCount(readNumber(current, "conversions"))],
+    ["ROAS", formatMultiplier(readNumber(current, "roas"))],
+    ["CPA", formatCurrency(readNumber(current, "cpa"))],
+    ["Clicks", formatCount(readNumber(current, "clicks"))],
+    ["CPC", formatCurrencyCents(readNumber(current, "cpc"))],
+    ["CTR", formatRatio(readNumber(current, "ctr"))]
   ]);
 }
 
@@ -249,29 +289,32 @@ function sectionTitle(title: string) {
 
 function seoMetrics(summary: Record<string, unknown> | null) {
   if (!summary) return [];
+  const current = readObject(summary, "summary") ?? summary;
   return compactMetrics([
-    ["Organic clicks", formatCount(readNumber(summary, "organic_clicks", "clicks"))],
-    ["Organic impressions", formatCount(readNumber(summary, "organic_impressions", "impressions"))],
-    ["Organic CTR", formatRatio(readNumber(summary, "organic_ctr", "ctr"))],
-    ["Average position", formatDecimal(readNumber(summary, "average_position", "position"))],
-    ["Organic sessions", formatCount(readNumber(summary, "organic_sessions", "sessions"))],
-    ["Outbound clicks", formatCount(readNumber(summary, "outbound_clicks"))],
-    ["Outbound click rate", formatRatio(readNumber(summary, "outbound_click_rate"))],
-    ["Indexed pages", formatCount(readNumber(summary, "indexed_pages"))]
+    ["Organic clicks", formatCount(readNumber(current, "organic_clicks", "clicks"))],
+    ["Organic impressions", formatCount(readNumber(current, "organic_impressions", "impressions"))],
+    ["Organic CTR", formatRatio(readNumber(current, "organic_ctr", "ctr"))],
+    ["Average position", formatDecimal(readNumber(current, "average_position", "position"))],
+    ["Organic sessions", formatCount(readNumber(current, "organic_sessions", "sessions"))],
+    ["Outbound clicks", formatCount(readNumber(current, "outbound_clicks"))],
+    ["Outbound click rate", formatRatio(readNumber(current, "outbound_click_rate"))],
+    ["Indexed pages", formatCount(readNumber(current, "indexed_pages"))]
   ]);
 }
 
 function momMetrics(summary: Record<string, unknown> | null) {
   if (!summary) return [];
+  const paid = readObject(summary, "paid_ads") ?? summary;
+  const seo = readObject(summary, "seo") ?? summary;
   return compactMetrics([
-    ["Spend MoM", formatChange(readNumber(summary, "spend_mom", "spend_change"))],
-    ["Conversions MoM", formatChange(readNumber(summary, "conversions_mom", "conversions_change"))],
-    ["CPA MoM", formatChange(readNumber(summary, "cpa_mom", "cpa_change"))],
-    ["ROAS MoM", formatChange(readNumber(summary, "roas_mom", "roas_change"))],
-    ["Revenue MoM", formatChange(readNumber(summary, "revenue_mom", "revenue_change"))],
-    ["Organic clicks MoM", formatChange(readNumber(summary, "organic_clicks_mom", "organic_clicks_change"))],
-    ["Organic impressions MoM", formatChange(readNumber(summary, "organic_impressions_mom", "organic_impressions_change"))],
-    ["Outbound clicks MoM", formatChange(readNumber(summary, "outbound_clicks_mom", "outbound_clicks_change"))]
+    ["Spend MoM", formatChange(readNumber(paid, "spend", "spend_mom", "spend_change"))],
+    ["Conversions MoM", formatChange(readNumber(paid, "conversions", "conversions_mom", "conversions_change"))],
+    ["CPA MoM", formatChange(readNumber(paid, "cpa", "cpa_mom", "cpa_change"))],
+    ["ROAS MoM", formatChange(readNumber(paid, "roas", "roas_mom", "roas_change"))],
+    ["Revenue MoM", formatChange(readNumber(paid, "revenue", "revenue_mom", "revenue_change"))],
+    ["Organic clicks MoM", formatChange(readNumber(seo, "clicks", "organic_clicks_mom", "organic_clicks_change"))],
+    ["Organic impressions MoM", formatChange(readNumber(seo, "impressions", "organic_impressions_mom", "organic_impressions_change"))],
+    ["Average position MoM", formatChange(readNumber(seo, "average_position", "average_position_change"))]
   ]);
 }
 
@@ -286,6 +329,11 @@ function readNumber(source: Record<string, unknown>, ...keys: string[]) {
     if (number !== null && Number.isFinite(number)) return number;
   }
   return null;
+}
+
+function readObject(source: Record<string, unknown>, key: string) {
+  const value = source[key];
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
 function formatCount(value: number | null) {
