@@ -11,6 +11,7 @@ const presets: Array<{ key: DateRangeKey; label: string; compact?: string }> = [
   { key: "today", label: "Today" },
   { key: "yesterday", label: "Yesterday" },
   { key: "last7", label: "Last 7 days", compact: "Last 7" },
+  { key: "last_month", label: "Last month" },
   { key: "custom", label: "Custom range" }
 ];
 
