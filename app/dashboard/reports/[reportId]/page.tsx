@@ -7,6 +7,7 @@ import { getMonthlyReportData } from "@/lib/data";
 import { clientLogoSrc } from "@/lib/client-branding";
 import { compact, currency, currencyCents, pct } from "@/lib/utils";
 import { ReportImpactChart } from "@/components/report-impact-chart";
+import { ReportDownloadButton } from "@/components/report-download-button";
 import type { DailyPerformance, MonthlyReport } from "@/lib/types";
 
 type PageProps = {
@@ -27,8 +28,8 @@ export default async function ReportDetailPage({ params }: PageProps) {
   const isAdmin = profile.role === "admin";
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
-      <Link href="/dashboard/reports" className="inline-flex items-center gap-2 text-sm text-white/55 hover:text-white">
+    <div className="report-print-surface mx-auto max-w-7xl space-y-4 sm:space-y-6">
+      <Link href="/dashboard/reports" className="portal-print-hidden inline-flex items-center gap-2 text-sm text-white/55 hover:text-white">
         <ArrowLeft size={15} /> Reports
       </Link>
 
@@ -59,11 +60,16 @@ function ReportContent({ report, paidImpactRows, showStatus }: { report: Monthly
           </p>
         </div>
         {showStatus ? (
-          <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          <div className="portal-print-hidden flex shrink-0 flex-col gap-2 sm:flex-row">
+            <ReportDownloadButton />
             {report.status === "draft" ? <PublishReportButton reportId={report.id} /> : null}
             {report.status === "published" ? <UnpublishReportButton reportId={report.id} /> : null}
           </div>
-        ) : null}
+        ) : (
+          <div className="portal-print-hidden flex shrink-0 flex-col gap-2 sm:flex-row">
+            <ReportDownloadButton />
+          </div>
+        )}
       </header>
 
       <Card>

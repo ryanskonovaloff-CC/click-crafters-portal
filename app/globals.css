@@ -54,3 +54,59 @@ select {
   fill: rgba(255, 255, 255, 0.62) !important;
   color: rgba(255, 255, 255, 0.62) !important;
 }
+
+@media print {
+  @page {
+    size: letter;
+    margin: 0.45in;
+  }
+
+  html,
+  body {
+    min-height: auto;
+    background: #070707 !important;
+    color: rgba(255, 255, 255, 0.94) !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body::before,
+  aside,
+  .portal-print-hidden {
+    display: none !important;
+  }
+
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .report-print-surface {
+    position: relative;
+    max-width: none !important;
+    break-inside: auto;
+  }
+
+  .report-print-surface::before {
+    content: "CLICK CRAFTERS  •  clickcrafters.click";
+    position: fixed;
+    inset: 42% auto auto 50%;
+    z-index: 9999;
+    width: 10in;
+    transform: translate(-50%, -50%) rotate(-24deg);
+    color: rgba(255, 106, 26, 0.11);
+    font-size: 52px;
+    font-weight: 900;
+    letter-spacing: 0.18em;
+    line-height: 1.15;
+    text-align: center;
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+
+  .report-print-surface section,
+  .report-print-surface header {
+    break-inside: avoid;
+  }
+}
