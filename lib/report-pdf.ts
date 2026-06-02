@@ -8,6 +8,8 @@ const ORANGE = [1, 0.416, 0.102] as const;
 const OFF_WHITE = [0.957, 0.945, 0.91] as const;
 const MUTED = [0.68, 0.68, 0.68] as const;
 const DARK = [0.027, 0.027, 0.027] as const;
+const PANEL = [0.065, 0.065, 0.065] as const;
+const BORDER = [0.19, 0.19, 0.19] as const;
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -24,13 +26,15 @@ export function generateMonthlyReportPdf(report: MonthlyReport) {
   const pdf = new PdfBuilder();
   const paid = report.paid_ads_summary ? readObject(report.paid_ads_summary, "current") ?? report.paid_ads_summary : null;
   const seo = report.seo_summary ? readObject(report.seo_summary, "summary") ?? report.seo_summary : null;
+  const clientName = report.client_name ?? "Client";
+  const reportTitle = `${clientName} Monthly Performance Report`;
 
-  pdf.title(report.title ?? `${formatMonth(report.report_month)} Performance Report`);
-  pdf.text([report.client_name, periodLabel(report), report.published_at ? `Published ${formatDate(report.published_at)}` : null].filter(Boolean).join("  |  "), { color: MUTED });
+  pdf.title(clientName, reportTitle);
+  pdf.text([formatMonth(report.report_month), periodLabel(report), report.published_at ? `Published ${formatDate(report.published_at)}` : null].filter(Boolean).join("  |  "), { color: MUTED });
   pdf.gap(16);
 
   pdf.section("Executive Summary");
-  pdf.paragraph(report.executive_summary || fallbackExecutiveSummary(report, paid, seo));
+  pdf.paragraph(hasMeaningfulCopy(report.executive_summary) ? report.executive_summary! : fallbackExecutiveSummary(report, paid, seo));
 
   pdf.section("KPI Overview");
   pdf.metrics([
@@ -99,10 +103,11 @@ class PdfBuilder {
     this.newPage();
   }
 
-  title(text: string) {
-    this.ensure(42);
-    this.text("Click Crafters", { size: 10, bold: true, color: ORANGE });
+  title(clientName: string, text: string) {
+    this.ensure(64);
+    this.text("CLICK CRAFTERS", { size: 9, bold: true, color: ORANGE, leading: 14 });
     this.text(text, { size: 24, bold: true, color: OFF_WHITE, leading: 28 });
+    this.text(clientName, { size: 13, bold: true, color: MUTED, leading: 18 });
     this.gap(4);
   }
 
@@ -113,8 +118,8 @@ class PdfBuilder {
   }
 
   paragraph(text: string) {
-    this.wrap(text, PAGE_WIDTH - MARGIN * 2, { size: 10.5, color: OFF_WHITE, leading: 16 });
-    this.gap(4);
+    this.wrap(text, PAGE_WIDTH - MARGIN * 2, { size: 10, color: OFF_WHITE, leading: 15 });
+    this.gap(3);
   }
 
   bullets(items: string[]) {
@@ -135,11 +140,15 @@ class PdfBuilder {
     const rows = metrics.filter(([, value]) => value !== "Not available");
     if (rows.length === 0) return;
 
-    const colWidth = (PAGE_WIDTH - MARGIN * 2 - 12) / 2;
-    for (let index = 0; index < rows.length; index += 2) {
+    const gap = 10;
+    const columns = 3;
+    const colWidth = (PAGE_WIDTH - MARGIN * 2 - gap * (columns - 1)) / columns;
+    for (let index = 0; index < rows.length; index += columns) {
       this.ensure(44);
-      this.metricCell(MARGIN, this.y, colWidth, rows[index][0], rows[index][1]);
-      if (rows[index + 1]) this.metricCell(MARGIN + colWidth + 12, this.y, colWidth, rows[index + 1][0], rows[index + 1][1]);
+      for (let column = 0; column < columns; column += 1) {
+        const row = rows[index + column];
+        if (row) this.metricCell(MARGIN + column * (colWidth + gap), this.y, colWidth, row[0], row[1]);
+      }
       this.y -= 42;
     }
     this.gap(4);
@@ -199,10 +208,10 @@ class PdfBuilder {
   }
 
   private metricCell(x: number, y: number, width: number, label: string, value: string) {
-    this.commands.push(`q 0.07 0.07 0.07 rg ${x} ${y - 32} ${width} 36 re f Q`);
-    this.commands.push(`q 0.18 0.18 0.18 RG ${x} ${y - 32} ${width} 36 re S Q`);
+    this.commands.push(`q ${PANEL.join(" ")} rg ${x} ${y - 34} ${width} 38 re f Q`);
+    this.commands.push(`q ${BORDER.join(" ")} RG ${x} ${y - 34} ${width} 38 re S Q`);
     this.text(label, { x: x + 10, y: y - 13, size: 8.5, color: MUTED });
-    this.text(value, { x: x + 10, y: y - 27, size: 12, bold: true, color: OFF_WHITE });
+    this.text(value, { x: x + 10, y: y - 28, size: 12.5, bold: true, color: OFF_WHITE });
   }
 
   private ensure(space: number) {
@@ -225,10 +234,9 @@ class PdfBuilder {
 
   private drawPageBase() {
     this.commands.push(`q ${DARK.join(" ")} rg 0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT} re f Q`);
-    this.commands.push(`q ${ORANGE.join(" ")} rg 0 ${PAGE_HEIGHT - 8} ${PAGE_WIDTH} 8 re f Q`);
-    this.commands.push("q 0.15 0.065 0.02 rg 0 0 210 792 re f Q");
-    this.commands.push("q 0.18 0.075 0.025 rg 370 0 242 792 re f Q");
-    this.commands.push("BT /F2 44 Tf 0.20 0.08 0.025 rg 0.9135 -0.4067 0.4067 0.9135 72 365 Tm (CLICK CRAFTERS - clickcrafters.click) Tj ET");
+    this.commands.push(`q ${ORANGE.join(" ")} rg 0 ${PAGE_HEIGHT - 6} ${PAGE_WIDTH} 6 re f Q`);
+    this.commands.push("q 0.04 0.035 0.03 rg 0 0 612 96 re f Q");
+    this.commands.push("BT /F2 18 Tf 0.08 0.06 0.045 rg 1 0 0 1 44 54 Tm (CLICK CRAFTERS - clickcrafters.click) Tj ET");
   }
 }
 
@@ -291,6 +299,15 @@ function fallbackExecutiveSummary(report: MonthlyReport, paid: Record<string, un
   if (estimatedRevenue !== null && blendedRoas !== null) parts.push(`Estimated total revenue was ${formatCurrency(estimatedRevenue)} with ${formatMultiplier(blendedRoas)} estimated blended ROAS.`);
   if (organicClicks !== null) parts.push(`Organic search delivered ${formatCount(organicClicks)} clicks.`);
   return parts.join(" ");
+}
+
+function hasMeaningfulCopy(value: string | null) {
+  if (!value?.trim()) return false;
+  const normalized = value.trim().toLowerCase();
+  return ![
+    "monthly report draft generated from compact source metrics.",
+    "monthly performance report draft generated from available portal data."
+  ].includes(normalized);
 }
 
 function fallbackWins(report: MonthlyReport, paid: Record<string, unknown> | null, seo: Record<string, unknown> | null) {
