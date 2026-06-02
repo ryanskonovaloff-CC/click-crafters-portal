@@ -22,6 +22,10 @@ export default async function ReportsPage() {
         </div>
       </header>
 
+      <Card className="border-accent/25 bg-accent/[0.06] text-sm leading-6 text-white/70">
+        Monthly reports are generated on the 4th of each month to allow data lag to catch up and help present accurate performance data.
+      </Card>
+
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load reports: {status.error}</Card> : null}
 
       <div className="grid gap-3 sm:gap-4">
