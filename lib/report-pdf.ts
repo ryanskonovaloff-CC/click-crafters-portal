@@ -104,9 +104,9 @@ class PdfBuilder {
   }
 
   title(clientName: string, text: string) {
-    this.ensure(64);
-    this.text("CLICK CRAFTERS", { size: 9, bold: true, color: ORANGE, leading: 14 });
-    this.text(text, { size: 24, bold: true, color: OFF_WHITE, leading: 28 });
+    this.ensure(78);
+    this.text("CLICK CRAFTERS", { size: 9, bold: true, color: ORANGE, leading: 22 });
+    this.text(text, { size: 22, bold: true, color: OFF_WHITE, leading: 30 });
     this.text(clientName, { size: 13, bold: true, color: MUTED, leading: 18 });
     this.gap(4);
   }
@@ -235,8 +235,13 @@ class PdfBuilder {
   private drawPageBase() {
     this.commands.push(`q ${DARK.join(" ")} rg 0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT} re f Q`);
     this.commands.push(`q ${ORANGE.join(" ")} rg 0 ${PAGE_HEIGHT - 6} ${PAGE_WIDTH} 6 re f Q`);
-    this.commands.push("q 0.04 0.035 0.03 rg 0 0 612 96 re f Q");
-    this.commands.push("BT /F2 18 Tf 0.08 0.06 0.045 rg 1 0 0 1 44 54 Tm (CLICK CRAFTERS - clickcrafters.click) Tj ET");
+    this.watermark(16, 166);
+    this.watermark(82, 392);
+    this.watermark(-18, 612);
+  }
+
+  private watermark(x: number, y: number) {
+    this.commands.push(`BT /F2 24 Tf 0.075 0.046 0.028 rg 0.9063 -0.4226 0.4226 0.9063 ${x} ${y} Tm (CLICK CRAFTERS - clickcrafters.click) Tj ET`);
   }
 }
 
