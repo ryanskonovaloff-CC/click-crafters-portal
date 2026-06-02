@@ -476,7 +476,7 @@ create policy "Admin manage monthly reports" on public.monthly_reports for all t
 grant select on public.campaign_daily_performance to authenticated;
 grant select on public.ad_lifetime_performance to authenticated;
 grant select on public.seo_technical_issues to authenticated;
-grant select on public.monthly_reports to authenticated;
+grant select, insert, update, delete on public.monthly_reports to authenticated;
 
 create index daily_performance_client_date_idx on public.daily_performance (client_id, date);
 create index campaign_performance_client_period_idx on public.campaign_performance (client_id, period_start, period_end);
