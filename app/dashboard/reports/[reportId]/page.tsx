@@ -61,13 +61,13 @@ function ReportContent({ report, paidImpactRows, showStatus }: { report: Monthly
         </div>
         {showStatus ? (
           <div className="portal-print-hidden flex shrink-0 flex-col gap-2 sm:flex-row">
-            <ReportDownloadButton />
+            <ReportDownloadButton reportId={report.id} />
             {report.status === "draft" ? <PublishReportButton reportId={report.id} /> : null}
             {report.status === "published" ? <UnpublishReportButton reportId={report.id} /> : null}
           </div>
         ) : (
           <div className="portal-print-hidden flex shrink-0 flex-col gap-2 sm:flex-row">
-            <ReportDownloadButton />
+            <ReportDownloadButton reportId={report.id} />
           </div>
         )}
       </header>
