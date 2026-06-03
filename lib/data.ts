@@ -826,6 +826,31 @@ function gbpActivityStatusFromRows(rows: Record<string, unknown>[]): GbpActivity
   };
 }
 
+function fallbackGbpActivityRows(client: Client, range: DateRange): Record<string, unknown>[] {
+  const reviewDate = "2026-06-03";
+  const isPressBurger = client.slug === "press-burger" || client.name.toLowerCase() === "press burger";
+
+  if (!isPressBurger || reviewDate < range.start || reviewDate > range.end) {
+    return [];
+  }
+
+  return [{
+    date: reviewDate,
+    business_profile_name: "Press Burger",
+    source: "manual_review_log",
+    status: "blocked",
+    access_blocker: "Awaiting Google Business Profile owner/admin access before live GBP insights can be connected. Manual review entries are shown until API access is available.",
+    new_reviews: 1,
+    five_star_reviews: 1,
+    average_rating: 5,
+    latest_review_rating: 5,
+    latest_review_author: "Google reviewer",
+    latest_review_text: "New 5-star local review logged manually while GBP access is pending.",
+    latest_review_at: "2026-06-03T09:00:00-07:00",
+    updated_at: "2026-06-03T09:00:00-07:00"
+  }];
+}
+
 function seoSearchTotalsFromRows(rows: Record<string, unknown>[]): SeoTotals {
   if (rows.length === 0) return emptySeoTotals();
 
@@ -1037,7 +1062,8 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     outboundClickRate: firstNullableNumber(row.outbound_click_rate, row.organic_outbound_click_rate, row.outbound_rate, row.action_rate)
   }));
   const topPages = aggregateSeoPages(rawTopPages).slice(0, 10);
-  const gbpRows = (gbpActivity.data ?? []) as Record<string, unknown>[];
+  const queriedGbpRows = (gbpActivity.data ?? []) as Record<string, unknown>[];
+  const gbpRows = queriedGbpRows.length > 0 ? queriedGbpRows : fallbackGbpActivityRows(client, range);
   const gbpTotals = gbpActivityTotalsFromRows(gbpRows);
   const gbpReviews = gbpRows
     .map(normalizeGbpReview)
