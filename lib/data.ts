@@ -9,6 +9,9 @@ import type {
   DashboardQueryStatus,
   DateRange,
   DateRangeKey,
+  GbpActivityStatus,
+  GbpActivityTotals,
+  GbpReview,
   MetricTotals,
   MonthlyReport,
   ReportStatus,
@@ -713,6 +716,116 @@ function emptySeoTotals(): SeoTotals {
   };
 }
 
+function emptyGbpActivityTotals(): GbpActivityTotals {
+  return {
+    newReviews: null,
+    fiveStarReviews: null,
+    averageRating: null,
+    totalReviews: null,
+    profileViews: null,
+    websiteClicks: null,
+    phoneCalls: null,
+    directionRequests: null,
+    foodOrders: null
+  };
+}
+
+function emptyGbpActivityStatus(): GbpActivityStatus {
+  return {
+    source: null,
+    status: null,
+    accessBlocker: null,
+    latestActivityAt: null
+  };
+}
+
+function normalizeGbpReview(row: Record<string, unknown>): GbpReview | null {
+  const rating = firstNullableNumber(row.latest_review_rating, row.rating);
+  const date = row.latest_review_at ?? row.date;
+  if (rating === null || !date) return null;
+
+  return {
+    date: String(date),
+    rating,
+    author: row.latest_review_author ? String(row.latest_review_author) : null,
+    text: row.latest_review_text ? String(row.latest_review_text) : null,
+    source: row.source ? String(row.source) : null
+  };
+}
+
+function gbpActivityTotalsFromRows(rows: Record<string, unknown>[]): GbpActivityTotals {
+  if (rows.length === 0) return emptyGbpActivityTotals();
+
+  let newReviews: number | null = null;
+  let fiveStarReviews: number | null = null;
+  let totalReviews: number | null = null;
+  let profileViews: number | null = null;
+  let websiteClicks: number | null = null;
+  let phoneCalls: number | null = null;
+  let directionRequests: number | null = null;
+  let foodOrders: number | null = null;
+  let weightedRatingTotal = 0;
+  let weightedRatingCount = 0;
+
+  for (const row of rows) {
+    newReviews = sumNullable(newReviews, firstNullableNumber(row.new_reviews));
+    fiveStarReviews = sumNullable(fiveStarReviews, firstNullableNumber(row.five_star_reviews));
+    profileViews = sumNullable(profileViews, gbpProfileViews(row));
+    websiteClicks = sumNullable(websiteClicks, firstNullableNumber(row.website_clicks));
+    phoneCalls = sumNullable(phoneCalls, firstNullableNumber(row.phone_calls));
+    directionRequests = sumNullable(directionRequests, firstNullableNumber(row.direction_requests));
+    foodOrders = sumNullable(foodOrders, firstNullableNumber(row.food_orders, row.order_clicks));
+
+    const rowTotalReviews = firstNullableNumber(row.total_reviews);
+    if (rowTotalReviews !== null) totalReviews = Math.max(totalReviews ?? 0, rowTotalReviews);
+
+    const averageRating = firstNullableNumber(row.average_rating);
+    if (averageRating !== null) {
+      const weight = Math.max(1, rowTotalReviews ?? firstNullableNumber(row.new_reviews) ?? 1);
+      weightedRatingTotal += averageRating * weight;
+      weightedRatingCount += weight;
+    }
+  }
+
+  return {
+    newReviews,
+    fiveStarReviews,
+    averageRating: weightedRatingCount > 0 ? weightedRatingTotal / weightedRatingCount : null,
+    totalReviews,
+    profileViews,
+    websiteClicks,
+    phoneCalls,
+    directionRequests,
+    foodOrders
+  };
+}
+
+function gbpProfileViews(row: Record<string, unknown>) {
+  const directTotal = firstNullableNumber(row.profile_views);
+  if (directTotal !== null) return directTotal;
+
+  const searchViews = firstNullableNumber(row.search_views);
+  const mapViews = firstNullableNumber(row.map_views);
+  return sumNullable(searchViews, mapViews);
+}
+
+function gbpActivityStatusFromRows(rows: Record<string, unknown>[]): GbpActivityStatus {
+  if (rows.length === 0) return emptyGbpActivityStatus();
+
+  const latest = [...rows].sort((a, b) => {
+    const aDate = new Date(String(a.updated_at ?? a.latest_review_at ?? a.date ?? 0)).getTime();
+    const bDate = new Date(String(b.updated_at ?? b.latest_review_at ?? b.date ?? 0)).getTime();
+    return bDate - aDate;
+  })[0];
+
+  return {
+    source: latest.source ? String(latest.source) : null,
+    status: latest.status ? String(latest.status) : null,
+    accessBlocker: latest.access_blocker ? String(latest.access_blocker) : null,
+    latestActivityAt: latest.updated_at ? String(latest.updated_at) : latest.latest_review_at ? String(latest.latest_review_at) : latest.date ? String(latest.date) : null
+  };
+}
+
 function seoSearchTotalsFromRows(rows: Record<string, unknown>[]): SeoTotals {
   if (rows.length === 0) return emptySeoTotals();
 
@@ -867,16 +980,30 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
   const range = getDateRange(rangeKey, customStart, customEnd);
 
   if (!client) {
-    return { profile, client, range, totals: emptySeoTotals(), previousTotals: emptySeoTotals(), topQueries: [], topPages: [], technicalIssues: [], status: queryStatus(null, 0) };
+    return {
+      profile,
+      client,
+      range,
+      totals: emptySeoTotals(),
+      previousTotals: emptySeoTotals(),
+      topQueries: [],
+      topPages: [],
+      gbpTotals: emptyGbpActivityTotals(),
+      gbpReviews: [],
+      gbpStatus: emptyGbpActivityStatus(),
+      technicalIssues: [],
+      status: queryStatus(null, 0)
+    };
   }
 
-  const [daily, previousDaily, analytics, previousAnalytics, keywords, pages] = await Promise.all([
+  const [daily, previousDaily, analytics, previousAnalytics, keywords, pages, gbpActivity] = await Promise.all([
     supabase.from("seo_daily_performance").select("date,organic_clicks,organic_impressions,organic_sessions,organic_conversions,outbound_clicks,outbound_click_rate,average_position,indexed_pages,technical_issues").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: true }),
     supabase.from("seo_daily_performance").select("date,organic_clicks,organic_impressions,organic_sessions,organic_conversions,outbound_clicks,outbound_click_rate,average_position,indexed_pages,technical_issues").eq("client_id", client.id).gte("date", range.previousStart).lte("date", range.previousEnd).order("date", { ascending: true }),
     supabase.from("analytics_daily_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: true }),
     supabase.from("analytics_daily_performance").select("*").eq("client_id", client.id).gte("date", range.previousStart).lte("date", range.previousEnd).order("date", { ascending: true }),
     supabase.from("seo_keyword_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10),
-    supabase.from("seo_pages_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10)
+    supabase.from("seo_pages_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10),
+    supabase.from("gbp_activity").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: false })
   ]);
 
   const dailyRows = (daily.data ?? []) as Record<string, unknown>[];
@@ -910,6 +1037,14 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     outboundClickRate: firstNullableNumber(row.outbound_click_rate, row.organic_outbound_click_rate, row.outbound_rate, row.action_rate)
   }));
   const topPages = aggregateSeoPages(rawTopPages).slice(0, 10);
+  const gbpRows = (gbpActivity.data ?? []) as Record<string, unknown>[];
+  const gbpTotals = gbpActivityTotalsFromRows(gbpRows);
+  const gbpReviews = gbpRows
+    .map(normalizeGbpReview)
+    .filter((review): review is GbpReview => Boolean(review))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 3);
+  const gbpStatus = gbpActivityStatusFromRows(gbpRows);
   const searchTotals = seoSearchTotalsFromRows(dailyRows);
   const analyticsTotals = analyticsTotalsFromRows(analyticsRows);
   const totals = reconcileSeoOutboundTotals(mergeSeoTotals(searchTotals, analyticsTotals), topPages);
@@ -920,9 +1055,10 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     queryErrorMessage(analytics.error),
     queryErrorMessage(previousAnalytics.error),
     queryErrorMessage(keywords.error),
-    queryErrorMessage(pages.error)
+    queryErrorMessage(pages.error),
+    queryErrorMessage(gbpActivity.error)
   ].filter(Boolean).join("; ") || null;
-  const count = dailyRows.length + analyticsRows.length + topQueries.length + topPages.length;
+  const count = dailyRows.length + analyticsRows.length + topQueries.length + topPages.length + gbpRows.length;
 
   return {
     profile,
@@ -932,6 +1068,9 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     previousTotals,
     topQueries,
     topPages,
+    gbpTotals,
+    gbpReviews,
+    gbpStatus,
     technicalIssues: [],
     status: queryStatus(statusError, count)
   };

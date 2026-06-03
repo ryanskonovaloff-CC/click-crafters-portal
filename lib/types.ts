@@ -107,6 +107,33 @@ export type SeoTotals = {
   technicalIssues: Array<string>;
 };
 
+export type GbpActivityTotals = {
+  newReviews: number | null;
+  fiveStarReviews: number | null;
+  averageRating: number | null;
+  totalReviews: number | null;
+  profileViews: number | null;
+  websiteClicks: number | null;
+  phoneCalls: number | null;
+  directionRequests: number | null;
+  foodOrders: number | null;
+};
+
+export type GbpReview = {
+  date: string;
+  rating: number;
+  author: string | null;
+  text: string | null;
+  source: string | null;
+};
+
+export type GbpActivityStatus = {
+  source: string | null;
+  status: string | null;
+  accessBlocker: string | null;
+  latestActivityAt: string | null;
+};
+
 export type SeoTechnicalIssue = {
   id: string;
   detected_date: string;

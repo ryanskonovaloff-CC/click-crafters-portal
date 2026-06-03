@@ -1,5 +1,5 @@
 insert into public.clients (id, name, slug, industry, status, last_updated_at)
-values ('11111111-1111-4111-8111-111111111111', 'Press Burger', 'press-burger', 'Fast casual restaurant', 'active', '2026-05-15 15:10:00-07')
+values ('11111111-1111-4111-8111-111111111111', 'Press Burger', 'press-burger', 'Fast casual restaurant', 'active', '2026-06-03 09:00:00-07')
 on conflict (slug) do update set last_updated_at = excluded.last_updated_at;
 
 insert into public.daily_performance (client_id, date, platform, spend, revenue, conversions, clicks, impressions) values
@@ -60,6 +60,69 @@ values (
   array['Launch revised competitor campaign with tighter match types','Refresh top Meta creative with new food photography','Complete local schema and metadata cleanup']
 )
 on conflict (client_id, month) do update set summary = excluded.summary;
+
+insert into public.gbp_activity (
+  client_id,
+  date,
+  business_profile_name,
+  source,
+  status,
+  access_blocker,
+  new_reviews,
+  five_star_reviews,
+  total_reviews,
+  average_rating,
+  profile_views,
+  website_clicks,
+  phone_calls,
+  direction_requests,
+  food_orders,
+  latest_review_rating,
+  latest_review_author,
+  latest_review_text,
+  latest_review_at,
+  notes
+) values (
+  '11111111-1111-4111-8111-111111111111',
+  '2026-06-03',
+  'Press Burger',
+  'manual_review_log',
+  'blocked',
+  'Awaiting Google Business Profile owner/admin access before live GBP insights can be connected. Manual review entries are allowed until API access is available.',
+  1,
+  1,
+  null,
+  5.00,
+  null,
+  null,
+  null,
+  null,
+  null,
+  5,
+  'Google reviewer',
+  'New 5-star local review logged manually while GBP access is pending.',
+  '2026-06-03 09:00:00-07',
+  'Seed row for the June 3, 2026 new 5-star review and GBP access follow-up.'
+)
+on conflict (client_id, date, business_profile_name) do update set
+  source = excluded.source,
+  status = excluded.status,
+  access_blocker = excluded.access_blocker,
+  new_reviews = excluded.new_reviews,
+  five_star_reviews = excluded.five_star_reviews,
+  total_reviews = excluded.total_reviews,
+  average_rating = excluded.average_rating,
+  profile_views = excluded.profile_views,
+  website_clicks = excluded.website_clicks,
+  phone_calls = excluded.phone_calls,
+  direction_requests = excluded.direction_requests,
+  food_orders = excluded.food_orders,
+  latest_review_rating = excluded.latest_review_rating,
+  latest_review_author = excluded.latest_review_author,
+  latest_review_text = excluded.latest_review_text,
+  latest_review_at = excluded.latest_review_at,
+  notes = excluded.notes,
+  updated_at = now();
 
 -- After creating users in Supabase Auth, assign them like this:
 -- update public.profiles set role = 'admin' where email = 'owner@clickcrafters.click';
