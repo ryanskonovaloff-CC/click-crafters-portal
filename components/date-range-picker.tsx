@@ -8,10 +8,9 @@ import { cn } from "@/lib/utils";
 
 const presets: Array<{ key: DateRangeKey; label: string; compact?: string }> = [
   { key: "mtd", label: "Month to date", compact: "MTD" },
-  { key: "today", label: "Today" },
   { key: "yesterday", label: "Yesterday" },
   { key: "last7", label: "Last 7 days", compact: "Last 7" },
-  { key: "last_month", label: "Last month" },
+  { key: "last_month", label: "Last month", compact: "Last Month" },
   { key: "custom", label: "Custom range" }
 ];
 
@@ -39,6 +38,31 @@ export function DateRangePicker({ range }: { range: DateRange }) {
   function selectDraftRange(key: DateRangeKey) {
     setDraftKey(key);
     setOpen(true);
+  }
+
+  function applyPreset(key: DateRangeKey, preserveDraftCompare = false) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("range", key);
+    params.delete("start");
+    params.delete("end");
+
+    if (preserveDraftCompare ? draftCompare : compare) {
+      params.set("compare", "previous");
+    } else {
+      params.delete("compare");
+    }
+
+    router.push(`${pathname}?${params.toString()}`);
+    setOpen(false);
+  }
+
+  function selectPreset(key: DateRangeKey) {
+    if (key === "custom") {
+      selectDraftRange(key);
+      return;
+    }
+
+    applyPreset(key, true);
   }
 
   function applyDraft() {
@@ -80,11 +104,11 @@ export function DateRangePicker({ range }: { range: DateRange }) {
           <button
             key={preset.key}
             type="button"
-            onClick={() => selectDraftRange(preset.key)}
+            onClick={() => applyPreset(preset.key)}
             className={cn(
               "border-r border-white/10 px-2.5 py-2 font-semibold text-white/48 transition last:border-r-0 hover:bg-white/[0.03] hover:text-white sm:px-3.5 sm:py-2.5",
               preset.key === "mtd" ? "basis-[58px] sm:basis-auto" : "flex-1 basis-1/3 sm:flex-none sm:basis-auto",
-              draftKey === preset.key && "bg-accent/15 text-accent"
+              range.key === preset.key && "bg-accent/15 text-accent"
             )}
           >
             {preset.compact ?? preset.label}
@@ -100,7 +124,7 @@ export function DateRangePicker({ range }: { range: DateRange }) {
                 <button
                   key={preset.key}
                   type="button"
-                  onClick={() => selectDraftRange(preset.key)}
+                  onClick={() => selectPreset(preset.key)}
                   className={cn("flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-left text-sm text-white/64 transition hover:bg-white/5 hover:text-white", draftKey === preset.key && "bg-accent/15 text-accent hover:bg-accent/15 hover:text-accent")}
                 >
                   {preset.label}
