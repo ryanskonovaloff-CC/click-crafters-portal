@@ -313,9 +313,9 @@ function TextAdPreview({ ad }: { ad: AdLifetimePerformance }) {
 
 function AdMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-panelStrong/60 p-3">
-      <p className="text-[11px] uppercase tracking-[0.08em] text-white/40">{label}</p>
-      <p className="mt-1 break-words font-semibold text-white/85">{value}</p>
+    <div className="rounded-lg border border-white/10 bg-black/35 p-3 shadow-inner shadow-white/[0.02]">
+      <p className="text-[11px] uppercase tracking-[0.08em] text-white/38">{label}</p>
+      <p className="mt-1 break-words font-semibold text-white/78">{value}</p>
     </div>
   );
 }
