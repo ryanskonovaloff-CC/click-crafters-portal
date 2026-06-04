@@ -154,7 +154,10 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       </div>
 
       <Card>
-        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg">Top ads by <AccentText>performance</AccentText></h2>
+        <div className="mb-3 sm:mb-4">
+          <h2 className="text-base font-semibold sm:text-lg">Top ads by <AccentText>all-time performance</AccentText></h2>
+          <p className="mt-1 text-sm text-white/45">These ad-level results are lifetime totals and are not filtered by the selected date range.</p>
+        </div>
         {adRows.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 2xl:grid-cols-3">
             {adRows.map((item) => <AdPerformanceCard key={`${item.platform}-${item.ad_id}`} ad={item} />)}
