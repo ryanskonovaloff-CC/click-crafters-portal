@@ -59,8 +59,8 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       </header>
 
       <MetricGrid>
-        <StatCard label={<AccentText>Spend</AccentText>} value={hasData ? currency.format(totals.spend) : "Unavailable"} helper={compare ? trendHelper(percentChange(totals.spend, previousTotals.spend)) : undefined} state={tileState} />
-        <StatCard label={<AccentText>Revenue</AccentText>} value={hasData ? currency.format(totals.revenue) : "Unavailable"} helper={compare ? trendHelper(percentChange(totals.revenue, previousTotals.revenue)) : undefined} state={tileState} />
+        <StatCard label={<AccentText>Spend</AccentText>} value={hasData ? currency.format(totals.spend) : "Unavailable"} helper={compare ? currencyDifferenceHelper(totals.spend, previousTotals.spend) : undefined} state={tileState} />
+        <StatCard label={<AccentText>Revenue</AccentText>} value={hasData ? currency.format(totals.revenue) : "Unavailable"} helper={compare ? currencyDifferenceHelper(totals.revenue, previousTotals.revenue) : undefined} state={tileState} />
         <StatCard label={<AccentText>Online orders</AccentText>} value={hasData ? compact.format(totals.conversions) : "Unavailable"} helper={compare ? trendHelper(percentChange(totals.conversions, previousTotals.conversions)) : undefined} state={tileState} />
         <StatCard label={<AccentText>ROAS</AccentText>} value={ratios.roas === null ? "Unavailable" : `${ratios.roas.toFixed(2)}x`} helper={compare ? trendHelper(percentChange(ratios.roas, previousRatios.roas)) : undefined} state={status.error ? "error" : ratios.roas === null ? "empty" : "ready"} />
         <StatCard label={<AccentText>CPA</AccentText>} value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} helper={compare ? trendHelper(percentChange(ratios.cpa, previousRatios.cpa)) : undefined} state={status.error ? "error" : ratios.cpa === null ? "empty" : "ready"} />
@@ -433,6 +433,13 @@ function trendHelper(change: number | null) {
   if (change === null) return undefined;
   const sign = change > 0 ? "+" : "";
   return `${sign}${change.toFixed(1)}% vs prior period`;
+}
+
+function currencyDifferenceHelper(current: number | null, previous: number | null) {
+  if (current === null || previous === null) return undefined;
+  const difference = current - previous;
+  const sign = difference > 0 ? "+" : difference < 0 ? "-" : "";
+  return `${sign}${currency.format(Math.abs(difference))} vs prior period`;
 }
 
 function estimatedInStorePurchases(totals: { store_visits: number | null; conversions: number }) {

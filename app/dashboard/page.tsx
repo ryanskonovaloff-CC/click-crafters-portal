@@ -66,13 +66,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       </header>
 
       <MetricGrid>
-        <StatCard label={<><AccentText>Total spend</AccentText></>} value={hasPaidData ? currency.format(performance.spend) : "Unavailable"} helper={compare ? trendHelper("vs prior period", percentChange(paid.totals.spend, paid.previousTotals.spend)) : undefined} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
-        <StatCard label={<><AccentText>Total revenue</AccentText></>} value={hasPaidData ? currency.format(performance.revenue) : "Unavailable"} helper={compare ? trendHelper("vs prior period", percentChange(paid.totals.revenue, paid.previousTotals.revenue)) : undefined} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
+        <StatCard label={<><AccentText>Total spend</AccentText></>} value={hasPaidData ? currency.format(performance.spend) : "Unavailable"} helper={compare ? currencyDifferenceHelper(paid.totals.spend, paid.previousTotals.spend) : undefined} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
+        <StatCard label={<><AccentText>Total revenue</AccentText></>} value={hasPaidData ? currency.format(performance.revenue) : "Unavailable"} helper={compare ? currencyDifferenceHelper(paid.totals.revenue, paid.previousTotals.revenue) : undefined} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
         <StatCard label={<AccentText>Online orders</AccentText>} value={hasPaidData ? compact.format(performance.conversions) : "Unavailable"} helper={compare ? trendHelper("vs prior period", percentChange(paid.totals.conversions, paid.previousTotals.conversions)) : undefined} state={tileState} />
         <StatCard label={<AccentText>ROAS</AccentText>} value={paidRatios.roas === null ? "Unavailable" : `${paidRatios.roas.toFixed(2)}x`} helper={compare ? trendHelper("vs prior period", percentChange(paidRatios.roas, previousPaidRatios.roas)) : undefined} state={paid.status.error ? "error" : paidRatios.roas === null ? "empty" : "ready"} />
         <StatCard label={<AccentText>CPA</AccentText>} value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} helper={compare ? trendHelper("vs prior period", percentChange(paidRatios.cpa, previousPaidRatios.cpa)) : undefined} state={tileState} />
         <StatCard label={<AccentText>Store visits</AccentText>} value={hasStoreVisitData && performance.store_visits !== null ? compact.format(performance.store_visits) : "Unavailable"} helper={compare ? trendHelper("vs prior period", percentChange(paid.totals.store_visits, paid.previousTotals.store_visits)) : undefined} state={paid.status.error ? "error" : hasStoreVisitData ? "ready" : "empty"} />
-        <StatCard label={<AccentText>Estimated total revenue</AccentText>} value={estimatedTotalRevenue === null ? "Unavailable" : currency.format(estimatedTotalRevenue)} helper={compare ? trendHelper("vs prior period", percentChange(estimatedTotalRevenue, previousEstimatedTotalRevenue)) : undefined} state={paid.status.error ? "error" : estimatedTotalRevenue === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Estimated total revenue</AccentText>} value={estimatedTotalRevenue === null ? "Unavailable" : currency.format(estimatedTotalRevenue)} helper={compare ? currencyDifferenceHelper(estimatedTotalRevenue, previousEstimatedTotalRevenue) : undefined} state={paid.status.error ? "error" : estimatedTotalRevenue === null ? "empty" : "ready"} />
         <StatCard label={<AccentText>Estimated blended ROAS</AccentText>} value={estimatedBlendedRoas === null ? "Unavailable" : `${estimatedBlendedRoas.toFixed(2)}x`} helper={compare ? trendHelper("vs prior period", percentChange(estimatedBlendedRoas, previousEstimatedBlendedRoas)) : undefined} state={paid.status.error ? "error" : estimatedBlendedRoas === null ? "empty" : "ready"} />
       </MetricGrid>
 
@@ -140,6 +140,13 @@ function trendHelper(label: string, change: number | null) {
   if (change === null) return undefined;
   const sign = change > 0 ? "+" : "";
   return `${sign}${change.toFixed(1)}% ${label}`;
+}
+
+function currencyDifferenceHelper(current: number | null, previous: number | null) {
+  if (current === null || previous === null) return undefined;
+  const difference = current - previous;
+  const sign = difference > 0 ? "+" : difference < 0 ? "-" : "";
+  return `${sign}${currency.format(Math.abs(difference))} vs prior period`;
 }
 
 function estimatedInStorePurchases(totals: { store_visits: number | null; conversions: number }) {
