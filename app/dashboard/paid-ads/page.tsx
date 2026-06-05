@@ -60,7 +60,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
 
       <MetricGrid>
         <StatCard label={<AccentText>Spend</AccentText>} value={hasData ? currency.format(totals.spend) : "Unavailable"} helper={compare ? currencyDifferenceHelper(totals.spend, previousTotals.spend) : undefined} state={tileState} />
-        <StatCard label={<AccentText>Revenue</AccentText>} value={hasData ? currency.format(totals.revenue) : "Unavailable"} helper={compare ? currencyDifferenceHelper(totals.revenue, previousTotals.revenue) : undefined} state={tileState} />
+        <StatCard label={<AccentText>Online order revenue</AccentText>} value={hasData ? currency.format(totals.revenue) : "Unavailable"} helper={compare ? currencyDifferenceHelper(totals.revenue, previousTotals.revenue) : undefined} state={tileState} />
         <StatCard label={<AccentText>Online orders</AccentText>} value={hasData ? compact.format(totals.conversions) : "Unavailable"} helper={compare ? trendHelper(percentChange(totals.conversions, previousTotals.conversions)) : undefined} state={tileState} />
         <StatCard label={<AccentText>ROAS</AccentText>} value={ratios.roas === null ? "Unavailable" : `${ratios.roas.toFixed(2)}x`} helper={compare ? trendHelper(percentChange(ratios.roas, previousRatios.roas)) : undefined} state={status.error ? "error" : ratios.roas === null ? "empty" : "ready"} />
         <StatCard label={<AccentText>CPA</AccentText>} value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} helper={compare ? trendHelper(percentChange(ratios.cpa, previousRatios.cpa)) : undefined} state={status.error ? "error" : ratios.cpa === null ? "empty" : "ready"} />
