@@ -23,12 +23,19 @@ export function LoginForm() {
     event.preventDefault();
     setLoading(true);
     setMessage("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
+      setLoading(false);
       setMessage(error.message);
       return;
     }
+    if (data.user) {
+      await supabase
+        .from("profiles")
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq("id", data.user.id);
+    }
+    setLoading(false);
     window.location.href = next;
   }
 
