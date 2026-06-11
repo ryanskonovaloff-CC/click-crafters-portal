@@ -42,7 +42,7 @@ export function generateMonthlyReportPdf(report: MonthlyReport) {
     ["Revenue", formatCurrency(paid ? readNumber(paid, "revenue", "conversion_value", "total_revenue") : null)],
     ["Estimated total revenue", formatCurrency(paid ? readNumber(paid, "estimated_total_revenue", "estimatedTotalRevenue") : null)],
     ["Online orders", formatCount(paid ? readNumber(paid, "conversions", "online_orders") : null)],
-    ["ROAS", formatMultiplier(paid ? readNumber(paid, "roas") : null)],
+    ["Online Order ROAS", formatMultiplier(paid ? readNumber(paid, "roas") : null)],
     ["Estimated blended ROAS", formatMultiplier(paid ? readNumber(paid, "estimated_blended_roas", "estimatedBlendedRoas") : null)],
     ["Organic clicks", formatCount(seo ? readNumber(seo, "organic_clicks", "clicks") : null)],
     ["Organic impressions", formatCount(seo ? readNumber(seo, "organic_impressions", "impressions") : null)]
@@ -59,7 +59,7 @@ export function generateMonthlyReportPdf(report: MonthlyReport) {
     ["Est. in-store orders", formatCount(paid ? readNumber(paid, "estimated_in_store_purchases", "estimatedInStorePurchases") : null)]
   ]);
   pdf.ranked("Top campaigns", reportRows(readArray(report.paid_ads_summary, "top_campaigns"), "campaign"));
-  pdf.ranked("Top ads by ROAS", reportRows(readArray(report.paid_ads_summary, "top_ads_by_roas"), "ad"));
+  pdf.ranked("Top ads by online order ROAS", reportRows(readArray(report.paid_ads_summary, "top_ads_by_roas"), "ad"));
 
   pdf.section("SEO");
   if (report.seo_commentary) pdf.paragraph(report.seo_commentary);
@@ -333,7 +333,7 @@ function fallbackWatchouts(_report: MonthlyReport, paid: Record<string, unknown>
   const roas = paid ? readNumber(paid, "roas") : null;
   const blendedRoas = paid ? readNumber(paid, "estimated_blended_roas", "estimatedBlendedRoas") : null;
   const rows = ["Review any estimates with the client before treating them as final revenue."];
-  if (roas !== null && blendedRoas !== null && blendedRoas > roas) rows.push("Platform ROAS may understate impact because in-store purchases are not captured as online revenue.");
+  if (roas !== null && blendedRoas !== null && blendedRoas > roas) rows.push("Online order ROAS may understate impact because in-store purchases are not captured as online revenue.");
   return rows;
 }
 
@@ -358,7 +358,7 @@ function reportRows(rows: Record<string, unknown>[], kind: "campaign" | "ad" | "
         ["Spend", formatCurrency(readNumber(row, "spend", "total_spend"))],
         ["Revenue", formatCurrency(readNumber(row, "revenue", "conversion_value", "total_revenue"))],
         ["Conversions", formatCount(readNumber(row, "conversions"))],
-        ["ROAS", formatMultiplier(readNumber(row, "roas"))]
+        ["Online Order ROAS", formatMultiplier(readNumber(row, "roas"))]
       ]);
     return { name, details };
   }).filter((row) => row.name);

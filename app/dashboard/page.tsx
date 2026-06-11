@@ -69,7 +69,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <StatCard label={<><AccentText>Total spend</AccentText></>} value={hasPaidData ? currency.format(performance.spend) : "Unavailable"} helper={compare ? currencyDifferenceHelper(paid.totals.spend, paid.previousTotals.spend) : undefined} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
         <StatCard label={<><AccentText>Online order revenue</AccentText></>} value={hasPaidData ? currency.format(performance.revenue) : "Unavailable"} helper={compare ? currencyDifferenceHelper(paid.totals.revenue, paid.previousTotals.revenue) : undefined} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
         <StatCard label={<AccentText>Online orders</AccentText>} value={hasPaidData ? compact.format(performance.conversions) : "Unavailable"} helper={compare ? trendHelper("vs prior period", percentChange(paid.totals.conversions, paid.previousTotals.conversions)) : undefined} state={tileState} />
-        <StatCard label={<AccentText>ROAS</AccentText>} value={paidRatios.roas === null ? "Unavailable" : `${paidRatios.roas.toFixed(2)}x`} helper={compare ? trendHelper("vs prior period", percentChange(paidRatios.roas, previousPaidRatios.roas)) : undefined} state={paid.status.error ? "error" : paidRatios.roas === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Online Order ROAS</AccentText>} value={paidRatios.roas === null ? "Unavailable" : `${paidRatios.roas.toFixed(2)}x`} helper={compare ? trendHelper("vs prior period", percentChange(paidRatios.roas, previousPaidRatios.roas)) : undefined} state={paid.status.error ? "error" : paidRatios.roas === null ? "empty" : "ready"} />
         <StatCard label={<AccentText>CPA</AccentText>} value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} helper={compare ? trendHelper("vs prior period", percentChange(paidRatios.cpa, previousPaidRatios.cpa)) : undefined} state={tileState} />
         <StatCard label={<AccentText>Est. in-store purchases</AccentText>} value={inStorePurchases === null ? "Unavailable" : compact.format(Math.round(inStorePurchases))} helper={compare ? trendHelper("vs prior period", percentChange(inStorePurchases, previousInStorePurchases)) : undefined} valueTitle="Store visits minus online conversions" state={paid.status.error ? "error" : inStorePurchases === null ? "empty" : "ready"} />
         <StatCard label={<AccentText>Estimated total revenue</AccentText>} value={estimatedTotalRevenue === null ? "Unavailable" : currency.format(estimatedTotalRevenue)} helper={compare ? currencyDifferenceHelper(estimatedTotalRevenue, previousEstimatedTotalRevenue) : undefined} valueTitle="Online order revenue plus estimated in-store revenue" state={paid.status.error ? "error" : estimatedTotalRevenue === null ? "empty" : "ready"} />
@@ -78,7 +78,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Spend</AccentText> over time</h2>{hasPaidData ? <TrendChart data={paid.daily} previousData={paid.previousDaily} compare={compare} metric="spend" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>ROAS</AccentText> over time</h2>{hasPaidData ? <TrendChart data={paid.daily} previousData={paid.previousDaily} compare={compare} metric="roas" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Online Order ROAS</AccentText> over time</h2>{hasPaidData ? <TrendChart data={paid.daily} previousData={paid.previousDaily} compare={compare} metric="roas" /> : <EmptyState />}</Card>
         <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Platform</AccentText> breakdown</h2>{hasPaidData ? <PlatformBreakdown data={paid.daily} /> : <EmptyState />}</Card>
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Organic</AccentText> visibility</h2>
@@ -95,7 +95,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
       <Card>
         <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Paid</AccentText> channel performance</h2>
-        <Table headers={["Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "ROAS", "Est. blended ROAS"]} rows={paidChannelRows.slice(0, 6).map((item) => [
+        <Table headers={["Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "Online Order ROAS", "Est. blended ROAS"]} rows={paidChannelRows.slice(0, 6).map((item) => [
           item.platform,
           item.channel ?? "Unspecified",
           currency.format(item.spend),
@@ -112,7 +112,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         {paid.campaignStatus.error ? (
           <div className="rounded-lg border border-red-400/30 bg-red-950/20 px-4 py-3 text-sm text-red-100/80">Unable to load campaign data: {paid.campaignStatus.error}</div>
         ) : campaignRows.length > 0 ? (
-          <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "Est. in-store orders", "ROAS", "Est. blended ROAS"]} rows={campaignRows.slice(0, 8).map((item) => [
+          <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "Est. in-store orders", "Online Order ROAS", "Est. blended ROAS"]} rows={campaignRows.slice(0, 8).map((item) => [
             item.campaign_name ?? item.campaign_id,
             item.platform,
             item.channel ?? "Unspecified",

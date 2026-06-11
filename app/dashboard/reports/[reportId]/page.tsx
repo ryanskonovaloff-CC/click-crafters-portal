@@ -174,7 +174,7 @@ function PaidAdsReportSection({ summary, commentary }: { summary: Record<string,
           <MetricPanelGrid metrics={metrics} />
           <div className="grid gap-3 lg:grid-cols-2">
             <RankedList title="Top campaigns" rows={topCampaigns} empty="No campaign rankings available for this report." />
-            <RankedList title="Top ads by ROAS" rows={topAdsByRoas} empty="No ad ROAS rankings available for this report." />
+            <RankedList title="Top ads by online order ROAS" rows={topAdsByRoas} empty="No ad online order ROAS rankings available for this report." />
             <RankedList title="Top ads by spend" rows={topAdsBySpend} empty="No ad spend rankings available for this report." />
             <RankedList title="Campaigns to watch" rows={reportRows(readArray(summary, "campaign_watchouts"), "campaign")} empty="No campaign watchouts for this report." />
           </div>
@@ -317,7 +317,7 @@ function ReportKpiOverview({ report }: { report: MonthlyReport }) {
     ["Store visits", formatCount(paid ? readNumber(paid, "store_visits", "storeVisits") : null)],
     ["Revenue", formatCurrency(paid ? readNumber(paid, "revenue", "conversion_value", "total_revenue") : null)],
     ["Est. total revenue", formatCurrency(paid ? readNumber(paid, "estimated_total_revenue", "estimatedTotalRevenue") : null)],
-    ["ROAS", formatMultiplier(paid ? readNumber(paid, "roas") : null)],
+    ["Online Order ROAS", formatMultiplier(paid ? readNumber(paid, "roas") : null)],
     ["Est. blended ROAS", formatMultiplier(paid ? readNumber(paid, "estimated_blended_roas", "estimatedBlendedRoas") : null)],
     ["Organic clicks", formatCount(seo ? readNumber(seo, "organic_clicks", "clicks") : null)],
     ["Organic impressions", formatCount(seo ? readNumber(seo, "organic_impressions", "impressions") : null)],
@@ -429,7 +429,7 @@ function reportExecutiveSummary(report: MonthlyReport) {
     parts.push(`${period} performance for ${client} shows ${formatCurrency(spend)} in ad spend generating ${formatCurrency(revenue)} in reported online revenue${orders !== null ? ` from ${formatCount(orders)} online orders` : ""}.`);
   }
   if (estimatedRevenue !== null && blendedRoas !== null) {
-    parts.push(`With estimated in-store impact included, total revenue is estimated at ${formatCurrency(estimatedRevenue)} with ${formatMultiplier(blendedRoas)} blended ROAS${roas !== null ? ` versus ${formatMultiplier(roas)} platform ROAS` : ""}.`);
+    parts.push(`With estimated in-store impact included, total revenue is estimated at ${formatCurrency(estimatedRevenue)} with ${formatMultiplier(blendedRoas)} blended ROAS${roas !== null ? ` versus ${formatMultiplier(roas)} online order ROAS` : ""}.`);
   }
   if (organicClicks !== null || organicImpressions !== null) {
     parts.push(`SEO visibility added ${formatCount(organicClicks)} organic clicks${organicImpressions !== null ? ` from ${formatCount(organicImpressions)} impressions` : ""}.`);
@@ -456,9 +456,9 @@ function fallbackWins(report: MonthlyReport) {
   const organicImpressions = seo ? readNumber(seo, "organic_impressions", "impressions") : null;
 
   if (estimatedRevenue !== null && blendedRoas !== null) rows.push(`Estimated total revenue reached ${formatCurrency(estimatedRevenue)} with ${formatMultiplier(blendedRoas)} estimated blended ROAS.`);
-  if (spend !== null && revenue !== null && roas !== null) rows.push(`Paid ads produced ${formatCurrency(revenue)} in reported revenue on ${formatCurrency(spend)} spend, a ${formatMultiplier(roas)} platform ROAS.`);
+  if (spend !== null && revenue !== null && roas !== null) rows.push(`Paid ads produced ${formatCurrency(revenue)} in online order revenue on ${formatCurrency(spend)} spend, a ${formatMultiplier(roas)} online order ROAS.`);
   if (topCampaign) rows.push(`Top campaign: ${topCampaign.name}${topCampaign.details.length > 0 ? ` (${topCampaign.details.join(" · ")})` : ""}.`);
-  if (topAd) rows.push(`Top ad by ROAS: ${topAd.name}${topAd.details.length > 0 ? ` (${topAd.details.join(" · ")})` : ""}.`);
+  if (topAd) rows.push(`Top ad by online order ROAS: ${topAd.name}${topAd.details.length > 0 ? ` (${topAd.details.join(" · ")})` : ""}.`);
   if (organicClicks !== null) rows.push(`Organic search delivered ${formatCount(organicClicks)} clicks${organicImpressions !== null ? ` from ${formatCount(organicImpressions)} impressions` : ""}.`);
 
   return rows.slice(0, 4);
@@ -472,7 +472,7 @@ function fallbackWatchouts(report: MonthlyReport) {
   const campaignWatchout = reportRows(readArray(report.paid_ads_summary, "campaign_watchouts"), "campaign")[0];
 
   if (!hasMomData(report)) rows.push("Prior-month comparison data is unavailable, so month-over-month movement should not be used for final performance conclusions yet.");
-  if (roas !== null && blendedRoas !== null && blendedRoas > roas) rows.push("Platform ROAS understates the likely full impact because in-store purchases from ad-driven store visits are not captured as online revenue.");
+  if (roas !== null && blendedRoas !== null && blendedRoas > roas) rows.push("Online order ROAS understates the likely full impact because in-store purchases from ad-driven store visits are not captured as online revenue.");
   if (campaignWatchout) rows.push(`Campaign to watch: ${campaignWatchout.name}${campaignWatchout.details.length > 0 ? ` (${campaignWatchout.details.join(" · ")})` : ""}.`);
 
   return rows.slice(0, 3);
@@ -522,7 +522,7 @@ function paidAdsMetrics(summary: Record<string, unknown> | null): Array<{ label:
     ["Revenue", formatCurrency(readNumber(current, "revenue", "conversion_value", "total_revenue"))],
     ["Estimated total revenue", formatCurrency(readNumber(current, "estimated_total_revenue", "estimatedTotalRevenue"))],
     ["Conversions", formatCount(readNumber(current, "conversions"))],
-    ["ROAS", formatMultiplier(readNumber(current, "roas"))],
+    ["Online Order ROAS", formatMultiplier(readNumber(current, "roas"))],
     ["Estimated blended ROAS", formatMultiplier(readNumber(current, "estimated_blended_roas", "estimatedBlendedRoas"))],
     ["CPA", formatCurrency(readNumber(current, "cpa"))],
     ["Store visits", formatCount(readNumber(current, "store_visits", "storeVisits"))],
@@ -614,7 +614,7 @@ function entityDetails(row: Record<string, unknown>, kind: "campaign" | "ad" | "
     ["Spend", formatCurrency(readNumber(row, "spend", "total_spend"))],
     ["Revenue", formatCurrency(readNumber(row, "revenue", "conversion_value", "total_revenue"))],
     ["Conversions", formatCount(readNumber(row, "conversions"))],
-    ["ROAS", formatMultiplier(readNumber(row, "roas"))],
+    ["Online Order ROAS", formatMultiplier(readNumber(row, "roas"))],
     ["CPA", formatCurrency(readNumber(row, "cpa"))]
   ]);
 }
