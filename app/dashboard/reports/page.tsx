@@ -23,7 +23,7 @@ export default async function ReportsPage() {
       </header>
 
       <Card className="border-accent/25 bg-accent/[0.06] text-sm leading-6 text-white/70">
-        Monthly reports are generated on the 4th of each month to allow data lag to catch up and help present accurate performance data.
+        Monthly reports are generated on the 7th of each month to allow conversion data to fully process for the previous month.
       </Card>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load reports: {status.error}</Card> : null}
