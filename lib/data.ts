@@ -1109,9 +1109,13 @@ function reconcileSeoOutboundTotals(totals: SeoTotals, topPages: Array<{ clicks:
 
   const pageOutboundClicks = topPages.reduce((sum, page) => sum + (page.outboundClicks ?? 0), 0);
   const pageOrganicClicks = topPages.reduce((sum, page) => sum + (page.clicks ?? 0), 0);
+  const hasPageOutboundData = topPages.some((page) => page.outboundClicks !== null);
 
-  if (pageOutboundClicks <= 0 || pageOrganicClicks <= 0 || pageOutboundClicks > pageOrganicClicks) {
-    return totals;
+  if (!hasPageOutboundData || pageOutboundClicks <= 0 || pageOrganicClicks <= 0 || pageOutboundClicks > pageOrganicClicks) {
+    return {
+      ...totals,
+      outboundClicks: null
+    };
   }
 
   return {
