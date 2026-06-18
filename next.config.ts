@@ -21,7 +21,7 @@ const cspDirectives = [
   "form-action 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.supabase.co",
+  "img-src 'self' data: blob: https://*.supabase.co https://*.fbcdn.net",
   "font-src 'self' data:",
   `connect-src 'self' ${supabaseOrigin} https://*.supabase.co wss://*.supabase.co`,
   "media-src 'self' blob: https://*.supabase.co",
@@ -60,6 +60,10 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "**.supabase.co"
+      },
+      {
+        protocol: "https",
+        hostname: "**.fbcdn.net"
       }
     ]
   },
