@@ -1,10 +1,9 @@
 "use client";
 
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { estimatedInStorePurchasesForRows, IN_STORE_AOV } from "@/lib/paid-estimates";
 import type { DailyPerformance } from "@/lib/types";
 import { currency } from "@/lib/utils";
-
-const IN_STORE_AOV = 24.87;
 
 type ImpactPoint = {
   label: string;
@@ -43,22 +42,21 @@ export function ReportImpactChart({ data }: { data: DailyPerformance[] }) {
 }
 
 function monthlyImpactData(data: DailyPerformance[]): ImpactPoint[] {
-  const byMonth = data.reduce<Record<string, { spend: number; revenue: number; conversions: number; storeVisits: number; hasStoreVisits: boolean }>>((acc, item) => {
+  const byMonth = data.reduce<Record<string, { spend: number; revenue: number; hasStoreVisits: boolean; rows: DailyPerformance[] }>>((acc, item) => {
     const monthKey = item.date.slice(0, 7);
-    acc[monthKey] ??= { spend: 0, revenue: 0, conversions: 0, storeVisits: 0, hasStoreVisits: false };
+    acc[monthKey] ??= { spend: 0, revenue: 0, hasStoreVisits: false, rows: [] };
     acc[monthKey].spend += item.spend;
     acc[monthKey].revenue += item.revenue;
-    acc[monthKey].conversions += item.conversions;
-    acc[monthKey].storeVisits += item.store_visits ?? 0;
     acc[monthKey].hasStoreVisits ||= item.store_visits !== null;
+    acc[monthKey].rows.push(item);
     return acc;
   }, {});
 
   return Object.entries(byMonth)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([monthKey, item]) => {
-      const estimatedInStorePurchases = Math.max(item.storeVisits - item.conversions, 0);
-      const estimatedTotalRevenue = item.hasStoreVisits ? item.revenue + estimatedInStorePurchases * IN_STORE_AOV : null;
+      const estimatedInStorePurchases = estimatedInStorePurchasesForRows(item.rows);
+      const estimatedTotalRevenue = item.hasStoreVisits ? item.revenue + (estimatedInStorePurchases ?? 0) * IN_STORE_AOV : null;
 
       return {
         label: shortMonthLabel(monthKey),

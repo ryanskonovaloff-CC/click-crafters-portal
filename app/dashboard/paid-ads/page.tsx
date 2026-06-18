@@ -4,10 +4,10 @@ import { DateRangePicker } from "@/components/date-range-picker";
 import { AccentText, Badge, Card, ClientPageTitle, EmptyState, HoverNote, MetricGrid, StatCard, Table } from "@/components/ui";
 import { getPaidAdsDashboardData, metricRatios, percentChange } from "@/lib/data";
 import { clientLogoSrc } from "@/lib/client-branding";
+import { IN_STORE_AOV, storeVisitEstimateForRows } from "@/lib/paid-estimates";
 import { cn, compact, currency, currencyCents } from "@/lib/utils";
 import type { AdLifetimePerformance, CampaignDailyPerformance, DailyPerformance } from "@/lib/types";
 
-const IN_STORE_AOV = 24.87;
 const ONLINE_ORDER_TRACKING_START = "2026-05-14";
 
 type EstimatedPerformanceRow<T extends DailyPerformance> = T & {
@@ -33,8 +33,10 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
   const hasData = !status.error && !status.isEmpty;
   const tileState = status.error ? "error" : hasData ? "ready" : "empty";
   const hasStoreVisitData = daily.some((item) => item.store_visits !== null);
-  const inStorePurchases = estimatedInStorePurchases(totals);
-  const previousInStorePurchases = estimatedInStorePurchases(previousTotals);
+  const storeVisitEstimate = storeVisitEstimateForRows(daily);
+  const previousStoreVisitEstimate = storeVisitEstimateForRows(previousDaily);
+  const inStorePurchases = storeVisitEstimate?.estimatedInStorePurchases ?? null;
+  const previousInStorePurchases = previousStoreVisitEstimate?.estimatedInStorePurchases ?? null;
   const inStoreRevenue = inStorePurchases === null ? null : inStorePurchases * IN_STORE_AOV;
   const previousInStoreRevenue = previousInStorePurchases === null ? null : previousInStorePurchases * IN_STORE_AOV;
   const estimatedTotalRevenue = inStoreRevenue === null ? null : totals.revenue + inStoreRevenue;
@@ -72,7 +74,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load paid ads data: {status.error}</Card> : null}
       {campaignStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load campaign data: {campaignStatus.error}</Card> : null}
       {lifetimeAdStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load lifetime ad data: {lifetimeAdStatus.error}</Card> : null}
-      {hasStoreVisitData && inStorePurchases !== null ? <InStoreEstimateCard storeVisits={totals.store_visits ?? 0} conversions={totals.conversions} onlineRevenue={totals.revenue} inStorePurchases={inStorePurchases} inStoreRevenue={inStoreRevenue ?? 0} estimatedBlendedRoas={estimatedBlendedRoas} /> : null}
+      {hasStoreVisitData && storeVisitEstimate ? <InStoreEstimateCard storeVisits={storeVisitEstimate.storeVisits} conversions={storeVisitEstimate.onlineOrders} onlineRevenue={totals.revenue} inStorePurchases={storeVisitEstimate.estimatedInStorePurchases} inStoreRevenue={inStoreRevenue ?? 0} estimatedBlendedRoas={estimatedBlendedRoas} /> : null}
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Online orders</AccentText> over time</h2>{hasData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="conversions" /> : <EmptyState />}</Card>
@@ -334,11 +336,11 @@ function aggregateCampaignRows(rows: CampaignDailyPerformance[]) {
 
   const byCampaign = rows.reduce<Record<string, CampaignDailyPerformance>>((acc, row) => {
     const key = `${row.platform}|${row.campaign_id}`;
-    acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, store_visits: 0, clicks: 0, impressions: 0, wasted_spend: 0, cpa: null, roas: null, ctr: null, cpc: null };
+    acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, store_visits: null, clicks: 0, impressions: 0, wasted_spend: 0, cpa: null, roas: null, ctr: null, cpc: null };
     acc[key].spend += row.spend;
     acc[key].revenue += row.revenue;
     acc[key].conversions += row.conversions;
-    acc[key].store_visits = (acc[key].store_visits ?? 0) + (row.store_visits ?? 0);
+    if (row.store_visits !== null) acc[key].store_visits = (acc[key].store_visits ?? 0) + row.store_visits;
     acc[key].clicks += row.clicks;
     acc[key].impressions += row.impressions;
     acc[key].wasted_spend += row.wasted_spend;
@@ -442,11 +444,6 @@ function currencyDifferenceHelper(current: number | null, previous: number | nul
   return `${sign}${currency.format(Math.abs(difference))} vs prior period`;
 }
 
-function estimatedInStorePurchases(totals: { store_visits: number | null; conversions: number }) {
-  if (totals.store_visits === null) return null;
-  return Math.max(totals.store_visits - totals.conversions, 0);
-}
-
 function channelRows(rows: DailyPerformance[]) {
   const trackedByChannel = rows.reduce<Record<string, { onlineOrders: number; onlineRevenue: number; trackedSpend: number }>>((acc, row) => {
     const key = `${row.platform}|${row.channel ?? ""}`;
@@ -461,11 +458,11 @@ function channelRows(rows: DailyPerformance[]) {
 
   const byChannel = rows.reduce<Record<string, DailyPerformance>>((acc, row) => {
     const key = `${row.platform}|${row.channel ?? ""}`;
-    acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, store_visits: 0, clicks: 0, impressions: 0, cpa: null, roas: null, ctr: null, cpc: null };
+    acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, store_visits: null, clicks: 0, impressions: 0, cpa: null, roas: null, ctr: null, cpc: null };
     acc[key].spend += row.spend;
     acc[key].revenue += row.revenue;
     acc[key].conversions += row.conversions;
-    acc[key].store_visits = (acc[key].store_visits ?? 0) + (row.store_visits ?? 0);
+    if (row.store_visits !== null) acc[key].store_visits = (acc[key].store_visits ?? 0) + row.store_visits;
     acc[key].clicks += row.clicks;
     acc[key].impressions += row.impressions;
     acc[key].cpa = acc[key].conversions > 0 ? acc[key].spend / acc[key].conversions : null;
@@ -481,10 +478,10 @@ function channelRows(rows: DailyPerformance[]) {
 function withEstimatedRevenue<T extends DailyPerformance>(row: T, tracked?: { onlineOrders: number; onlineRevenue: number; trackedSpend: number }): EstimatedPerformanceRow<T> {
   const onlineOrders = tracked?.onlineOrders ?? row.conversions;
   const onlineRevenue = tracked?.onlineRevenue ?? row.revenue;
-  const estimatedInStorePurchasesValue = estimatedInStorePurchases({ store_visits: row.store_visits, conversions: onlineOrders });
-  const estimatedInStoreRevenue = estimatedInStorePurchasesValue === null ? null : estimatedInStorePurchasesValue * IN_STORE_AOV;
-  const estimatedTotalRevenue = estimatedInStoreRevenue === null ? null : onlineRevenue + estimatedInStoreRevenue;
-  const estimatedBlendedRoas = estimatedTotalRevenue === null || row.spend <= 0 ? null : estimatedTotalRevenue / row.spend;
+  const estimatedInStorePurchasesValue = row.store_visits === null ? null : Math.max(row.store_visits - onlineOrders, 0);
+  const estimatedInStoreRevenue = (estimatedInStorePurchasesValue ?? 0) * IN_STORE_AOV;
+  const estimatedTotalRevenue = onlineRevenue + estimatedInStoreRevenue;
+  const estimatedBlendedRoas = row.spend <= 0 ? null : estimatedTotalRevenue / row.spend;
   return {
     ...row,
     onlineOrders,

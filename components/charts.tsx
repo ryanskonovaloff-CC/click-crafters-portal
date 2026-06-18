@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { estimatedInStorePurchasesForRows, IN_STORE_AOV } from "@/lib/paid-estimates";
 import type { DailyPerformance } from "@/lib/types";
 import { cn, currency } from "@/lib/utils";
 
-const IN_STORE_AOV = 24.87;
 const ONLINE_ORDER_TRACKING_START = "2026-05-14";
 
 function tooltipStyle() {
@@ -93,21 +93,22 @@ function metricLabel(metric: "spend" | "conversions" | "store_visits" | "cpa" | 
 }
 
 function aggregateByDate(data: DailyPerformance[]) {
-  return data.reduce<Record<string, { date: string; label: string; spend: number; tracked_spend: number; revenue: number; conversions: number; store_visits: number; has_store_visits: boolean }>>((acc, item) => {
-    acc[item.date] ??= { date: item.date, label: item.date.slice(5), spend: 0, tracked_spend: 0, revenue: 0, conversions: 0, store_visits: 0, has_store_visits: false };
+  return data.reduce<Record<string, { date: string; label: string; spend: number; tracked_spend: number; revenue: number; conversions: number; store_visits: number; has_store_visits: boolean; rows: DailyPerformance[] }>>((acc, item) => {
+    acc[item.date] ??= { date: item.date, label: item.date.slice(5), spend: 0, tracked_spend: 0, revenue: 0, conversions: 0, store_visits: 0, has_store_visits: false, rows: [] };
     acc[item.date].spend += item.spend;
-    if (item.date >= ONLINE_ORDER_TRACKING_START) acc[item.date].tracked_spend += item.spend;
+    if (item.platform !== "Google Ads" || item.date >= ONLINE_ORDER_TRACKING_START) acc[item.date].tracked_spend += item.spend;
     acc[item.date].revenue += item.revenue;
     acc[item.date].conversions += item.conversions;
     acc[item.date].store_visits += item.store_visits ?? 0;
     acc[item.date].has_store_visits ||= item.store_visits !== null;
+    acc[item.date].rows.push(item);
     return acc;
   }, {});
 }
 
-function toChartPoint(item: { date: string; label: string; spend: number; tracked_spend: number; revenue: number; conversions: number; store_visits: number; has_store_visits: boolean }) {
-  const dailyEstimatedInStorePurchases = Math.max(item.store_visits - item.conversions, 0);
-  const estimatedTotalRevenue = item.revenue + dailyEstimatedInStorePurchases * IN_STORE_AOV;
+function toChartPoint(item: { date: string; label: string; spend: number; tracked_spend: number; revenue: number; conversions: number; store_visits: number; has_store_visits: boolean; rows: DailyPerformance[] }) {
+  const dailyEstimatedInStorePurchases = estimatedInStorePurchasesForRows(item.rows);
+  const estimatedTotalRevenue = item.revenue + (dailyEstimatedInStorePurchases ?? 0) * IN_STORE_AOV;
 
   return {
     ...item,

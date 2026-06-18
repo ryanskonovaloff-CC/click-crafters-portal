@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { IN_STORE_AOV, storeVisitEstimateForRows } from "@/lib/paid-estimates";
 import type {
   AdLifetimePerformance,
   CampaignDailyPerformance,
@@ -18,8 +19,6 @@ import type {
   SeoTechnicalIssue,
   SeoTotals
 } from "@/lib/types";
-
-const IN_STORE_AOV = 24.87;
 
 const rangeLabels: Record<DateRangeKey, string> = {
   today: "Today",
@@ -583,18 +582,19 @@ function enrichPaidAdsReportSummary(report: MonthlyReport, rows: DailyPerformanc
   if (!report.paid_ads_summary || rows.length === 0) return;
 
   const totals = sumPaidPerformance(rows);
-  if (totals.store_visits === null) return;
+  const storeVisitEstimate = storeVisitEstimateForRows(rows);
+  if (!storeVisitEstimate) return;
 
   const current = readMutableObject(report.paid_ads_summary, "current");
   const onlineRevenue = nullableNumber(current.revenue) ?? totals.revenue;
   const onlineOrders = nullableNumber(current.conversions) ?? totals.conversions;
   const spend = nullableNumber(current.spend) ?? totals.spend;
-  const estimatedInStorePurchases = Math.max(totals.store_visits - onlineOrders, 0);
+  const estimatedInStorePurchases = storeVisitEstimate.estimatedInStorePurchases;
   const estimatedInStoreRevenue = estimatedInStorePurchases * IN_STORE_AOV;
   const estimatedTotalRevenue = onlineRevenue + estimatedInStoreRevenue;
   const estimatedBlendedRoas = spend > 0 ? estimatedTotalRevenue / spend : null;
 
-  current.store_visits = totals.store_visits;
+  current.store_visits = storeVisitEstimate.storeVisits;
   current.estimated_in_store_purchases = estimatedInStorePurchases;
   current.estimated_in_store_revenue = estimatedInStoreRevenue;
   current.estimated_total_revenue = estimatedTotalRevenue;

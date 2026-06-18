@@ -1,0 +1,539 @@
+{
+  "name": "Meta Ads Performance - Press Burger Portal",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "03b633a3-a18a-4417-8021-209267bf5824",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "20 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "896695ef-5df3-4fa9-b2ab-31ef811ad949",
+      "name": "Schedule Trigger - Daily 6:20 AM Pacific",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "62ae0cec-0fbb-42a2-810c-550ccef1f53c",
+              "name": "client_id",
+              "value": "11111111-1111-4111-8111-111111111111",
+              "type": "string"
+            },
+            {
+              "id": "4173e5b5-0a58-4ebb-86b6-09f1f9febca1",
+              "name": "client_name",
+              "value": "Press Burger",
+              "type": "string"
+            },
+            {
+              "id": "6c3d42c4-415e-4363-8711-27973d259820",
+              "name": "timezone",
+              "value": "America/Los_Angeles",
+              "type": "string"
+            },
+            {
+              "id": "ed3b4531-4d1b-4664-bdd1-0ba02e427a08",
+              "name": "date_start",
+              "value": "={{ $now.setZone('America/Los_Angeles').minus({ days: 14 }).toFormat('yyyy-MM-dd') }}",
+              "type": "string"
+            },
+            {
+              "id": "e6691800-eaee-41af-ada7-48acf4f3c24c",
+              "name": "date_end",
+              "value": "={{ $now.setZone('America/Los_Angeles').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}",
+              "type": "string"
+            },
+            {
+              "id": "2811f815-a37d-47fa-aa86-775de10b3a72",
+              "name": "supabase_url",
+              "value": "https://kzeriuptbrjcplflzyaz.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "d0716808-f489-404b-b101-f76b90f69d77",
+              "name": "graph_api_version",
+              "value": "v24.0",
+              "type": "string"
+            },
+            {
+              "id": "0b2c8436-3610-4897-afa3-39494caf744b",
+              "name": "meta_ad_account_id",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fd85d4c5-fdc4-44cf-bac5-efb1aeb1cb26",
+      "name": "Pipeline Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        256,
+        420
+      ],
+      "notes": "meta_ad_account_id may remain blank. The next nodes discover the active account whose name contains Press Burger."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://graph.facebook.com/' + $json.graph_api_version + '/me/adaccounts' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,name,account_status,currency,timezone_name"
+            },
+            {
+              "name": "limit",
+              "value": "1000"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "f00eafd0-0c75-406a-96d6-dbc237a5ffc7",
+      "name": "Meta - List Assigned Ad Accounts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        512,
+        420
+      ],
+      "notes": "Select the saved Press Burger Meta/Facebook Graph API credential after import."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const cfg = $('Pipeline Config').first().json;\nconst response = $input.first().json;\nconst accounts = Array.isArray(response.data) ? response.data : [];\nconst configured = String(cfg.meta_ad_account_id || '').replace(/^act_/, '');\nconst active = accounts.filter((item) => Number(item.account_status) === 1);\nconst selected = configured\n  ? accounts.find((item) => String(item.id).replace(/^act_/, '') === configured)\n  : active.find((item) => String(item.name || '').toLowerCase().includes('press burger')) || (active.length === 1 ? active[0] : null);\n\nif (!selected) {\n  throw new Error('Unable to resolve the Press Burger Meta ad account. Available active accounts: ' + active.map((item) => item.name + ' (' + item.id + ')').join(', '));\n}\n\nreturn [{ json: {\n  ...cfg,\n  meta_ad_account_id: String(selected.id).startsWith('act_') ? String(selected.id) : 'act_' + selected.id,\n  meta_ad_account_name: selected.name || null,\n  currency: selected.currency || 'USD',\n  meta_timezone: selected.timezone_name || cfg.timezone\n} }];"
+      },
+      "id": "36ba4114-509a-47b0-93e5-58684ad76a7d",
+      "name": "Resolve Press Burger Ad Account",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://graph.facebook.com/' + $('Resolve Press Burger Ad Account').first().json.graph_api_version + '/' + $('Resolve Press Burger Ad Account').first().json.meta_ad_account_id + '/insights' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "date_start,date_stop,campaign_id,campaign_name,spend,actions,action_values,clicks,inline_link_clicks,impressions"
+            },
+            {
+              "name": "level",
+              "value": "campaign"
+            },
+            {
+              "name": "time_increment",
+              "value": "1"
+            },
+            {
+              "name": "time_range",
+              "value": "={{ JSON.stringify({ since: $('Resolve Press Burger Ad Account').first().json.date_start, until: $('Resolve Press Burger Ad Account').first().json.date_end }) }}"
+            },
+            {
+              "name": "action_report_time",
+              "value": "conversion"
+            },
+            {
+              "name": "use_account_attribution_setting",
+              "value": "true"
+            },
+            {
+              "name": "limit",
+              "value": "5000"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "dd297adc-5b54-48c3-9b66-a5fa578ea4e0",
+      "name": "Meta Insights - Campaign Daily",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1024,
+        420
+      ],
+      "notes": "Select the saved Press Burger Meta/Facebook Graph API credential after import."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://graph.facebook.com/' + $('Resolve Press Burger Ad Account').first().json.graph_api_version + '/' + $('Resolve Press Burger Ad Account').first().json.meta_ad_account_id + '/insights' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,actions,action_values,clicks,inline_link_clicks,impressions"
+            },
+            {
+              "name": "level",
+              "value": "ad"
+            },
+            {
+              "name": "date_preset",
+              "value": "maximum"
+            },
+            {
+              "name": "action_report_time",
+              "value": "conversion"
+            },
+            {
+              "name": "use_account_attribution_setting",
+              "value": "true"
+            },
+            {
+              "name": "limit",
+              "value": "5000"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "f1e0aa69-f68c-49be-8b11-4823d5f1cf41",
+      "name": "Meta Insights - Ad Lifetime",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1280,
+        420
+      ],
+      "notes": "Select the saved Press Burger Meta/Facebook Graph API credential after import."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://graph.facebook.com/' + $('Resolve Press Burger Ad Account').first().json.graph_api_version + '/' + $('Resolve Press Burger Ad Account').first().json.meta_ad_account_id + '/ads' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,name,status,effective_status,campaign{id,name},adset{id,name},creative{id,name,title,body,link_url,image_url,thumbnail_url,object_story_spec,asset_feed_spec}"
+            },
+            {
+              "name": "limit",
+              "value": "5000"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "a85e2b78-8192-4e78-83fc-996b996ba3f8",
+      "name": "Meta - Ad Creative Metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1536,
+        420
+      ],
+      "notes": "Select the saved Press Burger Meta/Facebook Graph API credential after import."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const cfg = $('Resolve Press Burger Ad Account').first().json;\nconst campaignRows = $('Meta Insights - Campaign Daily').first().json.data || [];\nconst adInsightRows = $('Meta Insights - Ad Lifetime').first().json.data || [];\nconst adMetadataRows = $('Meta - Ad Creative Metadata').first().json.data || [];\n\nfunction num(value) {\n  const parsed = Number(value ?? 0);\n  return Number.isFinite(parsed) ? parsed : 0;\n}\n\nconst purchaseTypes = [\n  'offsite_conversion.fb_pixel_purchase',\n  'onsite_web_purchase',\n  'web_in_store_purchase',\n  'omni_purchase',\n  'purchase'\n];\n\nfunction purchaseMetric(entries) {\n  const values = Array.isArray(entries) ? entries : [];\n  for (const actionType of purchaseTypes) {\n    const match = values.find((item) => item.action_type === actionType);\n    if (match) return num(match.value);\n  }\n  return 0;\n}\n\nfunction metrics(row) {\n  const spend = num(row.spend);\n  const revenue = purchaseMetric(row.action_values);\n  const conversions = purchaseMetric(row.actions);\n  const clicks = num(row.inline_link_clicks || row.clicks);\n  const impressions = num(row.impressions);\n  return {\n    spend,\n    revenue,\n    conversions: Math.round(conversions),\n    clicks: Math.round(clicks),\n    impressions: Math.round(impressions),\n    cpa: conversions > 0 ? spend / conversions : null,\n    roas: spend > 0 ? revenue / spend : null,\n    ctr: impressions > 0 ? clicks / impressions : null,\n    cpc: clicks > 0 ? spend / clicks : null\n  };\n}\n\nconst updatedAt = new Date().toISOString();\nconst campaign_daily_performance = campaignRows.map((row) => {\n  const values = metrics(row);\n  return {\n    client_id: cfg.client_id,\n    date: row.date_start,\n    platform: 'Meta Ads',\n    channel: 'Paid Social',\n    campaign_id: String(row.campaign_id || ''),\n    campaign_name: row.campaign_name || null,\n    ...values,\n    store_visits: null,\n    wasted_spend: values.conversions > 0 ? 0 : values.spend,\n    updated_at: updatedAt\n  };\n}).filter((row) => row.date && row.campaign_id);\n\nconst dailyMap = new Map();\nfor (const row of campaign_daily_performance) {\n  const current = dailyMap.get(row.date) || {\n    client_id: cfg.client_id,\n    date: row.date,\n    platform: 'Meta Ads',\n    channel: 'Paid Social',\n    spend: 0,\n    revenue: 0,\n    conversions: 0,\n    store_visits: null,\n    clicks: 0,\n    impressions: 0,\n    updated_at: updatedAt\n  };\n  for (const field of ['spend', 'revenue', 'conversions', 'clicks', 'impressions']) current[field] += num(row[field]);\n  dailyMap.set(row.date, current);\n}\n\nconst daily_performance = [...dailyMap.values()].map((row) => ({\n  ...row,\n  conversions: Math.round(row.conversions),\n  clicks: Math.round(row.clicks),\n  impressions: Math.round(row.impressions),\n  cpa: row.conversions > 0 ? row.spend / row.conversions : null,\n  roas: row.spend > 0 ? row.revenue / row.spend : null,\n  ctr: row.impressions > 0 ? row.clicks / row.impressions : null,\n  cpc: row.clicks > 0 ? row.spend / row.clicks : null\n}));\n\nconst creativeByAd = new Map(adMetadataRows.map((row) => [String(row.id), row]));\n\nfunction firstText(values) {\n  const first = Array.isArray(values) ? values[0] : null;\n  return first?.text || first?.name || null;\n}\n\nfunction creativeDetails(ad) {\n  const creative = ad?.creative || {};\n  const story = creative.object_story_spec || {};\n  const link = story.link_data || story.template_data || {};\n  const feed = creative.asset_feed_spec || {};\n  const headline = creative.title || link.name || firstText(feed.titles) || ad?.name || null;\n  const description = creative.body || link.message || firstText(feed.bodies) || null;\n  const finalUrl = creative.link_url || link.link || firstText(feed.link_urls) || null;\n  const imageUrl = creative.image_url || link.picture || feed.images?.[0]?.url || null;\n  return { creative, headline, description, finalUrl, imageUrl };\n}\n\nconst ad_lifetime_performance = adInsightRows.map((row) => {\n  const ad = creativeByAd.get(String(row.ad_id)) || {};\n  const detail = creativeDetails(ad);\n  return {\n    client_id: cfg.client_id,\n    platform: 'Meta Ads',\n    channel: 'Paid Social',\n    campaign_id: String(row.campaign_id || ad.campaign?.id || '') || null,\n    campaign_name: row.campaign_name || ad.campaign?.name || null,\n    ad_group_id: String(row.adset_id || ad.adset?.id || '') || null,\n    ad_group_name: row.adset_name || ad.adset?.name || null,\n    ad_id: String(row.ad_id || ad.id || ''),\n    ad_name: row.ad_name || ad.name || null,\n    ad_type: 'META_AD',\n    status: ad.effective_status || ad.status || null,\n    headline: detail.headline,\n    headline_2: firstText(detail.creative.asset_feed_spec?.titles?.slice(1)),\n    headline_3: firstText(detail.creative.asset_feed_spec?.titles?.slice(2)),\n    description: detail.description,\n    description_2: firstText(detail.creative.asset_feed_spec?.bodies?.slice(1)),\n    display_url: detail.finalUrl,\n    final_url: detail.finalUrl,\n    preview_url: null,\n    image_url: detail.imageUrl,\n    thumbnail_url: detail.creative.thumbnail_url || detail.imageUrl,\n    creative_id: detail.creative.id ? String(detail.creative.id) : null,\n    creative_name: detail.creative.name || null,\n    creative_preview_url: null,\n    ...metrics(row),\n    date_range: 'maximum',\n    source_updated_at: updatedAt,\n    updated_at: updatedAt\n  };\n}).filter((row) => row.ad_id);\n\nfunction assertUnique(rows, keyFields, label) {\n  const seen = new Set();\n  for (const row of rows) {\n    const key = keyFields.map((field) => String(row[field] ?? '')).join('|');\n    if (seen.has(key)) throw new Error(label + ' contains duplicate conflict key: ' + key);\n    seen.add(key);\n  }\n}\n\nassertUnique(daily_performance, ['client_id', 'date', 'platform', 'channel'], 'daily_performance');\nassertUnique(campaign_daily_performance, ['client_id', 'date', 'platform', 'campaign_id'], 'campaign_daily_performance');\nassertUnique(ad_lifetime_performance, ['client_id', 'platform', 'ad_id'], 'ad_lifetime_performance');\n\nreturn [{ json: {\n  client_id: cfg.client_id,\n  client_name: cfg.client_name,\n  meta_ad_account_id: cfg.meta_ad_account_id,\n  meta_ad_account_name: cfg.meta_ad_account_name,\n  date_start: cfg.date_start,\n  date_end: cfg.date_end,\n  datasets: [\n    { table: 'daily_performance', on_conflict: 'client_id,date,platform,channel', rows: daily_performance },\n    { table: 'campaign_daily_performance', on_conflict: 'client_id,date,platform,campaign_id', rows: campaign_daily_performance },\n    { table: 'ad_lifetime_performance', on_conflict: 'client_id,platform,ad_id', rows: ad_lifetime_performance }\n  ],\n  counts: {\n    daily_performance: daily_performance.length,\n    campaign_daily_performance: campaign_daily_performance.length,\n    ad_lifetime_performance: ad_lifetime_performance.length\n  }\n} }];"
+      },
+      "id": "35b8b2ae-f480-4814-b418-947c28e4b4a1",
+      "name": "Normalize Meta Portal Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const normalized = $input.first().json;\nreturn normalized.datasets\n  .filter((dataset) => Array.isArray(dataset.rows) && dataset.rows.length > 0)\n  .map((dataset) => ({ json: {\n    ...dataset,\n    client_name: normalized.client_name,\n    meta_ad_account_name: normalized.meta_ad_account_name,\n    date_start: normalized.date_start,\n    date_end: normalized.date_end,\n    counts: normalized.counts\n  } }));"
+      },
+      "id": "7619365b-21f2-49ac-b35f-14aa87fc91bd",
+      "name": "Prepare Supabase Upserts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pipeline Config').first().json.supabase_url + '/rest/v1/' + $json.table }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "={{ $json.on_conflict }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.rows) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "870099c8-9dd2-44c8-8f4b-1ba3e2052638",
+      "name": "Supabase Upsert - Meta Portal Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2304,
+        420
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "253OBo1Q4eFFXF0C",
+          "name": "Supabase account"
+        }
+      },
+      "notes": "Uses the saved Supabase credential. One execution runs once per non-empty normalized dataset."
+    },
+    {
+      "parameters": {
+        "content": "META PORTAL SYNC\n\n1. Select the saved Press Burger Meta/Facebook Graph API credential on all four Meta HTTP Request nodes.\n2. Run manually and confirm the resolved ad account.\n3. Validate daily, campaign, and lifetime-ad row counts.\n4. Activate only after the manual execution succeeds.\n\nThe workflow backfills 14 completed days for attribution lag and refreshes lifetime ad totals.",
+        "height": 300,
+        "width": 520,
+        "color": 4
+      },
+      "id": "768633c5-4f03-41a7-8072-a528f9b7b7ee",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        256,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "PURCHASE METRICS\n\nOnline orders and revenue use one purchase action by priority to avoid double counting overlapping Meta action rows:\n\n1. offsite_conversion.fb_pixel_purchase\n2. onsite_web_purchase\n3. web_in_store_purchase\n4. omni_purchase\n5. purchase\n\nLeads and other actions are intentionally excluded. Clicks use inline_link_clicks when available, otherwise clicks.",
+        "height": 300,
+        "width": 520,
+        "color": 5
+      },
+      "id": "922aad10-4a1c-46a1-a03c-7c78237f7342",
+      "name": "Purchase Metric Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        864,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger - Daily 6:20 AM Pacific": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pipeline Config": {
+      "main": [
+        [
+          {
+            "node": "Meta - List Assigned Ad Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meta - List Assigned Ad Accounts": {
+      "main": [
+        [
+          {
+            "node": "Resolve Press Burger Ad Account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Press Burger Ad Account": {
+      "main": [
+        [
+          {
+            "node": "Meta Insights - Campaign Daily",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meta Insights - Campaign Daily": {
+      "main": [
+        [
+          {
+            "node": "Meta Insights - Ad Lifetime",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meta Insights - Ad Lifetime": {
+      "main": [
+        [
+          {
+            "node": "Meta - Ad Creative Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meta - Ad Creative Metadata": {
+      "main": [
+        [
+          {
+            "node": "Normalize Meta Portal Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Meta Portal Data": {
+      "main": [
+        [
+          {
+            "node": "Prepare Supabase Upserts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Supabase Upserts": {
+      "main": [
+        [
+          {
+            "node": "Supabase Upsert - Meta Portal Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Los_Angeles"
+  },
+  "versionId": "9d61c560-923e-4b47-88d2-a592bcccb45d",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

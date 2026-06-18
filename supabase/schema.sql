@@ -34,6 +34,7 @@ create table public.daily_performance (
   client_id uuid not null references public.clients(id) on delete cascade,
   date date not null,
   platform text not null check (platform in ('Google Ads', 'Meta Ads')),
+  channel text not null default 'Unspecified',
   spend numeric(12,2) not null default 0,
   revenue numeric(12,2) not null default 0,
   conversions integer not null default 0,
@@ -41,7 +42,7 @@ create table public.daily_performance (
   clicks integer not null default 0,
   impressions integer not null default 0,
   created_at timestamptz not null default now(),
-  unique (client_id, date, platform)
+  unique (client_id, date, platform, channel)
 );
 
 create table public.campaign_performance (

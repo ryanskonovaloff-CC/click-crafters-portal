@@ -4,10 +4,10 @@ import { DateRangePicker } from "@/components/date-range-picker";
 import { AccentText, Badge, Card, ClientPageTitle, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
 import { clientLogoSrc } from "@/lib/client-branding";
 import { getOverviewDashboardData, metricRatios, percentChange } from "@/lib/data";
+import { estimatedInStorePurchasesForRows, IN_STORE_AOV } from "@/lib/paid-estimates";
 import { compact, currency } from "@/lib/utils";
 import type { CampaignDailyPerformance, DailyPerformance } from "@/lib/types";
 
-const IN_STORE_AOV = 24.87;
 const ONLINE_ORDER_TRACKING_START = "2026-05-14";
 
 type EstimatedCampaignRow = CampaignDailyPerformance & {
@@ -32,8 +32,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const previousPaidRatios = metricRatios(paid.previousTotals);
   const hasPaidData = !paid.status.error && !paid.status.isEmpty;
   const hasStoreVisitData = paid.daily.some((item) => item.store_visits !== null);
-  const inStorePurchases = estimatedInStorePurchases(performance);
-  const previousInStorePurchases = estimatedInStorePurchases(paid.previousTotals);
+  const inStorePurchases = estimatedInStorePurchasesForRows(paid.daily);
+  const previousInStorePurchases = estimatedInStorePurchasesForRows(paid.previousDaily);
   const inStoreRevenue = inStorePurchases === null ? null : inStorePurchases * IN_STORE_AOV;
   const previousInStoreRevenue = previousInStorePurchases === null ? null : previousInStorePurchases * IN_STORE_AOV;
   const estimatedTotalRevenue = inStoreRevenue === null ? null : performance.revenue + inStoreRevenue;
@@ -149,11 +149,6 @@ function currencyDifferenceHelper(current: number | null, previous: number | nul
   return `${sign}${currency.format(Math.abs(difference))} vs prior period`;
 }
 
-function estimatedInStorePurchases(totals: { store_visits: number | null; conversions: number }) {
-  if (totals.store_visits === null) return null;
-  return Math.max(totals.store_visits - totals.conversions, 0);
-}
-
 function channelRows(rows: DailyPerformance[]) {
   const trackedByChannel = rows.reduce<Record<string, { onlineOrders: number; onlineRevenue: number; trackedSpend: number }>>((acc, row) => {
     const key = `${row.platform}|${row.channel ?? ""}`;
@@ -168,11 +163,11 @@ function channelRows(rows: DailyPerformance[]) {
 
   const byChannel = rows.reduce<Record<string, DailyPerformance>>((acc, row) => {
     const key = `${row.platform}|${row.channel ?? ""}`;
-    acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, store_visits: 0, clicks: 0, impressions: 0, cpa: null, roas: null, ctr: null, cpc: null };
+    acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, store_visits: null, clicks: 0, impressions: 0, cpa: null, roas: null, ctr: null, cpc: null };
     acc[key].spend += row.spend;
     acc[key].revenue += row.revenue;
     acc[key].conversions += row.conversions;
-    acc[key].store_visits = (acc[key].store_visits ?? 0) + (row.store_visits ?? 0);
+    if (row.store_visits !== null) acc[key].store_visits = (acc[key].store_visits ?? 0) + row.store_visits;
     acc[key].clicks += row.clicks;
     acc[key].impressions += row.impressions;
     acc[key].cpa = acc[key].conversions > 0 ? acc[key].spend / acc[key].conversions : null;
@@ -197,11 +192,11 @@ function aggregateCampaignRows(rows: CampaignDailyPerformance[]) {
 
   const byCampaign = rows.reduce<Record<string, CampaignDailyPerformance>>((acc, row) => {
     const key = `${row.platform}|${row.campaign_id}`;
-    acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, store_visits: 0, clicks: 0, impressions: 0, wasted_spend: 0, cpa: null, roas: null, ctr: null, cpc: null };
+    acc[key] ??= { ...row, spend: 0, revenue: 0, conversions: 0, store_visits: null, clicks: 0, impressions: 0, wasted_spend: 0, cpa: null, roas: null, ctr: null, cpc: null };
     acc[key].spend += row.spend;
     acc[key].revenue += row.revenue;
     acc[key].conversions += row.conversions;
-    acc[key].store_visits = (acc[key].store_visits ?? 0) + (row.store_visits ?? 0);
+    if (row.store_visits !== null) acc[key].store_visits = (acc[key].store_visits ?? 0) + row.store_visits;
     acc[key].clicks += row.clicks;
     acc[key].impressions += row.impressions;
     acc[key].wasted_spend += row.wasted_spend;
@@ -220,10 +215,10 @@ function aggregateCampaignRows(rows: CampaignDailyPerformance[]) {
 function withEstimatedRevenue(row: DailyPerformance, tracked?: { onlineOrders: number; onlineRevenue: number; trackedSpend: number }) {
   const onlineOrders = tracked?.onlineOrders ?? row.conversions;
   const onlineRevenue = tracked?.onlineRevenue ?? row.revenue;
-  const estimatedPurchases = estimatedInStorePurchases({ store_visits: row.store_visits, conversions: onlineOrders });
-  const estimatedInStoreRevenue = estimatedPurchases === null ? null : estimatedPurchases * IN_STORE_AOV;
-  const estimatedTotalRevenue = estimatedInStoreRevenue === null ? null : onlineRevenue + estimatedInStoreRevenue;
-  const estimatedBlendedRoas = estimatedTotalRevenue === null || row.spend <= 0 ? null : estimatedTotalRevenue / row.spend;
+  const estimatedPurchases = row.store_visits === null ? null : Math.max(row.store_visits - onlineOrders, 0);
+  const estimatedInStoreRevenue = (estimatedPurchases ?? 0) * IN_STORE_AOV;
+  const estimatedTotalRevenue = onlineRevenue + estimatedInStoreRevenue;
+  const estimatedBlendedRoas = row.spend <= 0 ? null : estimatedTotalRevenue / row.spend;
   return {
     ...row,
     conversions: onlineOrders,
@@ -237,10 +232,10 @@ function withEstimatedRevenue(row: DailyPerformance, tracked?: { onlineOrders: n
 function withEstimatedCampaignRevenue(row: CampaignDailyPerformance, tracked?: { onlineOrders: number; onlineRevenue: number; trackedSpend: number }): EstimatedCampaignRow {
   const onlineOrders = tracked?.onlineOrders ?? row.conversions;
   const onlineRevenue = tracked?.onlineRevenue ?? row.revenue;
-  const estimatedPurchases = estimatedInStorePurchases({ store_visits: row.store_visits, conversions: onlineOrders });
-  const estimatedInStoreRevenue = estimatedPurchases === null ? null : estimatedPurchases * IN_STORE_AOV;
-  const estimatedTotalRevenue = estimatedInStoreRevenue === null ? null : onlineRevenue + estimatedInStoreRevenue;
-  const estimatedBlendedRoas = estimatedTotalRevenue === null || row.spend <= 0 ? null : estimatedTotalRevenue / row.spend;
+  const estimatedPurchases = row.store_visits === null ? null : Math.max(row.store_visits - onlineOrders, 0);
+  const estimatedInStoreRevenue = (estimatedPurchases ?? 0) * IN_STORE_AOV;
+  const estimatedTotalRevenue = onlineRevenue + estimatedInStoreRevenue;
+  const estimatedBlendedRoas = row.spend <= 0 ? null : estimatedTotalRevenue / row.spend;
   return {
     ...row,
     onlineOrders,
