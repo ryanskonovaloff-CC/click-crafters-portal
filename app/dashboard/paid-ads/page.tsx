@@ -9,6 +9,7 @@ import { cn, compact, currency, currencyCents } from "@/lib/utils";
 import type { AdLifetimePerformance, CampaignDailyPerformance, DailyPerformance } from "@/lib/types";
 
 const ONLINE_ORDER_TRACKING_START = "2026-05-14";
+const CAMPAIGN_WATCH_ROAS_THRESHOLD = 5;
 
 type EstimatedPerformanceRow<T extends DailyPerformance> = T & {
   onlineOrders: number;
@@ -45,7 +46,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
   const campaignRows = aggregateCampaignRows(campaigns);
   const topRoasRows = topCampaignsByRoas(campaignRows);
   const topConversionRows = topCampaignsByConversions(campaignRows);
-  const campaignWatchRows = campaignsToWatch(campaignRows, [...topRoasRows, ...topConversionRows]);
+  const campaignWatchRows = campaignsToWatch(campaignRows);
   const adRows = topLifetimeAdRows(lifetimeAds);
   const logoSrc = clientLogoSrc(client?.name);
 
@@ -142,6 +143,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
         </Card>
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Campaigns</AccentText> to watch</h2>
+          <p className="mb-3 text-sm text-white/45">Campaigns with Online Order ROAS below {CAMPAIGN_WATCH_ROAS_THRESHOLD.toFixed(2)}x.</p>
           <Table headers={["Campaign", "Spend", "Revenue", "Online orders", "Est. in-store orders", "Online Order ROAS", "Est. blended ROAS", "Wasted spend"]} rows={campaignWatchRows.map((item) => [
             item.campaign_name ?? item.campaign_id,
             currency.format(item.spend),
@@ -418,12 +420,10 @@ function topCampaignsByConversions(rows: Array<EstimatedPerformanceRow<CampaignD
     .slice(0, 8);
 }
 
-function campaignsToWatch(rows: Array<EstimatedPerformanceRow<CampaignDailyPerformance>>, topRows: Array<EstimatedPerformanceRow<CampaignDailyPerformance>>) {
-  const topKeys = new Set(topRows.map(campaignKey));
+function campaignsToWatch(rows: Array<EstimatedPerformanceRow<CampaignDailyPerformance>>) {
   return [...rows]
-    .filter((item) => !topKeys.has(campaignKey(item)))
-    .filter((item) => effectiveWastedSpend(item) > 0)
-    .sort((a, b) => effectiveWastedSpend(b) - effectiveWastedSpend(a) || b.spend - a.spend)
+    .filter((item) => item.platformRoas !== null && item.platformRoas < CAMPAIGN_WATCH_ROAS_THRESHOLD)
+    .sort((a, b) => (a.platformRoas ?? Number.MAX_SAFE_INTEGER) - (b.platformRoas ?? Number.MAX_SAFE_INTEGER) || b.spend - a.spend)
     .slice(0, 8);
 }
 
