@@ -134,10 +134,23 @@ export function PlatformBreakdown({ data }: { data: DailyPerformance[] }) {
             <Cell key={entry.name} fill={index === 0 ? "#ff6a1a" : "#ffffff"} opacity={index === 0 ? 1 : 0.72} />
           ))}
         </Pie>
-        <Tooltip contentStyle={tooltipStyle()} formatter={(value: number) => currency.format(value)} />
+        <Tooltip content={<PlatformTooltip />} cursor={false} />
         <Legend />
       </PieChart>
     </ResponsiveContainer>
+  );
+}
+
+function PlatformTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name?: string; value?: number; color?: string }> }) {
+  const item = payload?.[0];
+  if (!active || !item) return null;
+
+  return (
+    <div className="rounded-lg border border-white/12 bg-[#101010] px-3 py-2 text-left text-xs font-semibold leading-4 text-white shadow-[0_18px_60px_rgba(0,0,0,0.48)]">
+      <span className="text-accent">{item.name ?? "Platform"}</span>
+      <span className="text-white/70"> : </span>
+      <span className="text-white">{currency.format(Number(item.value ?? 0))}</span>
+    </div>
   );
 }
 
