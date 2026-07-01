@@ -42,6 +42,8 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
   const previousInStoreRevenue = previousInStorePurchases === null ? null : previousInStorePurchases * IN_STORE_AOV;
   const estimatedTotalRevenue = inStoreRevenue === null ? null : totals.revenue + inStoreRevenue;
   const estimatedBlendedRoas = estimatedTotalRevenue === null || totals.spend <= 0 ? null : estimatedTotalRevenue / totals.spend;
+  const previousEstimatedTotalRevenue = previousInStoreRevenue === null ? null : previousTotals.revenue + previousInStoreRevenue;
+  const previousEstimatedBlendedRoas = previousEstimatedTotalRevenue === null || previousTotals.spend <= 0 ? null : previousEstimatedTotalRevenue / previousTotals.spend;
   const rows = channelRows(daily);
   const campaignRows = aggregateCampaignRows(campaigns);
   const topRoasRows = topCampaignsByRoas(campaignRows);
@@ -69,13 +71,29 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
         <StatCard label={<AccentText>CPA</AccentText>} value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} helper={compare ? trendHelper(percentChange(ratios.cpa, previousRatios.cpa)) : undefined} state={status.error ? "error" : ratios.cpa === null ? "empty" : "ready"} />
         <StatCard label={<AccentText>Store visits</AccentText>} value={hasStoreVisitData && totals.store_visits !== null ? compact.format(totals.store_visits) : "Unavailable"} helper={compare ? trendHelper(percentChange(totals.store_visits, previousTotals.store_visits)) : undefined} state={status.error ? "error" : hasStoreVisitData ? "ready" : "empty"} />
         <StatCard label={<AccentText>Est. in-store purchases</AccentText>} value={inStorePurchases === null ? "Unavailable" : compact.format(Math.round(inStorePurchases))} helper={compare ? trendHelper(percentChange(inStorePurchases, previousInStorePurchases)) : undefined} valueTitle="Store visits minus online conversions" state={status.error ? "error" : inStorePurchases === null ? "empty" : "ready"} />
-        <StatCard label={<AccentText>Est. in-store revenue</AccentText>} value={inStoreRevenue === null ? "Unavailable" : currency.format(inStoreRevenue)} helper={compare ? trendHelper(percentChange(inStoreRevenue, previousInStoreRevenue)) : undefined} valueTitle={`At ${currencyCents.format(IN_STORE_AOV)} AOV`} state={status.error ? "error" : inStoreRevenue === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Est. in-store revenue</AccentText>} value={inStoreRevenue === null ? "Unavailable" : currency.format(inStoreRevenue)} helper={compare ? currencyDifferenceHelper(inStoreRevenue, previousInStoreRevenue) : undefined} valueTitle={`At ${currencyCents.format(IN_STORE_AOV)} AOV`} state={status.error ? "error" : inStoreRevenue === null ? "empty" : "ready"} />
       </MetricGrid>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load paid ads data: {status.error}</Card> : null}
       {campaignStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load campaign data: {campaignStatus.error}</Card> : null}
       {lifetimeAdStatus.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load lifetime ad data: {lifetimeAdStatus.error}</Card> : null}
-      {hasStoreVisitData && storeVisitEstimate ? <InStoreEstimateCard storeVisits={storeVisitEstimate.storeVisits} conversions={storeVisitEstimate.onlineOrders} onlineRevenue={totals.revenue} inStorePurchases={storeVisitEstimate.estimatedInStorePurchases} inStoreRevenue={inStoreRevenue ?? 0} estimatedBlendedRoas={estimatedBlendedRoas} /> : null}
+      {hasStoreVisitData && storeVisitEstimate ? (
+        <InStoreEstimateCard
+          storeVisits={storeVisitEstimate.storeVisits}
+          conversions={storeVisitEstimate.onlineOrders}
+          onlineRevenue={totals.revenue}
+          inStorePurchases={storeVisitEstimate.estimatedInStorePurchases}
+          inStoreRevenue={inStoreRevenue ?? 0}
+          estimatedBlendedRoas={estimatedBlendedRoas}
+          compare={compare}
+          previousStoreVisits={previousStoreVisitEstimate?.storeVisits ?? null}
+          previousConversions={previousStoreVisitEstimate?.onlineOrders ?? null}
+          previousInStorePurchases={previousInStorePurchases}
+          previousInStoreRevenue={previousInStoreRevenue}
+          previousEstimatedTotalRevenue={previousEstimatedTotalRevenue}
+          previousEstimatedBlendedRoas={previousEstimatedBlendedRoas}
+        />
+      ) : null}
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Online orders</AccentText> over time</h2>{hasData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="conversions" /> : <EmptyState />}</Card>
@@ -225,18 +243,41 @@ function AdPerformanceCard({ ad }: { ad: AdLifetimePerformance }) {
   );
 }
 
-function InStoreEstimateCard({ storeVisits, conversions, onlineRevenue, inStorePurchases, inStoreRevenue, estimatedBlendedRoas }: {
+function InStoreEstimateCard({
+  storeVisits,
+  conversions,
+  onlineRevenue,
+  inStorePurchases,
+  inStoreRevenue,
+  estimatedBlendedRoas,
+  compare,
+  previousStoreVisits,
+  previousConversions,
+  previousInStorePurchases,
+  previousInStoreRevenue,
+  previousEstimatedTotalRevenue,
+  previousEstimatedBlendedRoas
+}: {
   storeVisits: number;
   conversions: number;
   onlineRevenue: number;
   inStorePurchases: number;
   inStoreRevenue: number;
   estimatedBlendedRoas: number | null;
+  compare: boolean;
+  previousStoreVisits: number | null;
+  previousConversions: number | null;
+  previousInStorePurchases: number | null;
+  previousInStoreRevenue: number | null;
+  previousEstimatedTotalRevenue: number | null;
+  previousEstimatedBlendedRoas: number | null;
 }) {
   const total = Math.max(storeVisits, conversions, inStorePurchases, 1);
   const onlineShare = Math.min(100, Math.max(0, conversions / total * 100));
   const inStoreShare = Math.min(100, Math.max(0, inStorePurchases / total * 100));
   const estimatedTotalRevenue = onlineRevenue + inStoreRevenue;
+  const inStoreRevenueHelper = compare ? currencyDifferenceHelper(inStoreRevenue, previousInStoreRevenue) : undefined;
+  const estimatedBlendedRoasHelper = compare ? trendHelper(percentChange(estimatedBlendedRoas, previousEstimatedBlendedRoas)) : undefined;
 
   return (
     <Card className="overflow-visible">
@@ -253,20 +294,21 @@ function InStoreEstimateCard({ storeVisits, conversions, onlineRevenue, inStoreP
             <HoverNote note={`At ${currencyCents.format(IN_STORE_AOV)} AOV`} align="right">
               <p className="mt-1 text-2xl font-semibold text-white">{currency.format(inStoreRevenue)}</p>
             </HoverNote>
+            {inStoreRevenueHelper ? <p className="mt-1 text-xs text-white/45">{inStoreRevenueHelper}</p> : null}
           </div>
           <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-3 text-left sm:text-right">
             <p className="text-xs uppercase tracking-[0.14em] text-white/45">Est. blended ROAS</p>
             <p className="mt-1 text-2xl font-semibold text-white">{estimatedBlendedRoas === null ? "Unavailable" : `${estimatedBlendedRoas.toFixed(2)}x`}</p>
-            <p className="mt-1 text-xs text-white/45">Online + est. in-store</p>
+            <p className="mt-1 text-xs text-white/45">{estimatedBlendedRoasHelper ?? "Online + est. in-store"}</p>
           </div>
         </div>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-4">
-        <InStoreMetric label="Store visits from ads" value={compact.format(Math.round(storeVisits))} />
-        <InStoreMetric label="Online orders" value={compact.format(conversions)} />
-        <InStoreMetric label="Est. in-store purchases" value={compact.format(Math.round(inStorePurchases))} valueTitle="Store visits minus online conversions" accent />
-        <InStoreMetric label="Estimated total revenue" value={currency.format(estimatedTotalRevenue)} accent />
+        <InStoreMetric label="Store visits from ads" value={compact.format(Math.round(storeVisits))} helper={compare ? trendHelper(percentChange(storeVisits, previousStoreVisits)) : undefined} />
+        <InStoreMetric label="Online orders" value={compact.format(conversions)} helper={compare ? trendHelper(percentChange(conversions, previousConversions)) : undefined} />
+        <InStoreMetric label="Est. in-store purchases" value={compact.format(Math.round(inStorePurchases))} helper={compare ? trendHelper(percentChange(inStorePurchases, previousInStorePurchases)) : undefined} valueTitle="Store visits minus online conversions" accent />
+        <InStoreMetric label="Estimated total revenue" value={currency.format(estimatedTotalRevenue)} helper={compare ? currencyDifferenceHelper(estimatedTotalRevenue, previousEstimatedTotalRevenue) : undefined} accent />
       </div>
 
       <div className="mt-5 space-y-3">
@@ -277,13 +319,14 @@ function InStoreEstimateCard({ storeVisits, conversions, onlineRevenue, inStoreP
   );
 }
 
-function InStoreMetric({ label, value, valueTitle, accent = false }: { label: string; value: string; valueTitle?: string; accent?: boolean }) {
+function InStoreMetric({ label, value, helper, valueTitle, accent = false }: { label: string; value: string; helper?: string; valueTitle?: string; accent?: boolean }) {
   return (
     <div className="rounded-xl border border-white/10 bg-black/20 p-4">
       <p className="text-xs text-white/50">{label}</p>
       <HoverNote note={valueTitle}>
         <p className={cn("mt-2 text-2xl font-semibold", accent ? "text-accent" : "text-white")}>{value}</p>
       </HoverNote>
+      {helper ? <p className="mt-1.5 text-[11px] leading-4 text-white/50 sm:text-xs">{helper}</p> : null}
     </div>
   );
 }
