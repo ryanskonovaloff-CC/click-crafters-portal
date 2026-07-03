@@ -1,14 +1,14 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 import { normalizeClientSlug, SELECTED_CLIENT_COOKIE } from "@/lib/client-selection";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const slug = normalizeClientSlug(url.searchParams.get("client"));
+  const redirectUrl = new URL("/dashboard", url.origin);
+  const response = NextResponse.redirect(redirectUrl);
 
   if (slug) {
-    const cookieStore = await cookies();
-    cookieStore.set(SELECTED_CLIENT_COOKIE, slug, {
+    response.cookies.set(SELECTED_CLIENT_COOKIE, slug, {
       httpOnly: true,
       maxAge: 60 * 60 * 24 * 90,
       path: "/",
@@ -17,5 +17,5 @@ export async function GET(request: Request) {
     });
   }
 
-  redirect("/dashboard");
+  return response;
 }
