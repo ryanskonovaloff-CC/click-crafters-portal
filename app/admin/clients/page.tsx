@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { AccentText, Badge, Card, Table } from "@/components/ui";
 import { getAdminData } from "@/lib/data";
 
@@ -18,13 +17,13 @@ export default async function AdminClientsPage() {
           client.industry ?? "Not set",
           client.status,
           new Date(client.last_updated_at).toLocaleString(),
-          <Link
+          <a
             key={client.id}
             href={`/admin/clients/select?client=${client.slug}`}
             className="inline-flex items-center justify-center rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition hover:border-accent hover:bg-accent/15"
           >
             View account
-          </Link>
+          </a>
         ])} />
       </Card>
     </div>

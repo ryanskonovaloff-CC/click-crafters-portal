@@ -477,7 +477,7 @@ export async function getActiveClient(selectedClientSlug?: string | null) {
     .map((row) => "clients" in row ? row.clients : row)
     .filter(Boolean) as Client[];
   const client = desiredSlug
-    ? rows.find((row) => row.slug === desiredSlug) ?? rows[0] ?? null
+    ? rows.find((row) => row.slug === desiredSlug) ?? null
     : rows[0] ?? null;
 
   if (!client) {
