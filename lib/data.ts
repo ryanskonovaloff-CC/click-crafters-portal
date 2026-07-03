@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizeClientSlug, SELECTED_CLIENT_COOKIE } from "@/lib/client-selection";
 import { IN_STORE_AOV, storeVisitEstimateForRows } from "@/lib/paid-estimates";
 import type {
   AdLifetimePerformance,
@@ -455,26 +457,28 @@ export async function getSessionProfile() {
   return { supabase, user, profile };
 }
 
-export async function getActiveClient() {
+export async function getActiveClient(selectedClientSlug?: string | null) {
   const { supabase, profile } = await getSessionProfile();
-  const query = supabase
-    .from("clients")
-    .select("id,name,slug,industry,status,last_updated_at")
-    .order("name", { ascending: true })
-    .limit(1);
+  const cookieStore = await cookies();
+  const desiredSlug = normalizeClientSlug(selectedClientSlug) ?? normalizeClientSlug(cookieStore.get(SELECTED_CLIENT_COOKIE)?.value);
+  const clientSelect = "id,name,slug,industry,status,last_updated_at";
 
   const { data: clients } = profile.role === "admin"
-    ? await query
+    ? await supabase
+      .from("clients")
+      .select(clientSelect)
+      .order("name", { ascending: true })
     : await supabase
       .from("client_users")
-      .select("clients(id,name,slug,industry,status,last_updated_at)")
-      .eq("user_id", profile.id)
-      .limit(1);
+      .select(`clients(${clientSelect})`)
+      .eq("user_id", profile.id);
 
-  const rows = clients as any[] | null;
-  const client = Array.isArray(rows) && rows.length > 0
-    ? ("clients" in rows[0] ? rows[0].clients : rows[0])
-    : null;
+  const rows = ((clients ?? []) as any[])
+    .map((row) => "clients" in row ? row.clients : row)
+    .filter(Boolean) as Client[];
+  const client = desiredSlug
+    ? rows.find((row) => row.slug === desiredSlug) ?? rows[0] ?? null
+    : rows[0] ?? null;
 
   if (!client) {
     return { supabase, profile, client: null as Client | null };
