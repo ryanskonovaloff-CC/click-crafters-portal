@@ -81,7 +81,7 @@ export function Table({ headers, rows }: { headers: string[]; rows: Array<Array<
         <thead>
           <tr className="border-b border-border text-xs uppercase tracking-[0.08em] text-white/50">
             {headers.map((header) => (
-              <th key={header} className="py-3 pr-4 font-medium">{header}</th>
+              <th key={header} className="sticky top-0 z-10 bg-[#1a1715] py-3 pr-4 font-medium shadow-[0_1px_0_rgba(255,255,255,0.1)]">{header}</th>
             ))}
           </tr>
         </thead>
