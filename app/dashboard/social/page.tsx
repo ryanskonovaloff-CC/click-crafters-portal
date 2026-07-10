@@ -20,6 +20,12 @@ export default async function SocialPage({ searchParams }: PageProps) {
   const tileState = status.error ? "error" : hasData ? "ready" : "empty";
   const hasFollowerHistory = daily.some((row) => row.followers_total !== null);
   const hasReachHistory = daily.some((row) => row.reach_total !== null || row.accounts_engaged !== null || row.total_interactions !== null);
+  const hasOrganicPaidSplit = [
+    totals.reachOrganic,
+    totals.reachPaid,
+    totals.impressionsOrganic,
+    totals.impressionsPaid
+  ].some((value) => value !== null);
 
   return (
     <div className="mx-auto min-w-0 max-w-7xl space-y-4 sm:space-y-6">
@@ -36,7 +42,6 @@ export default async function SocialPage({ searchParams }: PageProps) {
         </div>
         <div className="flex flex-col gap-2 sm:items-end">
           <DateRangePicker range={range} />
-          {lastUpdatedAt ? <Badge className="justify-center">Synced by n8n</Badge> : null}
         </div>
       </header>
 
@@ -64,27 +69,24 @@ export default async function SocialPage({ searchParams }: PageProps) {
         </Card>
         <Card>
           <h2 className="mb-2 text-base font-semibold sm:text-lg"><AccentText>Reach</AccentText> and engagement</h2>
-          <p className="mb-4 text-sm text-white/45">Organic, paid, and total reach are only shown when the source API provides the split.</p>
+          <p className="mb-4 text-sm text-white/45">Total reach, account engagement, and interactions over the selected range.</p>
           {hasReachHistory ? <ReachEngagementChart data={daily} /> : <EmptyState>No reach or engagement history is available for this date range yet.</EmptyState>}
         </Card>
       </div>
 
-      <Card>
-        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Organic</AccentText> vs paid performance</h2>
-        <Table
-          headers={["Metric", "Organic", "Paid", "Blended"]}
-          rows={[
-            ["Reach", formatNumber(totals.reachOrganic), formatNumber(totals.reachPaid ?? totals.paidReach), formatNumber(totals.reachTotal)],
-            ["Impressions", formatNumber(totals.impressionsOrganic), formatNumber(totals.impressionsPaid ?? totals.paidImpressions), formatNumber(totals.impressionsTotal)],
-            ["Engagements", "Unavailable", formatNumber(totals.paidEngagements), formatNumber(totals.totalInteractions)],
-            ["Profile visits", "Unavailable", formatNumber(totals.paidProfileVisits), formatNumber(totals.profileVisits)],
-            ["Video views", "Unavailable", formatNumber(totals.paidVideoViews), formatNumber(sumContent(content, "videoViews"))],
-            ["Website / link clicks", formatNumber(totals.websiteClicks), formatNumber(totals.paidWebsiteClicks), formatNumber(addNullable(totals.websiteClicks, totals.paidWebsiteClicks))],
-            ["Followers attributed to paid promotion", "Unavailable", formatNumber(totals.paidFollowers), "Unavailable"]
-          ]}
-        />
-        <p className="mt-3 text-xs leading-5 text-white/42">Paid rows are Instagram-only Meta placement rows. Organic and paid splits remain unavailable instead of estimated when Instagram or Meta does not expose a reliable split.</p>
-      </Card>
+      {hasOrganicPaidSplit ? (
+        <Card>
+          <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Organic</AccentText> vs paid performance</h2>
+          <Table
+            headers={["Metric", "Organic", "Paid", "Blended"]}
+            rows={[
+              ["Reach", formatNumber(totals.reachOrganic), formatNumber(totals.reachPaid ?? totals.paidReach), formatNumber(totals.reachTotal)],
+              ["Impressions", formatNumber(totals.impressionsOrganic), formatNumber(totals.impressionsPaid ?? totals.paidImpressions), formatNumber(totals.impressionsTotal)]
+            ]}
+          />
+          <p className="mt-3 text-xs leading-5 text-white/42">Organic and paid splits are shown only when Instagram or Meta exposes a reliable split.</p>
+        </Card>
+      ) : null}
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)]">
         <Card>
@@ -151,22 +153,6 @@ function formatTimestamp(value: string) {
 function trendHelper(change: number | null) {
   if (change === null) return "No prior period baseline";
   return `${change >= 0 ? "+" : ""}${change.toFixed(1)}% vs prior period`;
-}
-
-function sumContent(rows: Array<{ videoViews: number | null }>, key: "videoViews") {
-  let found = false;
-  const total = rows.reduce((sum, row) => {
-    const value = row[key];
-    if (value === null) return sum;
-    found = true;
-    return sum + value;
-  }, 0);
-  return found ? total : null;
-}
-
-function addNullable(a: number | null, b: number | null) {
-  if (a === null && b === null) return null;
-  return (a ?? 0) + (b ?? 0);
 }
 
 function performanceInsights(totals: {
