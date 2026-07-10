@@ -49,6 +49,21 @@ select {
   font: inherit;
 }
 
+select {
+  color-scheme: dark;
+}
+
+select option {
+  background: #090909;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+select option:checked,
+select option:hover {
+  background: #ff6a1a;
+  color: #ffffff;
+}
+
 .recharts-cartesian-axis-tick-value,
 .recharts-legend-item-text {
   fill: rgba(255, 255, 255, 0.62) !important;

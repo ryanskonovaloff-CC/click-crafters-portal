@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 
 const pageSize = 10;
 const percent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 2 });
+const selectClass = "h-9 rounded-lg border border-white/10 bg-[#090909] px-3 py-2 text-sm text-white [color-scheme:dark] outline-none transition focus:border-accent";
+const optionClass = "bg-[#090909] text-white";
 
 type SortKey = "published" | "reach" | "interactions" | "engagement" | "views";
 
@@ -40,31 +42,31 @@ export function InstagramContentTable({ rows }: { rows: InstagramContentSummary[
             value={query}
             onChange={(event) => { setQuery(event.target.value); setPage(1); }}
             placeholder="Search captions"
-            className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-accent"
+            className="h-9 rounded-lg border border-white/10 bg-[#090909] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-accent"
           />
           <select
             value={type}
             onChange={(event) => { setType(event.target.value); setPage(1); }}
-            className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-accent"
+            className={selectClass}
           >
-            <option value="all">All content types</option>
-            {mediaTypes.map((item) => <option key={item} value={item}>{item}</option>)}
+            <option className={optionClass} value="all">All content types</option>
+            {mediaTypes.map((item) => <option className={optionClass} key={item} value={item}>{item}</option>)}
           </select>
         </div>
         <select
           value={sort}
           onChange={(event) => setSort(event.target.value as SortKey)}
-          className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-accent"
+          className={selectClass}
         >
-          <option value="published">Newest first</option>
-          <option value="reach">Top reach</option>
-          <option value="interactions">Top interactions</option>
-          <option value="engagement">Top engagement rate</option>
-          <option value="views">Top video views</option>
+          <option className={optionClass} value="published">Newest first</option>
+          <option className={optionClass} value="reach">Top reach</option>
+          <option className={optionClass} value="interactions">Top interactions</option>
+          <option className={optionClass} value="engagement">Top engagement rate</option>
+          <option className={optionClass} value="views">Top video views</option>
         </select>
       </div>
 
-      <div className="w-full overflow-x-auto">
+      <div className="max-h-[36rem] w-full overflow-auto pr-1">
         <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-border text-xs uppercase tracking-[0.08em] text-white/50">
@@ -78,8 +80,8 @@ export function InstagramContentTable({ rows }: { rows: InstagramContentSummary[
               <tr key={row.id} className="border-b border-white/5 last:border-0">
                 <td className="max-w-[22rem] py-3 pr-4">
                   <div className="flex items-center gap-3">
-                    <div className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg border border-white/10 bg-black/35 text-xs text-white/35">
-                      {row.thumbnail_url || row.media_url ? <img src={row.thumbnail_url ?? row.media_url ?? ""} alt="" className="h-full w-full object-cover" /> : "No image"}
+                    <div className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg border border-white/10 bg-black/35 text-[10px] text-white/35">
+                      {row.thumbnail_url || row.media_url ? <img src={row.thumbnail_url ?? row.media_url ?? ""} alt="" className="h-full w-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : "No image"}
                     </div>
                     <p className="line-clamp-2 text-white/78">{row.caption || "No caption"}</p>
                   </div>
@@ -125,30 +127,34 @@ export function InstagramContentTable({ rows }: { rows: InstagramContentSummary[
 
 export function TopInstagramContent({ rows }: { rows: InstagramContentSummary[] }) {
   const [rankBy, setRankBy] = useState<SortKey>("reach");
-  const topRows = [...rows].sort((a, b) => sortValue(b, rankBy) - sortValue(a, rankBy)).slice(0, 3);
+  const topRows = [...rows].sort((a, b) => sortValue(b, rankBy) - sortValue(a, rankBy)).slice(0, 5);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-white/45">Rank by the metric that matters for the client conversation.</p>
-        <select value={rankBy} onChange={(event) => setRankBy(event.target.value as SortKey)} className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-accent">
-          <option value="reach">Reach</option>
-          <option value="interactions">Interactions</option>
-          <option value="engagement">Engagement rate</option>
-          <option value="views">Video views</option>
+        <select value={rankBy} onChange={(event) => setRankBy(event.target.value as SortKey)} className={selectClass}>
+          <option className={optionClass} value="reach">Reach</option>
+          <option className={optionClass} value="interactions">Interactions</option>
+          <option className={optionClass} value="engagement">Engagement rate</option>
+          <option className={optionClass} value="views">Video views</option>
         </select>
       </div>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="max-h-[33rem] space-y-3 overflow-y-auto pr-1">
         {topRows.map((row, index) => (
-          <article key={row.id} className="rounded-xl border border-white/10 bg-black/20 p-4">
-            <span className="grid size-7 place-items-center rounded-full border border-accent/45 bg-accent/10 text-sm font-bold text-accent">{index + 1}</span>
-            <p className="mt-3 line-clamp-3 text-sm font-semibold text-white/85">{row.caption || row.media_type || "Instagram content"}</p>
-            <dl className="mt-4 grid grid-cols-2 gap-2 text-xs text-white/55">
-              <div><dt>Reach</dt><dd className="mt-1 text-base font-semibold text-white">{formatNumber(row.reachTotal)}</dd></div>
-              <div><dt>Interactions</dt><dd className="mt-1 text-base font-semibold text-white">{formatNumber(row.totalInteractions)}</dd></div>
-              <div><dt>Eng. rate</dt><dd className="mt-1 text-base font-semibold text-white">{row.engagementRate === null ? "Unavailable" : percent.format(row.engagementRate)}</dd></div>
-              <div><dt>Views</dt><dd className="mt-1 text-base font-semibold text-white">{formatNumber(row.videoViews)}</dd></div>
-            </dl>
+          <article key={row.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+            <div className="flex gap-3">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full border border-accent/45 bg-accent/10 text-sm font-bold text-accent">{index + 1}</span>
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-2 text-sm font-semibold text-white/85">{row.caption || row.media_type || "Instagram content"}</p>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-white/52">
+                  <div><dt>Reach</dt><dd className="mt-0.5 text-sm font-semibold text-white">{formatNumber(row.reachTotal)}</dd></div>
+                  <div><dt>Interactions</dt><dd className="mt-0.5 text-sm font-semibold text-white">{formatNumber(row.totalInteractions)}</dd></div>
+                  <div><dt>Eng. rate</dt><dd className="mt-0.5 text-sm font-semibold text-white">{row.engagementRate === null ? "Unavailable" : percent.format(row.engagementRate)}</dd></div>
+                  <div><dt>Views</dt><dd className="mt-0.5 text-sm font-semibold text-white">{formatNumber(row.videoViews)}</dd></div>
+                </dl>
+              </div>
+            </div>
           </article>
         ))}
       </div>

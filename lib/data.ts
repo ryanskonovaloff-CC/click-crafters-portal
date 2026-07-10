@@ -1261,6 +1261,7 @@ export async function getInstagramDashboardData(rangeKey?: string, customStart?:
       .from("social_media_content")
       .select("*")
       .eq("social_account_id", account.id)
+      .gte("published_at", `${range.start}T00:00:00Z`)
       .lte("published_at", `${range.end}T23:59:59Z`)
       .order("published_at", { ascending: false })
       .limit(250),

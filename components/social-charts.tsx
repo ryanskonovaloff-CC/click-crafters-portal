@@ -85,37 +85,63 @@ export function ReachEngagementChart({ data }: { data: SocialAccountDailyMetric[
 }
 
 export function PublishingActivityChart({ data }: { data: InstagramContentSummary[] }) {
-  const byDate = new Map<string, { date: string; image: number; carousel: number; reel: number; other: number }>();
+  const byWeek = new Map<string, { week: string; image: number; carousel: number; reel: number; other: number; total: number }>();
 
   data.forEach((row) => {
     if (!row.published_at) return;
-    const date = row.published_at.slice(5, 10);
-    const current = byDate.get(date) ?? { date, image: 0, carousel: 0, reel: 0, other: 0 };
+    const week = weekLabel(row.published_at);
+    const current = byWeek.get(week) ?? { week, image: 0, carousel: 0, reel: 0, other: 0, total: 0 };
     const type = (row.media_type ?? "").toLowerCase();
     if (type.includes("carousel")) current.carousel += 1;
     else if (type.includes("reel") || type.includes("video")) current.reel += 1;
     else if (type.includes("image") || type.includes("photo")) current.image += 1;
     else current.other += 1;
-    byDate.set(date, current);
+    current.total += 1;
+    byWeek.set(week, current);
   });
 
-  const rows = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+  const rows = Array.from(byWeek.values()).sort((a, b) => a.week.localeCompare(b.week));
+  const totalPosts = rows.reduce((sum, row) => sum + row.total, 0);
+  const averagePerWeek = rows.length ? totalPosts / rows.length : 0;
 
   return (
-    <div className="h-64 w-full">
-      <ResponsiveContainer>
-        <BarChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-          <CartesianGrid stroke={gridColor} vertical={false} />
-          <XAxis dataKey="date" tick={axisStyle} tickLine={false} axisLine={false} />
-          <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={48} allowDecimals={false} />
-          <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: "#fff", fontWeight: 700 }} />
-          <Legend wrapperStyle={{ color: "rgba(255,255,255,0.72)", fontSize: 12 }} />
-          <Bar dataKey="image" name="Feed image" stackId="content" fill="#ff6a1a" radius={[6, 6, 0, 0]} />
-          <Bar dataKey="carousel" name="Carousel" stackId="content" fill="#f7f2e8" radius={[6, 6, 0, 0]} />
-          <Bar dataKey="reel" name="Reel" stackId="content" fill="#7dd3fc" radius={[6, 6, 0, 0]} />
-          <Bar dataKey="other" name="Other" stackId="content" fill="#a7a7a7" radius={[6, 6, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+          <p className="text-xs uppercase tracking-[0.08em] text-white/45">Published</p>
+          <p className="mt-1 text-2xl font-semibold text-white">{totalPosts}</p>
+        </div>
+        <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+          <p className="text-xs uppercase tracking-[0.08em] text-white/45">Avg. per week</p>
+          <p className="mt-1 text-2xl font-semibold text-white">{averagePerWeek.toFixed(1)}</p>
+        </div>
+      </div>
+      <div className="h-60 w-full">
+        <ResponsiveContainer>
+          <BarChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+            <CartesianGrid stroke={gridColor} vertical={false} />
+            <XAxis dataKey="week" tick={axisStyle} tickLine={false} axisLine={false} />
+            <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={48} allowDecimals={false} />
+            <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: "#fff", fontWeight: 700 }} />
+            <Legend wrapperStyle={{ color: "rgba(255,255,255,0.72)", fontSize: 12 }} />
+            <Bar dataKey="image" name="Feed image" stackId="content" fill="#ff6a1a" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="carousel" name="Carousel" stackId="content" fill="#f7f2e8" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="reel" name="Reel" stackId="content" fill="#7dd3fc" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="other" name="Other" stackId="content" fill="#a7a7a7" radius={[6, 6, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
+}
+
+function weekLabel(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(5, 10);
+  const day = date.getUTCDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  date.setUTCDate(date.getUTCDate() + mondayOffset);
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dayOfMonth = String(date.getUTCDate()).padStart(2, "0");
+  return `${month}-${dayOfMonth}`;
 }

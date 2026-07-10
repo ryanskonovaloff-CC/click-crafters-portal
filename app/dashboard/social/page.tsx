@@ -1,4 +1,3 @@
-import { RefreshCw } from "lucide-react";
 import { InstagramContentTable, TopInstagramContent } from "@/components/instagram-content-table";
 import { FollowerGrowthChart, PublishingActivityChart, ReachEngagementChart } from "@/components/social-charts";
 import { ClientSwitcher } from "@/components/client-switcher";
@@ -37,10 +36,7 @@ export default async function SocialPage({ searchParams }: PageProps) {
         </div>
         <div className="flex flex-col gap-2 sm:items-end">
           <DateRangePicker range={range} />
-          <button type="button" disabled className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-white/35">
-            <RefreshCw size={14} />
-            Manual refresh pending n8n webhook
-          </button>
+          {lastUpdatedAt ? <Badge className="justify-center">Synced by n8n</Badge> : null}
         </div>
       </header>
 
@@ -90,7 +86,7 @@ export default async function SocialPage({ searchParams }: PageProps) {
         <p className="mt-3 text-xs leading-5 text-white/42">Paid rows are Instagram-only Meta placement rows. Organic and paid splits remain unavailable instead of estimated when Instagram or Meta does not expose a reliable split.</p>
       </Card>
 
-      <div className="grid gap-3 sm:gap-4 xl:grid-cols-[1.35fr_0.65fr]">
+      <div className="grid gap-3 sm:gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)]">
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Content</AccentText> performance</h2>
           {content.length > 0 ? <InstagramContentTable rows={content} /> : <EmptyState>No Instagram content metrics are available for this date range yet.</EmptyState>}
@@ -104,26 +100,28 @@ export default async function SocialPage({ searchParams }: PageProps) {
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card>
           <h2 className="mb-2 text-base font-semibold sm:text-lg"><AccentText>Publishing</AccentText> activity</h2>
-          <p className="mb-4 text-sm text-white/45">Daily publishing volume by feed image, carousel, reel, and other content types.</p>
+          <p className="mb-4 text-sm text-white/45">Weekly publishing volume by feed image, carousel, reel, and other content types.</p>
           {content.some((row) => row.published_at) ? <PublishingActivityChart data={content} /> : <EmptyState>No publishing activity is available for this date range yet.</EmptyState>}
         </Card>
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Paid Instagram</AccentText> promotion</h2>
-          <Table
-            headers={["Campaign", "Ad set", "Ad", "Placement", "Spend", "Reach", "Impr.", "Clicks", "Engagements", "Follows"]}
-            rows={paidRows.map((row) => [
-              row.campaign_name ?? row.campaign_id ?? "Unspecified",
-              row.adset_name ?? row.adset_id ?? "Unspecified",
-              row.ad_name ?? row.ad_id ?? "Unspecified",
-              row.placement ?? "Instagram",
-              currency.format(row.spend),
-              formatNumber(row.reach),
-              formatNumber(row.impressions),
-              formatNumber(row.inline_link_clicks ?? row.clicks),
-              formatNumber(row.engagements),
-              formatNumber(row.follows)
-            ])}
-          />
+          <div className="max-h-[34rem] overflow-auto pr-1">
+            <Table
+              headers={["Campaign", "Ad set", "Ad", "Placement", "Spend", "Reach", "Impr.", "Clicks", "Engagements", "Follows"]}
+              rows={paidRows.map((row) => [
+                row.campaign_name ?? row.campaign_id ?? "Unspecified",
+                row.adset_name ?? row.adset_id ?? "Unspecified",
+                row.ad_name ?? row.ad_id ?? "Unspecified",
+                row.placement ?? "Instagram",
+                currency.format(row.spend),
+                formatNumber(row.reach),
+                formatNumber(row.impressions),
+                formatNumber(row.inline_link_clicks ?? row.clicks),
+                formatNumber(row.engagements),
+                formatNumber(row.follows)
+              ])}
+            />
+          </div>
         </Card>
       </div>
 
