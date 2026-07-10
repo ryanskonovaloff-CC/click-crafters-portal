@@ -62,24 +62,24 @@ alter table public.monthly_reports
 
 do $$
 declare
-  column_name text;
+  v_column_name text;
 begin
-  foreach column_name in array array['wins', 'watchouts', 'next_steps']
+  foreach v_column_name in array array['wins', 'watchouts', 'next_steps']
   loop
     if exists (
       select 1
       from information_schema.columns c
       where c.table_schema = 'public'
         and c.table_name = 'monthly_reports'
-        and c.column_name = column_name
+        and c.column_name = v_column_name
         and c.data_type = 'jsonb'
     ) then
-      execute format('alter table public.monthly_reports rename column %I to %I', column_name, column_name || '_legacy');
-      execute format('alter table public.monthly_reports add column %I text[] not null default ''{}''', column_name);
+      execute format('alter table public.monthly_reports rename column %I to %I', v_column_name, v_column_name || '_legacy');
+      execute format('alter table public.monthly_reports add column %I text[] not null default ''{}''', v_column_name);
       execute format(
         'update public.monthly_reports set %1$I = coalesce((select array_agg(value) from jsonb_array_elements_text(%2$I) as value), ''{}''::text[])',
-        column_name,
-        column_name || '_legacy'
+        v_column_name,
+        v_column_name || '_legacy'
       );
     end if;
   end loop;

@@ -50,8 +50,8 @@ export function TrendChart({ data, metric, previousData = [], compare = false }:
             const seriesKey = String(item.dataKey ?? name);
             if (seriesKey === "estimated_blended_roas") return [`${numericValue.toFixed(2)}x`, "Est. blended ROAS"];
             if (seriesKey === "previous_estimated_blended_roas") return [`${numericValue.toFixed(2)}x`, "Prev. est. blended ROAS"];
-            if (seriesKey === "previous_metric") return [`${numericValue.toFixed(2)}x`, "Prev. platform ROAS"];
-            return [`${numericValue.toFixed(2)}x`, "Platform ROAS"];
+            if (seriesKey === "previous_metric") return [`${numericValue.toFixed(2)}x`, "Prev. online order ROAS"];
+            return [`${numericValue.toFixed(2)}x`, "Online Order ROAS"];
           }
           return numericValue.toFixed(0);
         }}
@@ -59,7 +59,7 @@ export function TrendChart({ data, metric, previousData = [], compare = false }:
         {showEstimatedRoas ? <Line type="monotone" dataKey="estimated_blended_roas" name="Est. blended ROAS" stroke="#f7f2e8" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls /> : null}
         <Line type="monotone" dataKey={metric} name={metricName} stroke="#ff6a1a" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls={metric === "roas"} />
         {compare && showEstimatedRoas ? <Line type="monotone" dataKey="previous_estimated_blended_roas" name="Prev. est. blended ROAS" stroke="#f7f2e8" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls /> : null}
-        {compare ? <Line type="monotone" dataKey="previous_metric" name={metric === "roas" ? "Prev. platform ROAS" : `Prev. ${metricName.toLowerCase()}`} stroke="#ff6a1a" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls={metric === "roas"} /> : null}
+        {compare ? <Line type="monotone" dataKey="previous_metric" name={metric === "roas" ? "Prev. online order ROAS" : `Prev. ${metricName.toLowerCase()}`} stroke="#ff6a1a" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls={metric === "roas"} /> : null}
         {showEstimatedRoas || compare ? <Legend content={<LineLegend />} /> : null}
       </LineChart>
     </ResponsiveContainer>
@@ -88,7 +88,7 @@ function metricLabel(metric: "spend" | "conversions" | "store_visits" | "cpa" | 
   if (metric === "conversions") return "Online orders";
   if (metric === "store_visits") return "Store visits";
   if (metric === "cpa") return "CPA";
-  if (metric === "roas") return "Platform ROAS";
+  if (metric === "roas") return "Online Order ROAS";
   return "Spend";
 }
 

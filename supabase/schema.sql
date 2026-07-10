@@ -96,7 +96,7 @@ create table public.campaign_daily_performance (
   campaign_name text,
   spend numeric default 0,
   revenue numeric default 0,
-  conversions integer default 0,
+  conversions numeric default 0,
   store_visits numeric,
   clicks integer default 0,
   impressions integer default 0,
@@ -108,6 +108,37 @@ create table public.campaign_daily_performance (
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   unique (client_id, date, platform, campaign_id)
+);
+
+create table public.ad_daily_performance (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  date date not null,
+  platform text not null,
+  channel text,
+  campaign_id text,
+  campaign_name text,
+  ad_group_id text,
+  ad_group_name text,
+  ad_id text not null,
+  ad_name text,
+  creative_id text,
+  creative_name text,
+  creative_preview_url text,
+  spend numeric default 0,
+  revenue numeric default 0,
+  conversions numeric default 0,
+  clicks integer default 0,
+  impressions integer default 0,
+  cpa numeric,
+  roas numeric,
+  ctr numeric,
+  cpc numeric,
+  source_type text,
+  metadata_json jsonb not null default '{}'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (client_id, date, platform, ad_id)
 );
 
 
@@ -152,6 +183,124 @@ create table public.ad_lifetime_performance (
   updated_at timestamptz default now(),
   created_at timestamptz default now(),
   unique (client_id, platform, ad_id)
+);
+
+create table public.social_accounts (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  platform text not null check (platform in ('instagram')),
+  platform_account_id text not null,
+  username text,
+  display_name text,
+  profile_url text,
+  is_active boolean not null default true,
+  last_synced_at timestamptz,
+  raw_payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (client_id, platform, platform_account_id)
+);
+
+create table public.social_account_daily_metrics (
+  id uuid primary key default gen_random_uuid(),
+  social_account_id uuid not null references public.social_accounts(id) on delete cascade,
+  client_id uuid not null references public.clients(id) on delete cascade,
+  metric_date date not null,
+  followers_total numeric,
+  followers_gained numeric,
+  unfollows numeric,
+  net_follower_growth numeric,
+  reach_total numeric,
+  reach_organic numeric,
+  reach_paid numeric,
+  impressions_total numeric,
+  impressions_organic numeric,
+  impressions_paid numeric,
+  accounts_engaged numeric,
+  profile_visits numeric,
+  website_clicks numeric,
+  total_interactions numeric,
+  content_published numeric,
+  raw_payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (social_account_id, metric_date)
+);
+
+create table public.social_media_content (
+  id uuid primary key default gen_random_uuid(),
+  social_account_id uuid not null references public.social_accounts(id) on delete cascade,
+  client_id uuid not null references public.clients(id) on delete cascade,
+  platform_media_id text not null,
+  media_type text,
+  caption text,
+  media_url text,
+  thumbnail_url text,
+  permalink text,
+  published_at timestamptz,
+  raw_payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (social_account_id, platform_media_id)
+);
+
+create table public.social_media_daily_metrics (
+  id uuid primary key default gen_random_uuid(),
+  social_media_content_id uuid not null references public.social_media_content(id) on delete cascade,
+  social_account_id uuid not null references public.social_accounts(id) on delete cascade,
+  client_id uuid not null references public.clients(id) on delete cascade,
+  metric_date date not null,
+  reach_total numeric,
+  reach_organic numeric,
+  reach_paid numeric,
+  impressions_total numeric,
+  impressions_organic numeric,
+  impressions_paid numeric,
+  likes numeric,
+  comments numeric,
+  shares numeric,
+  saves numeric,
+  total_interactions numeric,
+  engagement_rate numeric,
+  video_views numeric,
+  average_watch_time_seconds numeric,
+  profile_activity numeric,
+  raw_payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (social_media_content_id, metric_date)
+);
+
+create table public.social_paid_daily_metrics (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  metric_date date not null,
+  source_platform text not null default 'Meta Ads',
+  publisher_platform text not null default 'instagram',
+  platform_position text,
+  placement text,
+  placement_key text not null default 'instagram',
+  campaign_id text not null,
+  campaign_name text,
+  adset_id text not null default 'unknown',
+  adset_name text,
+  ad_id text not null default 'unknown',
+  ad_name text,
+  spend numeric not null default 0,
+  reach numeric,
+  impressions numeric,
+  clicks numeric,
+  inline_link_clicks numeric,
+  video_views numeric,
+  engagements numeric,
+  profile_visits numeric,
+  follows numeric,
+  conversions numeric,
+  conversion_value numeric,
+  raw_payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (client_id, metric_date, campaign_id, adset_id, ad_id, placement_key)
 );
 
 create table public.seo_performance (
@@ -199,6 +348,38 @@ create table public.seo_technical_issues (
   unique (client_id, detected_date, issue_type, page_url)
 );
 
+create table public.gbp_activity (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  date date not null,
+  business_profile_name text,
+  source text not null default 'manual',
+  status text not null default 'manual_seed',
+  access_blocker text,
+  new_reviews integer,
+  five_star_reviews integer,
+  total_reviews integer,
+  average_rating numeric(3,2),
+  profile_views integer,
+  search_views integer,
+  map_views integer,
+  website_clicks integer,
+  phone_calls integer,
+  direction_requests integer,
+  food_orders integer,
+  latest_review_rating integer,
+  latest_review_author text,
+  latest_review_text text,
+  latest_review_at timestamptz,
+  notes text,
+  raw_payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint gbp_activity_review_rating_check check (latest_review_rating is null or latest_review_rating between 1 and 5),
+  constraint gbp_activity_average_rating_check check (average_rating is null or average_rating between 0 and 5),
+  unique (client_id, date, business_profile_name)
+);
+
 create table public.monthly_reports (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.clients(id) on delete cascade,
@@ -223,6 +404,21 @@ create table public.monthly_reports (
   updated_at timestamptz not null default now(),
   published_at timestamptz,
   unique (client_id, report_month)
+);
+
+create table public.monthly_report_source_metrics (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  period_start date not null,
+  period_end date not null,
+  source text not null,
+  status text not null default 'completed',
+  metrics_json jsonb not null default '{}'::jsonb,
+  error_message text,
+  generated_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (client_id, period_start, period_end, source)
 );
 
 create or replace function public.handle_new_user()
@@ -435,11 +631,19 @@ alter table public.daily_performance enable row level security;
 alter table public.campaign_performance enable row level security;
 alter table public.ad_performance enable row level security;
 alter table public.campaign_daily_performance enable row level security;
+alter table public.ad_daily_performance enable row level security;
 alter table public.ad_lifetime_performance enable row level security;
+alter table public.social_accounts enable row level security;
+alter table public.social_account_daily_metrics enable row level security;
+alter table public.social_media_content enable row level security;
+alter table public.social_media_daily_metrics enable row level security;
+alter table public.social_paid_daily_metrics enable row level security;
 alter table public.seo_performance enable row level security;
 alter table public.reports enable row level security;
 alter table public.seo_technical_issues enable row level security;
+alter table public.gbp_activity enable row level security;
 alter table public.monthly_reports enable row level security;
+alter table public.monthly_report_source_metrics enable row level security;
 
 create policy "Admins can manage clients" on public.clients for all using (public.is_admin()) with check (public.is_admin());
 create policy "Assigned users can read clients" on public.clients for select using (public.can_access_client(id));
@@ -468,25 +672,60 @@ create policy "Read assigned reports" on public.reports for select using (public
 create policy "Admin manage reports" on public.reports for all using (public.is_admin()) with check (public.is_admin());
 
 create policy "Authenticated read campaign daily performance" on public.campaign_daily_performance for select to authenticated using (public.can_access_client(client_id));
+create policy "Authenticated read ad daily performance" on public.ad_daily_performance for select to authenticated using (public.can_access_client(client_id));
 create policy "Authenticated read ad lifetime performance" on public.ad_lifetime_performance for select to authenticated using (public.can_access_client(client_id));
+create policy "Read assigned social accounts" on public.social_accounts for select to authenticated using (public.can_access_client(client_id));
+create policy "Admin manage social accounts" on public.social_accounts for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "Read assigned social account daily metrics" on public.social_account_daily_metrics for select to authenticated using (public.can_access_client(client_id));
+create policy "Admin manage social account daily metrics" on public.social_account_daily_metrics for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "Read assigned social media content" on public.social_media_content for select to authenticated using (public.can_access_client(client_id));
+create policy "Admin manage social media content" on public.social_media_content for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "Read assigned social media daily metrics" on public.social_media_daily_metrics for select to authenticated using (public.can_access_client(client_id));
+create policy "Admin manage social media daily metrics" on public.social_media_daily_metrics for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "Read assigned social paid daily metrics" on public.social_paid_daily_metrics for select to authenticated using (public.can_access_client(client_id));
+create policy "Admin manage social paid daily metrics" on public.social_paid_daily_metrics for all to authenticated using (public.is_admin()) with check (public.is_admin());
 create policy "Authenticated read seo technical issues" on public.seo_technical_issues for select to authenticated using (public.can_access_client(client_id));
+create policy "Read assigned GBP activity" on public.gbp_activity for select to authenticated using (public.can_access_client(client_id));
+create policy "Admin manage GBP activity" on public.gbp_activity for all to authenticated using (public.is_admin()) with check (public.is_admin());
 create policy "Read assigned monthly reports" on public.monthly_reports for select to authenticated using (public.is_admin() or (status = 'published' and public.can_access_client(client_id)));
 create policy "Admin manage monthly reports" on public.monthly_reports for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "Read assigned monthly report source metrics" on public.monthly_report_source_metrics for select to authenticated using (public.can_access_client(client_id));
 
 grant select on public.campaign_daily_performance to authenticated;
+grant select on public.ad_daily_performance to authenticated;
 grant select on public.ad_lifetime_performance to authenticated;
+grant select on public.social_accounts to authenticated;
+grant select on public.social_account_daily_metrics to authenticated;
+grant select on public.social_media_content to authenticated;
+grant select on public.social_media_daily_metrics to authenticated;
+grant select on public.social_paid_daily_metrics to authenticated;
 grant select on public.seo_technical_issues to authenticated;
+grant select on public.gbp_activity to authenticated;
 grant select on public.monthly_reports to authenticated;
+grant select on public.monthly_report_source_metrics to authenticated;
 
 create index daily_performance_client_date_idx on public.daily_performance (client_id, date);
 create index campaign_performance_client_period_idx on public.campaign_performance (client_id, period_start, period_end);
 create index ad_performance_client_period_idx on public.ad_performance (client_id, period_start, period_end);
 create index campaign_daily_performance_client_date_idx on public.campaign_daily_performance (client_id, date);
 create index campaign_daily_performance_client_sort_idx on public.campaign_daily_performance (client_id, platform, campaign_id);
+create index ad_daily_performance_client_date_idx on public.ad_daily_performance (client_id, date);
+create index ad_daily_performance_client_sort_idx on public.ad_daily_performance (client_id, platform, ad_id);
+create index ad_daily_performance_source_type_idx on public.ad_daily_performance (source_type);
 create index ad_lifetime_performance_client_sort_idx on public.ad_lifetime_performance (client_id, roas desc, conversions desc, spend desc);
 create index ad_lifetime_performance_client_campaign_ad_idx on public.ad_lifetime_performance (client_id, platform, campaign_id, ad_id);
+create index social_accounts_client_platform_idx on public.social_accounts (client_id, platform, is_active);
+create index social_account_daily_metrics_client_date_idx on public.social_account_daily_metrics (client_id, metric_date);
+create index social_media_content_client_published_idx on public.social_media_content (client_id, published_at desc);
+create index social_media_daily_metrics_client_date_idx on public.social_media_daily_metrics (client_id, metric_date);
+create index social_paid_daily_metrics_client_date_idx on public.social_paid_daily_metrics (client_id, metric_date);
+create index social_paid_daily_metrics_instagram_idx on public.social_paid_daily_metrics (client_id, publisher_platform, platform_position);
 create index seo_performance_client_period_idx on public.seo_performance (client_id, period_start, period_end);
 create index reports_client_month_idx on public.reports (client_id, month);
 create index seo_technical_issues_client_date_idx on public.seo_technical_issues (client_id, detected_date);
+create index gbp_activity_client_date_idx on public.gbp_activity (client_id, date desc);
+create index gbp_activity_status_idx on public.gbp_activity (status);
 create index monthly_reports_client_month_idx on public.monthly_reports (client_id, report_month desc);
 create index monthly_reports_client_status_month_idx on public.monthly_reports (client_id, status, report_month desc);
+create index monthly_report_source_metrics_client_period_idx on public.monthly_report_source_metrics (client_id, period_start desc, period_end desc);
+create index monthly_report_source_metrics_source_status_idx on public.monthly_report_source_metrics (source, status);

@@ -1,8 +1,10 @@
 import { CalendarDays } from "lucide-react";
 import { PlatformBreakdown, TrendChart } from "@/components/charts";
+import { ClientSwitcher } from "@/components/client-switcher";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { AccentText, Badge, Card, ClientPageTitle, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
 import { clientLogoSrc } from "@/lib/client-branding";
+import { getClientReportingConfig, isNonprofitReporting } from "@/lib/client-reporting-config";
 import { getOverviewDashboardData, metricRatios, percentChange } from "@/lib/data";
 import { compact, currency } from "@/lib/utils";
 import type { CampaignDailyPerformance, DailyPerformance } from "@/lib/types";
@@ -26,7 +28,9 @@ type PageProps = {
 export default async function DashboardPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const compare = params?.compare === "previous";
-  const { client, range, latestDataUpdatedAt, paid, seo, performance } = await getOverviewDashboardData(params?.range, params?.start, params?.end);
+  const { profile, client, clients, range, latestDataUpdatedAt, paid, seo, performance } = await getOverviewDashboardData(params?.range, params?.start, params?.end);
+  const reportingConfig = getClientReportingConfig(client);
+  const nonprofit = isNonprofitReporting(reportingConfig);
   const ratios = metricRatios(performance);
   const paidRatios = metricRatios(paid.totals);
   const previousPaidRatios = metricRatios(paid.previousTotals);
@@ -49,36 +53,48 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     seo.totals.organicConversions
   ].some((value) => value !== null);
   const tileState = paid.status.error ? "error" : hasPaidData ? "ready" : "empty";
-  const logoSrc = clientLogoSrc(client?.name);
+  const logoSrc = clientLogoSrc(client);
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <Badge>{client?.industry ?? "No client"}</Badge>
+            <Badge>{reportingConfig.industryLabel ?? "No client"}</Badge>
             <Badge className="gap-1"><CalendarDays size={13} /> {range.label}</Badge>
           </div>
-          <ClientPageTitle logoSrc={logoSrc} logoAlt={client?.name ?? undefined} className="[&_h1]:sm:text-4xl">{client?.name ?? "No client assigned"}</ClientPageTitle>
+          <ClientPageTitle logoSrc={logoSrc} logoAlt={client?.name ?? undefined} className="[&_h1]:sm:text-4xl">
+            <ClientSwitcher currentClient={client} clients={clients} profile={profile} />
+          </ClientPageTitle>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">Updated at {formatUpdatedAt(latestDataUpdatedAt ?? client?.last_updated_at ?? null)}</p>
         </div>
         <DateRangePicker range={range} />
       </header>
 
       <MetricGrid>
-        <StatCard label={<><AccentText>Total spend</AccentText></>} value={hasPaidData ? currency.format(performance.spend) : "Unavailable"} helper={compare ? trendHelper("vs prior period", percentChange(paid.totals.spend, paid.previousTotals.spend)) : undefined} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
-        <StatCard label={<><AccentText>Total revenue</AccentText></>} value={hasPaidData ? currency.format(performance.revenue) : "Unavailable"} helper={compare ? trendHelper("vs prior period", percentChange(paid.totals.revenue, paid.previousTotals.revenue)) : undefined} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
-        <StatCard label={<AccentText>Online orders</AccentText>} value={hasPaidData ? compact.format(performance.conversions) : "Unavailable"} helper={compare ? trendHelper("vs prior period", percentChange(paid.totals.conversions, paid.previousTotals.conversions)) : undefined} state={tileState} />
-        <StatCard label={<AccentText>ROAS</AccentText>} value={paidRatios.roas === null ? "Unavailable" : `${paidRatios.roas.toFixed(2)}x`} helper={compare ? trendHelper("vs prior period", percentChange(paidRatios.roas, previousPaidRatios.roas)) : undefined} state={paid.status.error ? "error" : paidRatios.roas === null ? "empty" : "ready"} />
-        <StatCard label={<AccentText>CPA</AccentText>} value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} helper={compare ? trendHelper("vs prior period", percentChange(paidRatios.cpa, previousPaidRatios.cpa)) : undefined} state={tileState} />
-        <StatCard label={<AccentText>Store visits</AccentText>} value={hasStoreVisitData && performance.store_visits !== null ? compact.format(performance.store_visits) : "Unavailable"} helper={compare ? trendHelper("vs prior period", percentChange(paid.totals.store_visits, paid.previousTotals.store_visits)) : undefined} state={paid.status.error ? "error" : hasStoreVisitData ? "ready" : "empty"} />
-        <StatCard label={<AccentText>Estimated total revenue</AccentText>} value={estimatedTotalRevenue === null ? "Unavailable" : currency.format(estimatedTotalRevenue)} helper={compare ? trendHelper("vs prior period", percentChange(estimatedTotalRevenue, previousEstimatedTotalRevenue)) : undefined} state={paid.status.error ? "error" : estimatedTotalRevenue === null ? "empty" : "ready"} />
-        <StatCard label={<AccentText>Estimated blended ROAS</AccentText>} value={estimatedBlendedRoas === null ? "Unavailable" : `${estimatedBlendedRoas.toFixed(2)}x`} helper={compare ? trendHelper("vs prior period", percentChange(estimatedBlendedRoas, previousEstimatedBlendedRoas)) : undefined} state={paid.status.error ? "error" : estimatedBlendedRoas === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>Total spend</AccentText>} value={hasPaidData ? currency.format(performance.spend) : "Unavailable"} helper={compare ? currencyDifferenceHelper(paid.totals.spend, paid.previousTotals.spend) : undefined} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
+        <StatCard label={<AccentText>{reportingConfig.primaryConversionRevenueLabel}</AccentText>} value={hasPaidData ? currency.format(performance.revenue) : "Unavailable"} helper={compare ? currencyDifferenceHelper(paid.totals.revenue, paid.previousTotals.revenue) : undefined} state={paid.status.error ? "error" : hasPaidData ? "ready" : "empty"} />
+        <StatCard label={<AccentText>{reportingConfig.primaryConversionLabel}</AccentText>} value={hasPaidData ? compact.format(performance.conversions) : "Unavailable"} helper={compare ? trendHelper("vs prior period", percentChange(paid.totals.conversions, paid.previousTotals.conversions)) : undefined} state={tileState} />
+        <StatCard label={<AccentText>{reportingConfig.primaryConversionRoasLabel}</AccentText>} value={paidRatios.roas === null ? "Unavailable" : `${paidRatios.roas.toFixed(2)}x`} helper={compare ? trendHelper("vs prior period", percentChange(paidRatios.roas, previousPaidRatios.roas)) : undefined} state={paid.status.error ? "error" : paidRatios.roas === null ? "empty" : "ready"} />
+        <StatCard label={<AccentText>{reportingConfig.primaryConversionCpaLabel}</AccentText>} value={ratios.cpa === null ? "Unavailable" : currency.format(ratios.cpa)} helper={compare ? trendHelper("vs prior period", percentChange(paidRatios.cpa, previousPaidRatios.cpa)) : undefined} state={tileState} />
+        {nonprofit ? (
+          <>
+            <StatCard label={<AccentText>{reportingConfig.secondaryConversionLabel ?? "Secondary conversions"}</AccentText>} value="Unavailable" state="empty" />
+            <StatCard label={<AccentText>Cost per lead</AccentText>} value="Unavailable" state="empty" />
+            <StatCard label={<AccentText>Grant utilization</AccentText>} value={hasPaidData ? `${Math.min(100, performance.spend / 10000 * 100).toFixed(1)}%` : "Unavailable"} state={tileState} />
+          </>
+        ) : (
+          <>
+            <StatCard label={<AccentText>Est. in-store purchases</AccentText>} value={inStorePurchases === null ? "Unavailable" : compact.format(Math.round(inStorePurchases))} helper={compare ? trendHelper("vs prior period", percentChange(inStorePurchases, previousInStorePurchases)) : undefined} valueTitle="Store visits minus online conversions" state={paid.status.error ? "error" : inStorePurchases === null ? "empty" : "ready"} />
+            <StatCard label={<AccentText>Estimated total revenue</AccentText>} value={estimatedTotalRevenue === null ? "Unavailable" : currency.format(estimatedTotalRevenue)} helper={compare ? currencyDifferenceHelper(estimatedTotalRevenue, previousEstimatedTotalRevenue) : undefined} valueTitle="Online order revenue plus estimated in-store revenue" state={paid.status.error ? "error" : estimatedTotalRevenue === null ? "empty" : "ready"} />
+            <StatCard label={<AccentText>Estimated blended ROAS</AccentText>} value={estimatedBlendedRoas === null ? "Unavailable" : `${estimatedBlendedRoas.toFixed(2)}x`} helper={compare ? trendHelper("vs prior period", percentChange(estimatedBlendedRoas, previousEstimatedBlendedRoas)) : undefined} state={paid.status.error ? "error" : estimatedBlendedRoas === null ? "empty" : "ready"} />
+          </>
+        )}
       </MetricGrid>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Spend</AccentText> over time</h2>{hasPaidData ? <TrendChart data={paid.daily} previousData={paid.previousDaily} compare={compare} metric="spend" /> : <EmptyState />}</Card>
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>ROAS</AccentText> over time</h2>{hasPaidData ? <TrendChart data={paid.daily} previousData={paid.previousDaily} compare={compare} metric="roas" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Online Order ROAS</AccentText> over time</h2>{hasPaidData ? <TrendChart data={paid.daily} previousData={paid.previousDaily} compare={compare} metric="roas" /> : <EmptyState />}</Card>
         <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Platform</AccentText> breakdown</h2>{hasPaidData ? <PlatformBreakdown data={paid.daily} /> : <EmptyState />}</Card>
         <Card>
           <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Organic</AccentText> visibility</h2>
@@ -95,7 +111,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
       <Card>
         <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Paid</AccentText> channel performance</h2>
-        <Table headers={["Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "ROAS", "Est. blended ROAS"]} rows={paidChannelRows.slice(0, 6).map((item) => [
+        <Table headers={nonprofit ? ["Platform", "Channel", "Spend", "Donation revenue", "Donations", "Donation ROAS"] : ["Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "Online Order ROAS", "Est. blended ROAS"]} rows={paidChannelRows.slice(0, 6).map((item) => nonprofit ? [
+          item.platform,
+          item.channel ?? "Unspecified",
+          currency.format(item.spend),
+          currency.format(item.revenue),
+          compact.format(item.conversions),
+          item.roas === null ? "Unavailable" : `${item.roas.toFixed(2)}x`
+        ] : [
           item.platform,
           item.channel ?? "Unspecified",
           currency.format(item.spend),
@@ -112,7 +135,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         {paid.campaignStatus.error ? (
           <div className="rounded-lg border border-red-400/30 bg-red-950/20 px-4 py-3 text-sm text-red-100/80">Unable to load campaign data: {paid.campaignStatus.error}</div>
         ) : campaignRows.length > 0 ? (
-          <Table headers={["Campaign", "Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "Est. in-store orders", "ROAS", "Est. blended ROAS"]} rows={campaignRows.slice(0, 8).map((item) => [
+          <Table headers={nonprofit ? ["Campaign", "Platform", "Channel", "Spend", "Donation revenue", "Donations", "Donation ROAS"] : ["Campaign", "Platform", "Channel", "Spend", "Revenue", "Est. total rev.", "Online orders", "Est. in-store orders", "Online Order ROAS", "Est. blended ROAS"]} rows={campaignRows.slice(0, 8).map((item) => nonprofit ? [
+            item.campaign_name ?? item.campaign_id,
+            item.platform,
+            item.channel ?? "Unspecified",
+            currency.format(item.spend),
+            currency.format(item.onlineRevenue),
+            compact.format(item.onlineOrders),
+            item.platformRoas === null ? "Unavailable" : `${item.platformRoas.toFixed(2)}x`
+          ] : [
             item.campaign_name ?? item.campaign_id,
             item.platform,
             item.channel ?? "Unspecified",
@@ -140,6 +171,13 @@ function trendHelper(label: string, change: number | null) {
   if (change === null) return undefined;
   const sign = change > 0 ? "+" : "";
   return `${sign}${change.toFixed(1)}% ${label}`;
+}
+
+function currencyDifferenceHelper(current: number | null, previous: number | null) {
+  if (current === null || previous === null) return undefined;
+  const difference = current - previous;
+  const sign = difference > 0 ? "+" : difference < 0 ? "-" : "";
+  return `${sign}${currency.format(Math.abs(difference))} vs prior period`;
 }
 
 function estimatedInStorePurchases(totals: { store_visits: number | null; conversions: number }) {

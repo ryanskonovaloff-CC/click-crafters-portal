@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays } from "lucide-react";
+import { ClientSwitcher } from "@/components/client-switcher";
 import { AccentText, Badge, Card, ClientPageTitle, EmptyState } from "@/components/ui";
 import { publishMonthlyReport, unpublishMonthlyReport } from "./actions";
 import { getReportsData } from "@/lib/data";
@@ -7,15 +8,18 @@ import { clientLogoSrc } from "@/lib/client-branding";
 import type { MonthlyReport } from "@/lib/types";
 
 export default async function ReportsPage() {
-  const { profile, client, reports, status } = await getReportsData();
+  const { profile, client, clients, reports, status } = await getReportsData();
   const isAdmin = profile.role === "admin";
-  const logoSrc = clientLogoSrc(client?.name);
+  const logoSrc = clientLogoSrc(client);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 sm:space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
-          <Badge>Monthly reporting</Badge>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <Badge>Monthly reporting</Badge>
+            <ClientSwitcher currentClient={client} clients={clients} profile={profile} variant="badge" />
+          </div>
           <ClientPageTitle logoSrc={logoSrc} logoAlt={client?.name ?? undefined}><AccentText>Reports</AccentText></ClientPageTitle>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">Completed monthly reports</p>
         </div>

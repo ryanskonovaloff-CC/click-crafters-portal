@@ -1,0 +1,1018 @@
+{
+  "name": "Monthly Report Generator - Client Portal",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-monthly-6am",
+      "name": "Schedule Trigger - Monthly 1st 6 AM Pacific",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "client-id",
+              "name": "client_id",
+              "value": "11111111-1111-4111-8111-111111111111",
+              "type": "string"
+            },
+            {
+              "id": "client-name",
+              "name": "client_name",
+              "value": "Press Burger",
+              "type": "string"
+            },
+            {
+              "id": "timezone",
+              "name": "timezone",
+              "value": "America/Los_Angeles",
+              "type": "string"
+            },
+            {
+              "id": "supabase-url",
+              "name": "supabase_url",
+              "value": "https://kzeriuptbrjcplflzyaz.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "supabase-key",
+              "name": "supabase_service_role_key",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}",
+              "type": "string"
+            },
+            {
+              "id": "openai-key",
+              "name": "openai_api_key",
+              "value": "={{ $env.OPENAI_API_KEY }}",
+              "type": "string"
+            },
+            {
+              "id": "openai-model",
+              "name": "openai_model",
+              "value": "gpt-4.1-mini",
+              "type": "string"
+            },
+            {
+              "id": "slack-webhook",
+              "name": "slack_webhook_url",
+              "value": "={{ $env.CLICK_CRAFTERS_REPORTS_SLACK_WEBHOOK_URL }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "pipeline-config",
+      "name": "Pipeline Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = { ...$json };\nconst zone = config.timezone || 'America/Los_Angeles';\nconst now = $now.setZone(zone);\nconst reportMonth = now.minus({ months: 1 }).startOf('month');\nconst previousMonth = reportMonth.minus({ months: 1 }).startOf('month');\n\nreturn [{\n  json: {\n    ...config,\n    today: now.toISODate(),\n    report_month: reportMonth.toISODate(),\n    period_start: reportMonth.toISODate(),\n    period_end: reportMonth.endOf('month').toISODate(),\n    previous_period_start: previousMonth.toISODate(),\n    previous_period_end: previousMonth.endOf('month').toISODate(),\n    report_month_label: reportMonth.toFormat('LLLL yyyy'),\n    title: 'Monthly Performance Report - ' + reportMonth.toFormat('LLLL yyyy')\n  }\n}];"
+      },
+      "id": "calc-periods",
+      "name": "Calculate Report Periods",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Calculate Report Periods').first().json.supabase_url + '/rest/v1/monthly_reports?select=id,status,title,report_month&client_id=eq.' + $('Calculate Report Periods').first().json.client_id + '&report_month=eq.' + $('Calculate Report Periods').first().json.report_month + '&limit=1' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "fetch-existing",
+      "name": "Fetch Existing Monthly Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        420
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "253OBo1Q4eFFXF0C",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Calculate Report Periods').first().json;\nconst rows = $('Fetch Existing Monthly Report').all().flatMap((item) => Array.isArray(item.json) ? item.json : [item.json]).filter((row) => row && row.id);\nconst existing = rows[0] || null;\nreturn [{ json: { ...config, existing_report_id: existing?.id || null, existing_status: existing?.status || null, skip_published: existing?.status === 'published' } }];"
+      },
+      "id": "check-existing",
+      "name": "Check Existing Report Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "skip-published-condition",
+              "leftValue": "={{ $json.skip_published }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-published",
+      "name": "IF Published Report Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1300,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Check Existing Report Status').first().json;\nreturn [{ json: { text: ':no_entry: Monthly report was not overwritten for ' + data.client_name + ' (' + data.report_month_label + '). A published report already exists: ' + (data.existing_report_id || 'unknown id') } }];"
+      },
+      "id": "published-alert",
+      "name": "Build Slack Alert - Published Exists",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Check Existing Report Status').first().json.supabase_url + '/rest/v1/campaign_daily_performance?select=date,platform,channel,campaign_id,campaign_name,spend,revenue,conversions,clicks,impressions,cpa,roas,ctr,cpc,wasted_spend&client_id=eq.' + $('Check Existing Report Status').first().json.client_id + '&date=gte.' + $('Check Existing Report Status').first().json.period_start + '&date=lte.' + $('Check Existing Report Status').first().json.period_end }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "paid-current",
+      "name": "Fetch Paid Ads - Current Month",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        420
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "253OBo1Q4eFFXF0C",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Check Existing Report Status').first().json.supabase_url + '/rest/v1/campaign_daily_performance?select=date,platform,channel,campaign_id,campaign_name,spend,revenue,conversions,clicks,impressions,cpa,roas,ctr,cpc,wasted_spend&client_id=eq.' + $('Check Existing Report Status').first().json.client_id + '&date=gte.' + $('Check Existing Report Status').first().json.previous_period_start + '&date=lte.' + $('Check Existing Report Status').first().json.previous_period_end }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "paid-prev",
+      "name": "Fetch Paid Ads - Previous Month",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        560
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "253OBo1Q4eFFXF0C",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Check Existing Report Status').first().json.supabase_url + '/rest/v1/seo_daily_performance?select=date,organic_clicks,organic_impressions,organic_sessions,organic_conversions,outbound_clicks,outbound_click_rate,average_position,indexed_pages&client_id=eq.' + $('Check Existing Report Status').first().json.client_id + '&date=gte.' + $('Check Existing Report Status').first().json.period_start + '&date=lte.' + $('Check Existing Report Status').first().json.period_end }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "seo-current",
+      "name": "Fetch SEO Daily - Current Month",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        420
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "253OBo1Q4eFFXF0C",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Check Existing Report Status').first().json.supabase_url + '/rest/v1/seo_daily_performance?select=date,organic_clicks,organic_impressions,organic_sessions,organic_conversions,outbound_clicks,outbound_click_rate,average_position,indexed_pages&client_id=eq.' + $('Check Existing Report Status').first().json.client_id + '&date=gte.' + $('Check Existing Report Status').first().json.previous_period_start + '&date=lte.' + $('Check Existing Report Status').first().json.previous_period_end }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "seo-prev",
+      "name": "Fetch SEO Daily - Previous Month",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        560
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "253OBo1Q4eFFXF0C",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Check Existing Report Status').first().json.supabase_url + '/rest/v1/seo_keyword_performance?select=query,keyword,clicks,organic_clicks,impressions,organic_impressions,ctr,organic_ctr,position,average_position&client_id=eq.' + $('Check Existing Report Status').first().json.client_id + '&date=gte.' + $('Check Existing Report Status').first().json.period_start + '&date=lte.' + $('Check Existing Report Status').first().json.period_end + '&order=clicks.desc&limit=50' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "seo-queries",
+      "name": "Fetch SEO Queries - Current Month",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        420
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "253OBo1Q4eFFXF0C",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Check Existing Report Status').first().json.supabase_url + '/rest/v1/seo_pages_performance?select=page,landing_page,url,clicks,organic_clicks,impressions,organic_impressions,ctr,organic_ctr,position,average_position,outbound_clicks,outbound_click_rate&client_id=eq.' + $('Check Existing Report Status').first().json.client_id + '&date=gte.' + $('Check Existing Report Status').first().json.period_start + '&date=lte.' + $('Check Existing Report Status').first().json.period_end + '&order=clicks.desc&limit=50' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "seo-pages",
+      "name": "Fetch SEO Pages - Current Month",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        560
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "253OBo1Q4eFFXF0C",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Check Existing Report Status').first().json;\n\nfunction rows(name) {\n  return $(name).all().flatMap((item) => Array.isArray(item.json) ? item.json : [item.json]).filter(Boolean);\n}\nfunction num(value) {\n  if (value === null || value === undefined || value === '') return 0;\n  const parsed = Number(value);\n  return Number.isFinite(parsed) ? parsed : 0;\n}\nfunction nullableNum(value) {\n  if (value === null || value === undefined || value === '') return null;\n  const parsed = Number(value);\n  return Number.isFinite(parsed) ? parsed : null;\n}\nfunction pctChange(current, previous) {\n  if (current === null || current === undefined || previous === null || previous === undefined || previous === 0) return null;\n  return (current - previous) / previous;\n}\nfunction ratio(numerator, denominator) {\n  return denominator > 0 ? numerator / denominator : null;\n}\nfunction campaignName(row) {\n  return row.campaign_name || row.campaign_id || 'Unknown campaign';\n}\nfunction aggregatePaid(rawRows) {\n  if (!rawRows.length) return null;\n  const byCampaign = new Map();\n  const totals = { spend: 0, revenue: 0, conversion_value: 0, conversions: 0, clicks: 0, impressions: 0 };\n  for (const row of rawRows) {\n    const spend = num(row.spend);\n    const revenue = num(row.revenue ?? row.conversion_value);\n    const conversions = num(row.conversions);\n    const clicks = num(row.clicks);\n    const impressions = num(row.impressions);\n    totals.spend += spend;\n    totals.revenue += revenue;\n    totals.conversion_value += revenue;\n    totals.conversions += conversions;\n    totals.clicks += clicks;\n    totals.impressions += impressions;\n    const key = String(row.platform || '') + '|' + String(row.campaign_id || campaignName(row));\n    const current = byCampaign.get(key) || { campaign_name: campaignName(row), platform: row.platform || null, channel: row.channel || null, spend: 0, revenue: 0, conversion_value: 0, conversions: 0, clicks: 0, impressions: 0, wasted_spend: 0 };\n    current.spend += spend;\n    current.revenue += revenue;\n    current.conversion_value += revenue;\n    current.conversions += conversions;\n    current.clicks += clicks;\n    current.impressions += impressions;\n    current.wasted_spend += num(row.wasted_spend);\n    byCampaign.set(key, current);\n  }\n  const campaigns = [...byCampaign.values()].map((item) => ({\n    ...item,\n    ctr: ratio(item.clicks, item.impressions),\n    cpc: ratio(item.spend, item.clicks),\n    cpa: ratio(item.spend, item.conversions),\n    roas: ratio(item.revenue, item.spend)\n  }));\n  const topCampaigns = [...campaigns]\n    .filter((item) => item.spend > 0 && item.roas !== null)\n    .sort((a, b) => (b.roas || 0) - (a.roas || 0) || b.conversions - a.conversions)\n    .slice(0, 5)\n    .map(({ campaign_name, spend, revenue, conversion_value, roas, conversions, cpa }) => ({ campaign_name, spend, revenue, conversion_value, roas, conversions, cpa }));\n  const topKeys = new Set(topCampaigns.map((item) => item.campaign_name));\n  const avgCpa = ratio(totals.spend, totals.conversions);\n  const campaignsToWatch = [...campaigns]\n    .filter((item) => !topKeys.has(item.campaign_name))\n    .map((item) => ({\n      ...item,\n      reason: item.conversions === 0 && item.spend > 0 ? 'Spend without recorded conversions' : item.cpa !== null && avgCpa !== null && item.cpa > avgCpa * 1.5 ? 'CPA is materially above account average' : item.roas !== null && item.roas < 1 ? 'ROAS is below break-even' : item.wasted_spend > 0 ? 'Wasted spend is being tracked' : ''\n    }))\n    .filter((item) => item.reason)\n    .sort((a, b) => b.spend - a.spend)\n    .slice(0, 5)\n    .map(({ campaign_name, reason, spend, conversions, cpa, roas }) => ({ campaign_name, reason, spend, conversions, cpa, roas }));\n  return {\n    ...totals,\n    ctr: ratio(totals.clicks, totals.impressions),\n    cpc: ratio(totals.spend, totals.clicks),\n    cpa: ratio(totals.spend, totals.conversions),\n    roas: ratio(totals.revenue, totals.spend),\n    top_campaigns: topCampaigns,\n    campaigns_to_watch: campaignsToWatch\n  };\n}\nfunction avgPosition(rows) {\n  let total = 0;\n  let weight = 0;\n  for (const row of rows) {\n    const position = nullableNum(row.average_position ?? row.position);\n    if (position === null) continue;\n    const impressions = num(row.organic_impressions ?? row.impressions);\n    const rowWeight = impressions > 0 ? impressions : 1;\n    total += position * rowWeight;\n    weight += rowWeight;\n  }\n  return weight > 0 ? total / weight : null;\n}\nfunction aggregateKeywordRows(rawRows) {\n  const map = new Map();\n  for (const row of rawRows) {\n    const key = String(row.query || row.keyword || 'Unknown query');\n    const current = map.get(key) || { query: key, clicks: 0, impressions: 0, position_total: 0, position_weight: 0 };\n    const clicks = num(row.organic_clicks ?? row.clicks);\n    const impressions = num(row.organic_impressions ?? row.impressions);\n    const position = nullableNum(row.average_position ?? row.position);\n    current.clicks += clicks;\n    current.impressions += impressions;\n    if (position !== null) {\n      const rowWeight = impressions > 0 ? impressions : 1;\n      current.position_total += position * rowWeight;\n      current.position_weight += rowWeight;\n    }\n    map.set(key, current);\n  }\n  return [...map.values()].map((item) => ({\n    query: item.query,\n    clicks: item.clicks,\n    impressions: item.impressions,\n    ctr: ratio(item.clicks, item.impressions),\n    position: item.position_weight > 0 ? item.position_total / item.position_weight : null\n  })).sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions).slice(0, 10);\n}\nfunction normalizePage(value) {\n  const raw = String(value || 'Unknown page');\n  try {\n    const url = new URL(raw.startsWith('http') ? raw : 'https://www.thepressburger.com' + (raw.startsWith('/') ? raw : '/' + raw));\n    url.hash = '';\n    url.search = '';\n    url.hostname = url.hostname.toLowerCase();\n    if (url.pathname !== '/') url.pathname = url.pathname.replace(/\\/$/, '');\n    return url.origin + (url.pathname || '/');\n  } catch {\n    return raw.split('#')[0].split('?')[0].replace(/\\/$/, '') || raw;\n  }\n}\nfunction aggregatePageRows(rawRows) {\n  const map = new Map();\n  for (const row of rawRows) {\n    const key = normalizePage(row.page ?? row.landing_page ?? row.url);\n    const current = map.get(key) || { page: key, clicks: 0, impressions: 0, outbound_clicks: null, position_total: 0, position_weight: 0 };\n    const clicks = num(row.organic_clicks ?? row.clicks);\n    const impressions = num(row.organic_impressions ?? row.impressions);\n    const outbound = nullableNum(row.outbound_clicks);\n    const position = nullableNum(row.average_position ?? row.position);\n    current.clicks += clicks;\n    current.impressions += impressions;\n    if (outbound !== null) current.outbound_clicks = (current.outbound_clicks ?? 0) + outbound;\n    if (position !== null) {\n      const rowWeight = impressions > 0 ? impressions : 1;\n      current.position_total += position * rowWeight;\n      current.position_weight += rowWeight;\n    }\n    map.set(key, current);\n  }\n  return [...map.values()].map((item) => ({\n    page: item.page,\n    clicks: item.clicks,\n    impressions: item.impressions,\n    ctr: ratio(item.clicks, item.impressions),\n    position: item.position_weight > 0 ? item.position_total / item.position_weight : null,\n    outbound_clicks: item.outbound_clicks,\n    outbound_click_rate: item.outbound_clicks !== null ? ratio(item.outbound_clicks, item.clicks) : null\n  })).sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions).slice(0, 10);\n}\nfunction latestIndexedPages(rawRows) {\n  const sorted = [...rawRows].filter((row) => nullableNum(row.indexed_pages) !== null).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));\n  return sorted.length ? nullableNum(sorted[0].indexed_pages) : null;\n}\nfunction aggregateSeo(dailyRows, keywordRows, pageRows) {\n  if (!dailyRows.length && !keywordRows.length && !pageRows.length) return null;\n  const organicClicks = dailyRows.reduce((sum, row) => sum + num(row.organic_clicks ?? row.clicks), 0);\n  const organicImpressions = dailyRows.reduce((sum, row) => sum + num(row.organic_impressions ?? row.impressions), 0);\n  const organicSessions = dailyRows.reduce((sum, row) => sum + num(row.organic_sessions ?? row.sessions), 0);\n  const organicConversions = dailyRows.reduce((sum, row) => sum + num(row.organic_conversions ?? row.conversions), 0);\n  const outboundValues = dailyRows.map((row) => nullableNum(row.outbound_clicks)).filter((value) => value !== null);\n  const outboundClicks = outboundValues.length ? outboundValues.reduce((sum, value) => sum + value, 0) : null;\n  const topQueries = aggregateKeywordRows(keywordRows);\n  const topPages = aggregatePageRows(pageRows);\n  const summary = {\n    organic_clicks: organicClicks,\n    organic_impressions: organicImpressions,\n    organic_ctr: ratio(organicClicks, organicImpressions),\n    average_position: avgPosition(dailyRows),\n    organic_sessions: organicSessions,\n    organic_conversions: organicConversions,\n    outbound_clicks: outboundClicks,\n    outbound_click_rate: outboundClicks !== null ? ratio(outboundClicks, organicClicks) : null,\n    indexed_pages: latestIndexedPages(dailyRows),\n    top_queries: topQueries,\n    top_landing_pages: topPages,\n    organic_growth_opportunities: []\n  };\n  summary.organic_growth_opportunities = buildOpportunities(topQueries, topPages);\n  return summary;\n}\nfunction buildOpportunities(queries, pages) {\n  const opportunities = [];\n  for (const page of pages) {\n    const lowCtr = page.impressions >= 100 && page.ctr !== null && page.ctr < 0.025;\n    const lowOutbound = page.clicks >= 5 && page.outbound_clicks !== null && page.outbound_clicks <= 0;\n    const nearPageOne = page.position !== null && page.position >= 4 && page.position <= 15;\n    if (!lowCtr && !lowOutbound && !nearPageOne) continue;\n    const pageText = page.page.toLowerCase();\n    const action = pageText.includes('catering') ? 'Prioritize catering CTA clarity and lead capture.' : pageText.includes('menu') || pageText.includes('order') ? 'Prioritize order-now visibility and menu/order structured data.' : 'Improve local relevance, internal links, and above-the-fold action paths.';\n    opportunities.push({ opportunity: page.page, signal: [page.clicks + ' clicks', page.impressions + ' impressions', page.ctr !== null ? (page.ctr * 100).toFixed(1) + '% CTR' : null, page.position !== null ? 'avg position ' + page.position.toFixed(1) : null, page.outbound_clicks !== null ? page.outbound_clicks + ' outbound clicks' : null].filter(Boolean).join(', '), why_it_matters: lowOutbound ? 'This page is gaining organic visibility but may not be driving enough measurable ordering, location, or catering actions.' : lowCtr ? 'This page is showing in organic search but may not be winning enough clicks.' : 'This page is close to stronger page-one visibility.', recommended_action: action });\n  }\n  for (const query of queries) {\n    const lowCtr = query.impressions >= 100 && query.ctr !== null && query.ctr < 0.025;\n    const nearPageOne = query.position !== null && query.position >= 4 && query.position <= 15;\n    if (!lowCtr && !nearPageOne) continue;\n    opportunities.push({ opportunity: query.query, signal: [query.clicks + ' clicks', query.impressions + ' impressions', query.ctr !== null ? (query.ctr * 100).toFixed(1) + '% CTR' : null, query.position !== null ? 'avg position ' + query.position.toFixed(1) : null].filter(Boolean).join(', '), why_it_matters: lowCtr ? 'This query has visibility but the search result may not be compelling enough to win clicks.' : 'This query is close to stronger page-one visibility.', recommended_action: lowCtr ? 'Improve title tag and meta description around query intent.' : 'Strengthen content, internal links, schema, and local relevance.' });\n  }\n  return opportunities.slice(0, 8);\n}\nconst paidCurrent = aggregatePaid(rows('Fetch Paid Ads - Current Month'));\nconst paidPrevious = aggregatePaid(rows('Fetch Paid Ads - Previous Month'));\nconst seoCurrent = aggregateSeo(rows('Fetch SEO Daily - Current Month'), rows('Fetch SEO Queries - Current Month'), rows('Fetch SEO Pages - Current Month'));\nconst seoPrevious = aggregateSeo(rows('Fetch SEO Daily - Previous Month'), [], []);\nconst mom = {\n  paid_ads: {\n    spend_mom: paidCurrent && paidPrevious ? pctChange(paidCurrent.spend, paidPrevious.spend) : null,\n    conversions_mom: paidCurrent && paidPrevious ? pctChange(paidCurrent.conversions, paidPrevious.conversions) : null,\n    cpa_mom: paidCurrent && paidPrevious ? pctChange(paidCurrent.cpa, paidPrevious.cpa) : null,\n    roas_mom: paidCurrent && paidPrevious ? pctChange(paidCurrent.roas, paidPrevious.roas) : null,\n    revenue_mom: paidCurrent && paidPrevious ? pctChange(paidCurrent.revenue, paidPrevious.revenue) : null,\n    conversion_value_mom: paidCurrent && paidPrevious ? pctChange(paidCurrent.conversion_value, paidPrevious.conversion_value) : null,\n    clicks_mom: paidCurrent && paidPrevious ? pctChange(paidCurrent.clicks, paidPrevious.clicks) : null,\n    ctr_mom: paidCurrent && paidPrevious ? pctChange(paidCurrent.ctr, paidPrevious.ctr) : null,\n    cpc_mom: paidCurrent && paidPrevious ? pctChange(paidCurrent.cpc, paidPrevious.cpc) : null,\n    current: paidCurrent,\n    previous: paidPrevious\n  },\n  seo: {\n    organic_clicks_mom: seoCurrent && seoPrevious ? pctChange(seoCurrent.organic_clicks, seoPrevious.organic_clicks) : null,\n    organic_impressions_mom: seoCurrent && seoPrevious ? pctChange(seoCurrent.organic_impressions, seoPrevious.organic_impressions) : null,\n    organic_ctr_mom: seoCurrent && seoPrevious ? pctChange(seoCurrent.organic_ctr, seoPrevious.organic_ctr) : null,\n    average_position_change: seoCurrent && seoPrevious && seoCurrent.average_position !== null && seoPrevious.average_position !== null ? seoCurrent.average_position - seoPrevious.average_position : null,\n    organic_sessions_mom: seoCurrent && seoPrevious ? pctChange(seoCurrent.organic_sessions, seoPrevious.organic_sessions) : null,\n    outbound_clicks_mom: seoCurrent && seoPrevious ? pctChange(seoCurrent.outbound_clicks, seoPrevious.outbound_clicks) : null,\n    outbound_click_rate_mom: seoCurrent && seoPrevious ? pctChange(seoCurrent.outbound_click_rate, seoPrevious.outbound_click_rate) : null,\n    current: seoCurrent,\n    previous: seoPrevious\n  }\n};\nreturn [{ json: { ...config, paid_ads_summary: paidCurrent, previous_paid_ads_summary: paidPrevious, seo_summary: seoCurrent, previous_seo_summary: seoPrevious, mom_summary: mom, has_paid_data: Boolean(paidCurrent), has_seo_data: Boolean(seoCurrent), has_any_data: Boolean(paidCurrent || seoCurrent) } }];"
+      },
+      "id": "aggregate",
+      "name": "Aggregate Monthly Report Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-data-condition",
+              "leftValue": "={{ $json.has_any_data }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-data",
+      "name": "IF Any Report Data Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2600,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Aggregate Monthly Report Data').first().json;\nreturn [{ json: { text: ':warning: Monthly report skipped for ' + data.client_name + ' (' + data.report_month_label + '). No paid ads or SEO data was available for the completed month.' } }];"
+      },
+      "id": "no-data-alert",
+      "name": "Build Slack Alert - No Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.openai_api_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  model: $('Pipeline Config').first().json.openai_model,\n  temperature: 0.2,\n  response_format: { type: 'json_object' },\n  messages: [\n    {\n      role: 'system',\n      content: 'You write client-friendly monthly agency performance reports. Return strict JSON only. Do not calculate metrics. Interpret only the provided finalized metrics. Do not mention internal table names, n8n, Supabase, or implementation details. Do not invent metrics or trends. Keep the tone strategic, clear, practical, and concise.'\n    },\n    {\n      role: 'user',\n      content: JSON.stringify({\n        required_shape: {\n          executive_summary: '',\n          paid_ads_commentary: '',\n          seo_commentary: '',\n          mom_commentary: '',\n          wins: [],\n          watchouts: [],\n          next_steps: []\n        },\n        guidance: 'Mention missing data only if relevant. If outbound click rate exceeds 100%, do not overstate it; mention that tracking duplication or attribution scope should be reviewed. Reports are drafts for internal review before publishing.',\n        client_name: $json.client_name,\n        period_start: $json.period_start,\n        period_end: $json.period_end,\n        previous_period_start: $json.previous_period_start,\n        previous_period_end: $json.previous_period_end,\n        paid_ads_summary: $json.paid_ads_summary,\n        seo_summary: $json.seo_summary,\n        mom_summary: $json.mom_summary\n      })\n    }\n  ]\n}\n}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "openai-commentary",
+      "name": "OpenAI - Generate Report Commentary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2860,
+        420
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Aggregate Monthly Report Data').first().json;\nconst response = $('OpenAI - Generate Report Commentary').first()?.json || {};\nconst fallback = {\n  executive_summary: 'Monthly report metrics were generated, but AI commentary generation failed. Review the metric summaries before publishing.',\n  paid_ads_commentary: data.paid_ads_summary ? 'Paid Ads metrics are available for this report. Commentary should be reviewed manually before publishing.' : 'Paid Ads data not available for this report.',\n  seo_commentary: data.seo_summary ? 'SEO metrics are available for this report. Commentary should be reviewed manually before publishing.' : 'SEO data not available for this report.',\n  mom_commentary: 'Month-over-month comparisons are available where prior month data existed. Commentary should be reviewed manually before publishing.',\n  wins: [],\n  watchouts: ['AI commentary generation failed or returned invalid JSON.'],\n  next_steps: ['Review the metric summaries and add final commentary before publishing.']\n};\nlet content = response.choices?.[0]?.message?.content;\nlet parsed = null;\ntry { parsed = typeof content === 'string' ? JSON.parse(content) : null; } catch (error) { parsed = null; }\nconst commentary = parsed && typeof parsed === 'object' ? parsed : fallback;\nif (data.seo_summary?.outbound_click_rate !== null && data.seo_summary?.outbound_click_rate > 1) {\n  commentary.watchouts = [...(Array.isArray(commentary.watchouts) ? commentary.watchouts : []), 'Outbound click rate is above 100%, which may indicate tracking duplication or broader attribution scope that should be reviewed.'];\n}\nreturn [{ json: { ...data, ...commentary } }];"
+      },
+      "id": "normalize-ai",
+      "name": "Normalize AI Commentary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pipeline Config').first().json.supabase_url + '/rest/v1/monthly_reports' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "client_id,report_month"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  client_id: $json.client_id,\n  report_month: $json.report_month,\n  period_start: $json.period_start,\n  period_end: $json.period_end,\n  previous_period_start: $json.previous_period_start,\n  previous_period_end: $json.previous_period_end,\n  status: 'draft',\n  title: $json.title,\n  executive_summary: $json.executive_summary,\n  paid_ads_commentary: $json.paid_ads_commentary,\n  seo_commentary: $json.seo_commentary,\n  mom_commentary: $json.mom_commentary,\n  wins: Array.isArray($json.wins) ? $json.wins : [],\n  watchouts: Array.isArray($json.watchouts) ? $json.watchouts : [],\n  next_steps: Array.isArray($json.next_steps) ? $json.next_steps : [],\n  paid_ads_summary: $json.paid_ads_summary,\n  seo_summary: $json.seo_summary,\n  mom_summary: $json.mom_summary,\n  published_at: null,\n  updated_at: new Date().toISOString()\n}\n}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "save-draft",
+      "name": "Supabase Upsert - monthly_reports Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3380,
+        420
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "253OBo1Q4eFFXF0C",
+          "name": "Supabase account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const saved = $json;\nconst data = $('Normalize AI Commentary').first().json;\nconst reportId = saved.id || (Array.isArray(saved) && saved[0]?.id) || data.existing_report_id;\nconst url = reportId ? 'https://portal.clickcrafters.click/dashboard/reports/' + reportId : 'https://portal.clickcrafters.click/dashboard/reports';\nreturn [{ json: { ...data, report_id: reportId || null, report_url: url, text: ':memo: Draft monthly report generated for ' + data.client_name + ' (' + data.report_month_label + '). Review before publishing: ' + url } }];"
+      },
+      "id": "draft-alert",
+      "name": "Build Slack Alert - Draft Generated",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3640,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pipeline Config').first().json.slack_webhook_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { text: $json.text } }}",
+        "options": {}
+      },
+      "id": "slack-draft",
+      "name": "Slack Alert - Draft Generated (Placeholder)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3900,
+        420
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pipeline Config').first().json.slack_webhook_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { text: $json.text } }}",
+        "options": {}
+      },
+      "id": "slack-published",
+      "name": "Slack Alert - Published Exists (Placeholder)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        260
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pipeline Config').first().json.slack_webhook_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { text: $json.text } }}",
+        "options": {}
+      },
+      "id": "slack-no-data",
+      "name": "Slack Alert - No Data (Placeholder)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3120,
+        660
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "Workflow: Monthly Report Generator - Client Portal\n\nRuns on the 1st of each month at 6:00 AM. Configure the workflow timezone to America/Los_Angeles in n8n so the cron fires in Pacific time.\n\nInitial scope: Press Burger only. Reports save as draft and published_at remains null.",
+        "height": 280,
+        "width": 520,
+        "color": 4
+      },
+      "id": "setup-notes",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "The workflow reads stored metrics from Supabase and does not generate metrics with AI. AI only interprets finalized JSON.\n\nIf outbound click rate is above 100%, the commentary normalization adds a watchout about tracking duplication or attribution scope.",
+        "height": 280,
+        "width": 520,
+        "color": 5
+      },
+      "id": "data-notes",
+      "name": "Data Quality Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        620,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Slack nodes are disabled placeholders. Set CLICK_CRAFTERS_REPORTS_SLACK_WEBHOOK_URL or replace these with your Slack credential/channel nodes, then enable them.\n\nAlerts exist for draft generated, no data, and published report already exists.",
+        "height": 280,
+        "width": 520,
+        "color": 6
+      },
+      "id": "slack-notes",
+      "name": "Slack Placeholder Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1240,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - Monthly 1st 6 AM Pacific": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pipeline Config": {
+      "main": [
+        [
+          {
+            "node": "Calculate Report Periods",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Report Periods": {
+      "main": [
+        [
+          {
+            "node": "Fetch Existing Monthly Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Existing Monthly Report": {
+      "main": [
+        [
+          {
+            "node": "Check Existing Report Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Existing Report Status": {
+      "main": [
+        [
+          {
+            "node": "IF Published Report Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Published Report Exists": {
+      "main": [
+        [
+          {
+            "node": "Build Slack Alert - Published Exists",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Paid Ads - Current Month",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Slack Alert - Published Exists": {
+      "main": [
+        [
+          {
+            "node": "Slack Alert - Published Exists (Placeholder)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Paid Ads - Current Month": {
+      "main": [
+        [
+          {
+            "node": "Fetch Paid Ads - Previous Month",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Paid Ads - Previous Month": {
+      "main": [
+        [
+          {
+            "node": "Fetch SEO Daily - Current Month",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch SEO Daily - Current Month": {
+      "main": [
+        [
+          {
+            "node": "Fetch SEO Daily - Previous Month",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch SEO Daily - Previous Month": {
+      "main": [
+        [
+          {
+            "node": "Fetch SEO Queries - Current Month",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch SEO Queries - Current Month": {
+      "main": [
+        [
+          {
+            "node": "Fetch SEO Pages - Current Month",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch SEO Pages - Current Month": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Monthly Report Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Monthly Report Data": {
+      "main": [
+        [
+          {
+            "node": "IF Any Report Data Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Any Report Data Exists": {
+      "main": [
+        [
+          {
+            "node": "OpenAI - Generate Report Commentary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Slack Alert - No Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Slack Alert - No Data": {
+      "main": [
+        [
+          {
+            "node": "Slack Alert - No Data (Placeholder)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI - Generate Report Commentary": {
+      "main": [
+        [
+          {
+            "node": "Normalize AI Commentary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize AI Commentary": {
+      "main": [
+        [
+          {
+            "node": "Supabase Upsert - monthly_reports Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Upsert - monthly_reports Draft": {
+      "main": [
+        [
+          {
+            "node": "Build Slack Alert - Draft Generated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Slack Alert - Draft Generated": {
+      "main": [
+        [
+          {
+            "node": "Slack Alert - Draft Generated (Placeholder)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Los_Angeles"
+  },
+  "staticData": null,
+  "pinData": {},
+  "versionId": "monthly-report-generator-client-portal-v1",
+  "triggerCount": 1,
+  "tags": []
+}

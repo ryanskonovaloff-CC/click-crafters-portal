@@ -1,0 +1,883 @@
+{
+  "name": "Paid Ads Daily Performance - Press Burger Portal",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-daily-6am",
+      "name": "Schedule Trigger - Daily 6 AM Pacific",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "client-id",
+              "name": "client_id",
+              "value": "11111111-1111-4111-8111-111111111111",
+              "type": "string"
+            },
+            {
+              "id": "client-name",
+              "name": "client_name",
+              "value": "Press Burger",
+              "type": "string"
+            },
+            {
+              "id": "timezone",
+              "name": "timezone",
+              "value": "America/Los_Angeles",
+              "type": "string"
+            },
+            {
+              "id": "supabase-url",
+              "name": "supabase_url",
+              "value": "https://kzeriuptbrjcplflzyaz.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "supabase-key",
+              "name": "supabase_service_role_key",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}",
+              "type": "string"
+            },
+            {
+              "id": "ga-dev",
+              "name": "google_ads_developer_token",
+              "value": "={{ $env.GOOGLE_ADS_DEVELOPER_TOKEN }}",
+              "type": "string"
+            },
+            {
+              "id": "ga-cid",
+              "name": "google_ads_customer_id",
+              "value": "9165122794",
+              "type": "string"
+            },
+            {
+              "id": "ga-login",
+              "name": "google_ads_login_customer_id",
+              "value": "5842381517",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "pipeline-config",
+      "name": "Pipeline Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = { ...$json };\nconst zone = cfg.timezone || 'America/Los_Angeles';\nconst yesterday = $now.setZone(zone).minus({ days: 1 });\nreturn [{\n  json: {\n    ...cfg,\n    date_start: yesterday.toFormat('yyyy-MM-dd'),\n    date_end: yesterday.toFormat('yyyy-MM-dd'),\n    sync_label: yesterday.toFormat('yyyy-MM-dd'),\n    updated_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "calc-dates",
+      "name": "Calculate Sync Dates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://googleads.googleapis.com/v24/customers/' + $('Pipeline Config').first().json.google_ads_customer_id + '/googleAds:searchStream' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $('Pipeline Config').first().json.google_ads_developer_token }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $('Pipeline Config').first().json.google_ads_login_customer_id }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  query: \"SELECT\\n    segments.date,\\n    campaign.id,\\n    campaign.name,\\n    campaign.status,\\n    campaign.advertising_channel_type,\\n    metrics.cost_micros,\\n    metrics.conversions,\\n    metrics.conversions_value,\\n    metrics.clicks,\\n    metrics.impressions,\\n    metrics.ctr,\\n    metrics.average_cpc\\n  FROM campaign\\n  WHERE segments.date DURING YESTERDAY\\n    AND campaign.status != 'REMOVED'\\n    AND campaign.advertising_channel_type IN ('SEARCH', 'DISPLAY', 'PERFORMANCE_MAX')\"\n}\n}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "ga-campaign-daily",
+      "name": "Google Ads searchStream - Campaign Daily",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        420
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xxJRNLHm7TimzUhL",
+          "name": "Click Crafters Google Ads API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://googleads.googleapis.com/v24/customers/' + $('Pipeline Config').first().json.google_ads_customer_id + '/googleAds:searchStream' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $('Pipeline Config').first().json.google_ads_developer_token }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $('Pipeline Config').first().json.google_ads_login_customer_id }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  query: \"SELECT\\n    customer.id,\\n    campaign.id,\\n    campaign.name,\\n    campaign.status,\\n    campaign.advertising_channel_type,\\n    ad_group.id,\\n    ad_group.name,\\n    ad_group_ad.ad.id,\\n    ad_group_ad.ad.name,\\n    ad_group_ad.status,\\n    ad_group_ad.ad.type,\\n    ad_group_ad.ad.final_urls,\\n    ad_group_ad.ad.responsive_search_ad.headlines,\\n    ad_group_ad.ad.responsive_search_ad.descriptions,\\n    ad_group_ad.ad.responsive_search_ad.path1,\\n    ad_group_ad.ad.responsive_search_ad.path2,\\n    ad_group_ad.ad.expanded_text_ad.headline_part1,\\n    ad_group_ad.ad.expanded_text_ad.headline_part2,\\n    ad_group_ad.ad.expanded_text_ad.description,\\n    metrics.cost_micros,\\n    metrics.conversions,\\n    metrics.conversions_value,\\n    metrics.clicks,\\n    metrics.impressions,\\n    metrics.ctr,\\n    metrics.average_cpc\\n  FROM ad_group_ad\\n  WHERE campaign.status != 'REMOVED'\\n    AND ad_group_ad.status != 'REMOVED'\\n    AND campaign.advertising_channel_type IN ('SEARCH', 'DISPLAY')\"\n}\n}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "ga-ad-lifetime",
+      "name": "Google Ads searchStream - Ad Lifetime",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        420
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xxJRNLHm7TimzUhL",
+          "name": "Click Crafters Google Ads API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://googleads.googleapis.com/v24/customers/' + $('Pipeline Config').first().json.google_ads_customer_id + '/googleAds:searchStream' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $('Pipeline Config').first().json.google_ads_developer_token }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $('Pipeline Config').first().json.google_ads_login_customer_id }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  query: \"SELECT\\n    customer.id,\\n    campaign.id,\\n    campaign.name,\\n    campaign.status,\\n    campaign.advertising_channel_type,\\n    asset_group.id,\\n    asset_group.name,\\n    asset_group.final_urls,\\n    asset_group.status,\\n    metrics.cost_micros,\\n    metrics.conversions,\\n    metrics.conversions_value,\\n    metrics.clicks,\\n    metrics.impressions,\\n    metrics.ctr,\\n    metrics.average_cpc\\n  FROM asset_group\\n  WHERE campaign.status != 'REMOVED'\\n    AND asset_group.status != 'REMOVED'\\n    AND campaign.advertising_channel_type = 'PERFORMANCE_MAX'\"\n}\n}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "ga-pmax-asset-groups",
+      "name": "Google Ads searchStream - PMax Asset Groups",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        560
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xxJRNLHm7TimzUhL",
+          "name": "Click Crafters Google Ads API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('Calculate Sync Dates').first().json;\nconst errors = [];\nfunction nodeRows(name) {\n  const items = $(name).all();\n  const chunks = [];\n  for (const item of items) {\n    if (item.json?.error) {\n      errors.push({ node: name, error: item.json.error.message || item.json.error });\n      continue;\n    }\n    const payloads = Array.isArray(item.json) ? item.json : [item.json];\n    chunks.push(...payloads);\n  }\n  return chunks.flatMap((chunk) => Array.isArray(chunk.results) ? chunk.results : []);\n}\nfunction num(value) {\n  if (value === null || value === undefined || value === '') return 0;\n  const parsed = Number(value);\n  return Number.isFinite(parsed) ? parsed : 0;\n}\nfunction micros(value) { return num(value) / 1000000; }\nfunction ratio(numerator, denominator) { return denominator > 0 ? numerator / denominator : null; }\nfunction channelName(channelType) {\n  const map = { SEARCH: 'Paid Search', DISPLAY: 'Display', PERFORMANCE_MAX: 'Performance Max', VIDEO: 'YouTube', SHOPPING: 'Shopping', DEMAND_GEN: 'Demand Gen', DISCOVERY: 'Discovery', LOCAL: 'Local', SMART: 'Smart' };\n  return map[channelType] || channelType || 'Unknown';\n}\nfunction cleanText(value) {\n  return typeof value === 'string' && value.trim() ? value.trim() : null;\n}\nfunction firstTextAsset(values, index) {\n  const item = Array.isArray(values) ? values[index] : null;\n  return cleanText(item?.text || item?.assetText || item?.pinnedField || null);\n}\nfunction firstUrl(values) {\n  return Array.isArray(values) && values[0] ? String(values[0]) : null;\n}\nfunction displayUrl(finalUrl, path1, path2) {\n  if (!finalUrl) return null;\n  try {\n    const url = new URL(finalUrl);\n    const paths = [path1, path2].filter(Boolean).join('/');\n    const fallbackPath = url.pathname === '/' ? '' : url.pathname.replace(/\\/$/, '');\n    return url.hostname.replace(/^www\\./, '') + (paths ? '/' + paths : fallbackPath);\n  } catch {\n    return finalUrl.replace(/^https?:\\/\\//, '').replace(/^www\\./, '').replace(/\\/$/, '');\n  }\n}\nfunction metricBase(metrics) {\n  const spend = micros(metrics.costMicros ?? metrics.cost_micros);\n  const revenue = num(metrics.conversionsValue ?? metrics.conversions_value);\n  const conversions = num(metrics.conversions);\n  const clicks = num(metrics.clicks);\n  const impressions = num(metrics.impressions);\n  return { spend, revenue, conversions, store_visits: 0, clicks, impressions };\n}\nfunction addTotals(target, values) {\n  target.spend += values.spend;\n  target.revenue += values.revenue;\n  target.conversions += values.conversions;\n  target.store_visits += values.store_visits || 0;\n  target.clicks += values.clicks;\n  target.impressions += values.impressions;\n}\nfunction finalizeMetrics(row) {\n  row.conversions = Math.round(row.conversions);\n  row.store_visits = Number((row.store_visits || 0).toFixed(2));\n  row.clicks = Math.round(row.clicks);\n  row.impressions = Math.round(row.impressions);\n  row.cpa = ratio(row.spend, row.conversions);\n  row.roas = ratio(row.revenue, row.spend);\n  row.ctr = ratio(row.clicks, row.impressions);\n  row.cpc = ratio(row.spend, row.clicks);\n  row.updated_at = cfg.updated_at;\n  return row;\n}\nconst emptyTotals = () => ({ spend: 0, revenue: 0, conversions: 0, store_visits: 0, clicks: 0, impressions: 0 });\nconst campaignRowsRaw = nodeRows('Google Ads searchStream - Campaign Daily');\nconst storeVisitRowsRaw = nodeRows('Google Ads searchStream - Store Visits Daily');\nconst adLifetimeRaw = nodeRows('Google Ads searchStream - Ad Lifetime');\nconst pmaxAssetRaw = nodeRows('Google Ads searchStream - PMax Asset Groups');\nconst pmaxAssetDetailsRaw = nodeRows('Google Ads searchStream - PMax Asset Group Assets');\nconst channelMap = new Map();\nconst campaignMap = new Map();\nfor (const result of campaignRowsRaw) {\n  const campaign = result.campaign || {};\n  const metrics = metricBase(result.metrics || {});\n  const channel = channelName(campaign.advertisingChannelType || campaign.advertising_channel_type);\n  const date = result.segments?.date || cfg.date_start;\n  const channelKey = [date, 'Google Ads', channel].join('|');\n  const channelRow = channelMap.get(channelKey) || { client_id: cfg.client_id, date, platform: 'Google Ads', channel, ...emptyTotals() };\n  addTotals(channelRow, metrics);\n  channelMap.set(channelKey, channelRow);\n  const campaignId = String(campaign.id || '');\n  if (!campaignId) continue;\n  const campaignKey = [date, 'Google Ads', campaignId].join('|');\n  const campaignRow = campaignMap.get(campaignKey) || { client_id: cfg.client_id, date, platform: 'Google Ads', channel, campaign_id: campaignId, campaign_name: campaign.name || null, wasted_spend: 0, ...emptyTotals() };\n  addTotals(campaignRow, metrics);\n  campaignMap.set(campaignKey, campaignRow);\n}\nfunction storeVisitCount(result) {\n  const metrics = result.metrics || {};\n  const direct = num(metrics.allConversionsFromStoreVisit ?? metrics.all_conversions_from_store_visit);\n  const locationAsset = num(metrics.allConversionsFromLocationAssetStoreVisits ?? metrics.all_conversions_from_location_asset_store_visits);\n  return direct > 0 ? direct : locationAsset;\n}\nfor (const result of storeVisitRowsRaw) {\n  const visits = storeVisitCount(result);\n  if (visits <= 0) continue;\n  const campaign = result.campaign || {};\n  const channel = channelName(campaign.advertisingChannelType || campaign.advertising_channel_type);\n  const date = result.segments?.date || cfg.date_start;\n  const channelKey = [date, 'Google Ads', channel].join('|');\n  const channelRow = channelMap.get(channelKey) || { client_id: cfg.client_id, date, platform: 'Google Ads', channel, ...emptyTotals() };\n  channelRow.store_visits += visits;\n  channelMap.set(channelKey, channelRow);\n  const campaignId = String(campaign.id || '');\n  if (!campaignId) continue;\n  const campaignKey = [date, 'Google Ads', campaignId].join('|');\n  const campaignRow = campaignMap.get(campaignKey) || { client_id: cfg.client_id, date, platform: 'Google Ads', channel, campaign_id: campaignId, campaign_name: campaign.name || null, wasted_spend: 0, ...emptyTotals() };\n  campaignRow.store_visits += visits;\n  campaignMap.set(campaignKey, campaignRow);\n}\nconst daily_performance = [...channelMap.values()].map(finalizeMetrics);\nconst campaign_daily_performance = [...campaignMap.values()].map(finalizeMetrics);\nfunction creativeFromAd(result) {\n  const ad = result.adGroupAd?.ad || result.ad_group_ad?.ad || {};\n  const rsa = ad.responsiveSearchAd || ad.responsive_search_ad || {};\n  const eta = ad.expandedTextAd || ad.expanded_text_ad || {};\n  const finalUrl = firstUrl(ad.finalUrls || ad.final_urls);\n  const headline = firstTextAsset(rsa.headlines, 0) || cleanText(eta.headlinePart1 || eta.headline_part1) || cleanText(ad.name);\n  const headline2 = firstTextAsset(rsa.headlines, 1) || cleanText(eta.headlinePart2 || eta.headline_part2);\n  const headline3 = firstTextAsset(rsa.headlines, 2);\n  const description = firstTextAsset(rsa.descriptions, 0) || cleanText(eta.description);\n  const description2 = firstTextAsset(rsa.descriptions, 1);\n  const path1 = cleanText(rsa.path1);\n  const path2 = cleanText(rsa.path2);\n  return {\n    ad_type: ad.type || null,\n    status: result.adGroupAd?.status || result.ad_group_ad?.status || null,\n    headline,\n    headline_2: headline2,\n    headline_3: headline3,\n    description,\n    description_2: description2,\n    final_url: finalUrl,\n    display_url: displayUrl(finalUrl, path1, path2),\n    preview_url: null,\n    image_url: null,\n    thumbnail_url: null\n  };\n}\nfunction normalizeAd(result, lifetime = false) {\n  const campaign = result.campaign || {};\n  const adGroup = result.adGroup || result.ad_group || {};\n  const ad = result.adGroupAd?.ad || result.ad_group_ad?.ad || {};\n  const metrics = metricBase(result.metrics || {});\n  const adId = String(ad.id || '');\n  if (!adId) return null;\n  const channel = channelName(campaign.advertisingChannelType || campaign.advertising_channel_type);\n  const creative = creativeFromAd(result);\n  const row = {\n    client_id: cfg.client_id,\n    platform: 'Google Ads',\n    channel,\n    campaign_id: campaign.id ? String(campaign.id) : null,\n    campaign_name: campaign.name || null,\n    ad_group_id: adGroup.id ? String(adGroup.id) : null,\n    ad_group_name: adGroup.name || null,\n    ad_id: adId,\n    ad_name: cleanText(ad.name) || creative.headline || creative.display_url,\n    creative_id: adId,\n    creative_name: cleanText(ad.name) || creative.headline,\n    creative_preview_url: creative.preview_url,\n    ...creative,\n    ...metrics,\n    source_updated_at: cfg.updated_at,\n    raw_payload: result\n  };\n  if (!lifetime) row.date = result.segments?.date || cfg.date_start;\n  if (lifetime) row.date_range = 'ALL_TIME';\n  return finalizeMetrics(row);\n}\nfunction normalizePmaxAssetGroup(result) {\n  const campaign = result.campaign || {};\n  const assetGroup = result.assetGroup || result.asset_group || {};\n  const metrics = metricBase(result.metrics || {});\n  const detail = pmaxAssetDetails.get(pmaxAssetGroupKey(result)) || { headlines: [], descriptions: [], image_url: null, thumbnail_url: null, raw_assets: [] };\n  const assetGroupId = assetGroup.id ? String(assetGroup.id) : null;\n  if (!assetGroupId) return null;\n  const finalUrl = firstUrl(assetGroup.finalUrls || assetGroup.final_urls);\n  const row = {\n    client_id: cfg.client_id,\n    platform: 'Google Ads',\n    channel: 'Performance Max',\n    campaign_id: campaign.id ? String(campaign.id) : null,\n    campaign_name: campaign.name || null,\n    ad_group_id: assetGroupId,\n    ad_group_name: assetGroup.name || null,\n    ad_id: 'asset_group:' + assetGroupId,\n    ad_name: assetGroup.name || 'Performance Max asset group',\n    ad_type: 'ASSET_GROUP',\n    status: assetGroup.status || null,\n    headline: detail.headlines[0] || assetGroup.name || 'Performance Max asset group',\n    headline_2: detail.headlines[1] || null,\n    headline_3: detail.headlines[2] || null,\n    description: detail.descriptions[0] || null,\n    description_2: detail.descriptions[1] || null,\n    final_url: finalUrl,\n    display_url: displayUrl(finalUrl, null, null),\n    preview_url: null,\n    image_url: detail.image_url || null,\n    thumbnail_url: detail.thumbnail_url || null,\n    creative_id: assetGroupId,\n    creative_name: assetGroup.name || null,\n    creative_preview_url: null,\n    date_range: 'ALL_TIME',\n    source_updated_at: cfg.updated_at,\n    raw_payload: { asset_group: result, assets: detail.raw_assets },\n    ...metrics\n  };\n  return finalizeMetrics(row);\n}\nfunction aggregateLifetime(rows) {\n  const map = new Map();\n  for (const row of rows.filter(Boolean)) {\n    const key = [row.client_id, row.platform, row.campaign_id || '', row.ad_id].join('|');\n    const current = map.get(key);\n    if (!current) {\n      map.set(key, { ...row });\n      continue;\n    }\n    addTotals(current, row);\n    for (const field of ['ad_name','ad_type','status','headline','headline_2','headline_3','description','description_2','display_url','final_url','preview_url','image_url','thumbnail_url','creative_name','creative_preview_url']) {\n      if (!current[field] && row[field]) current[field] = row[field];\n    }\n  }\n  return [...map.values()].map(finalizeMetrics);\n}\nfunction nestedValue(obj, path) {\n  return path.split('.').reduce((current, key) => current?.[key], obj);\n}\nfunction pmaxAssetGroupKey(result) {\n  const campaign = result.campaign || {};\n  const assetGroup = result.assetGroup || result.asset_group || {};\n  return [campaign.id || '', assetGroup.id || ''].join('|');\n}\nfunction buildPmaxAssetDetails(results) {\n  const map = new Map();\n  for (const result of results) {\n    const key = pmaxAssetGroupKey(result);\n    if (key === '|') continue;\n    const detail = map.get(key) || { headlines: [], descriptions: [], image_url: null, thumbnail_url: null, raw_assets: [] };\n    const fieldType = String(result.assetGroupAsset?.fieldType || result.asset_group_asset?.field_type || '').toUpperCase();\n    const asset = result.asset || {};\n    const text = cleanText(asset.textAsset?.text || asset.text_asset?.text);\n    const imageUrl = cleanText(asset.imageAsset?.fullSize?.url || asset.image_asset?.full_size?.url || nestedValue(asset, 'imageAsset.full_size.url') || nestedValue(asset, 'image_asset.fullSize.url'));\n    if (text) {\n      if (fieldType.includes('DESCRIPTION')) detail.descriptions.push(text);\n      else detail.headlines.push(text);\n    }\n    if (imageUrl && !detail.image_url) {\n      detail.image_url = imageUrl;\n      detail.thumbnail_url = imageUrl;\n    }\n    detail.raw_assets.push(result);\n    map.set(key, detail);\n  }\n  return map;\n}\nconst pmaxAssetDetails = buildPmaxAssetDetails(pmaxAssetDetailsRaw);\nconst lifetimeRows = [\n  ...adLifetimeRaw.map((result) => normalizeAd(result, true)),\n  ...pmaxAssetRaw.map(normalizePmaxAssetGroup)\n];\nconst ad_lifetime_performance = aggregateLifetime(lifetimeRows);\nreturn [{ json: { client_id: cfg.client_id, client_name: cfg.client_name, date_start: cfg.date_start, date_end: cfg.date_end, errors, daily_performance, campaign_daily_performance, ad_lifetime_performance, counts: { daily_performance: daily_performance.length, campaign_daily_performance: campaign_daily_performance.length, ad_lifetime_performance: ad_lifetime_performance.length } } }];"
+      },
+      "id": "normalize",
+      "name": "Normalize Paid Ads Performance",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pipeline Config').first().json.supabase_url + '/rest/v1/daily_performance' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "client_id,date,platform,channel"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.daily_performance) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "upsert-daily",
+      "name": "Supabase Upsert - daily_performance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "253OBo1Q4eFFXF0C",
+          "name": "Supabase account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pipeline Config').first().json.supabase_url + '/rest/v1/campaign_daily_performance' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "client_id,date,platform,campaign_id"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.campaign_daily_performance) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "upsert-campaign",
+      "name": "Supabase Upsert - campaign_daily_performance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "253OBo1Q4eFFXF0C",
+          "name": "Supabase account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pipeline Config').first().json.supabase_url + '/rest/v1/ad_lifetime_performance' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "client_id,platform,ad_id"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.ad_lifetime_performance) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "upsert-ad-lifetime",
+      "name": "Supabase Upsert - ad_lifetime_performance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2600,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "253OBo1Q4eFFXF0C",
+          "name": "Supabase account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Normalize Paid Ads Performance').first().json;\nconst errors = [...(data.errors || [])];\nfor (const node of ['Supabase Upsert - daily_performance', 'Supabase Upsert - campaign_daily_performance', 'Supabase Upsert - ad_lifetime_performance']) {\n  for (const item of $(node).all()) {\n    if (item.json?.error) errors.push({ node, error: item.json.error.message || item.json.error });\n  }\n}\nconst ok = errors.length === 0;\nreturn [{ json: { ...data, ok, errors, message: ok\n  ? 'Portal paid ads sync succeeded for ' + data.client_name + '.\\nDate: ' + data.date_start + '\\nRows: daily_performance=' + data.counts.daily_performance + ', campaign_daily_performance=' + data.counts.campaign_daily_performance + ', ad_lifetime_performance=' + data.counts.ad_lifetime_performance + '\\nStore visits are pulled from Google Ads dedicated store-visit metrics.'\n  : 'Portal paid ads sync failed for ' + data.client_name + '.\\nDate: ' + data.date_start + '\\nReview the failed n8n execution.\\nErrors: ' + JSON.stringify(errors)\n} }];"
+      },
+      "id": "build-status",
+      "name": "Build Slack Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-ok",
+      "name": "IF Sync OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3120,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B45HM0T4N",
+          "mode": "list",
+          "cachedResultName": "press-burger-data-portal-updates"
+        },
+        "text": "={{ $json.message }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "slack-success",
+      "name": "Slack Success Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        3380,
+        300
+      ],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "ijDZRw62RIn2rOLN",
+          "name": "Slack account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B45HM0T4N",
+          "mode": "list",
+          "cachedResultName": "press-burger-data-portal-updates"
+        },
+        "text": "={{ $json.message }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "slack-error",
+      "name": "Slack Error Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        3380,
+        560
+      ],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "ijDZRw62RIn2rOLN",
+          "name": "Slack account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Workflow: Paid Ads Daily Performance - Press Burger Portal\n\nRuns daily at 6:00 AM Pacific and syncs YESTERDAY. Configure workflow timezone to America/Los_Angeles in n8n.\n\nThis replaces the older partial Google Ads workflows operationally.",
+        "height": 280,
+        "width": 520,
+        "color": 4
+      },
+      "id": "setup-notes",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Campaign Daily query includes SEARCH, DISPLAY, and PERFORMANCE_MAX.\n\nSearch/Display ad-level rows now store responsive search/expanded text creative fields for text preview cards.\n\nPerformance Max is included in daily_performance and campaign_daily_performance; lifetime PMax asset groups are stored as ASSET_GROUP rows when available. Image asset URLs are only populated when Google Ads exposes a usable URL.\n\nStore visits are pulled from Google Ads dedicated metrics: metrics.all_conversions_from_store_visit, with metrics.all_conversions_from_location_asset_store_visits as a fallback. This keeps primary metrics.conversions unchanged while capturing ad-attributed store visit goals.",
+        "height": 280,
+        "width": 520,
+        "color": 5
+      },
+      "id": "coverage-notes",
+      "name": "Google Ads Coverage Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        620,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Writes to three portal tables:\n1. public.daily_performance\n2. public.campaign_daily_performance\n3. public.ad_lifetime_performance\n\nSecrets are read from environment variables; do not hardcode exported keys.",
+        "height": 280,
+        "width": 520,
+        "color": 6
+      },
+      "id": "destination-notes",
+      "name": "Supabase Destinations",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://googleads.googleapis.com/v24/customers/' + $('Pipeline Config').first().json.google_ads_customer_id + '/googleAds:searchStream' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $('Pipeline Config').first().json.google_ads_developer_token }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $('Pipeline Config').first().json.google_ads_login_customer_id }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  query: \"SELECT\n    customer.id,\n    campaign.id,\n    campaign.name,\n    campaign.advertising_channel_type,\n    asset_group.id,\n    asset_group.name,\n    asset_group_asset.field_type,\n    asset_group_asset.status,\n    asset.id,\n    asset.name,\n    asset.text_asset.text,\n    asset.image_asset.full_size.url,\n    asset.image_asset.full_size.width_pixels,\n    asset.image_asset.full_size.height_pixels\n  FROM asset_group_asset\n  WHERE campaign.status != 'REMOVED'\n    AND asset_group.status != 'REMOVED'\n    AND asset_group_asset.status != 'REMOVED'\n    AND campaign.advertising_channel_type = 'PERFORMANCE_MAX'\"\n}\n}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "google-ads-pmax-asset-group-assets",
+      "name": "Google Ads searchStream - PMax Asset Group Assets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        560
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xxJRNLHm7TimzUhL",
+          "name": "Click Crafters Google Ads API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://googleads.googleapis.com/v24/customers/' + $('Pipeline Config').first().json.google_ads_customer_id + '/googleAds:searchStream' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $('Pipeline Config').first().json.google_ads_developer_token }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $('Pipeline Config').first().json.google_ads_login_customer_id }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  query: \"SELECT\\n    segments.date,\\n    campaign.id,\\n    campaign.name,\\n    campaign.status,\\n    campaign.advertising_channel_type,\\n    metrics.all_conversions_from_store_visit,\\n    metrics.all_conversions_from_location_asset_store_visits\\n  FROM campaign\\n  WHERE segments.date DURING YESTERDAY\\n    AND campaign.status != 'REMOVED'\\n    AND campaign.advertising_channel_type IN ('SEARCH', 'DISPLAY', 'PERFORMANCE_MAX')\"\n}\n}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "google-ads-store-visits-daily",
+      "name": "Google Ads searchStream - Store Visits Daily",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        420
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xxJRNLHm7TimzUhL",
+          "name": "Click Crafters Google Ads API"
+        }
+      },
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - Daily 6 AM Pacific": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pipeline Config": {
+      "main": [
+        [
+          {
+            "node": "Calculate Sync Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Sync Dates": {
+      "main": [
+        [
+          {
+            "node": "Google Ads searchStream - Campaign Daily",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Ads searchStream - Campaign Daily": {
+      "main": [
+        [
+          {
+            "node": "Google Ads searchStream - Store Visits Daily",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Ads searchStream - Ad Lifetime": {
+      "main": [
+        [
+          {
+            "node": "Google Ads searchStream - PMax Asset Groups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Paid Ads Performance": {
+      "main": [
+        [
+          {
+            "node": "Supabase Upsert - daily_performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Upsert - daily_performance": {
+      "main": [
+        [
+          {
+            "node": "Supabase Upsert - campaign_daily_performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Upsert - campaign_daily_performance": {
+      "main": [
+        [
+          {
+            "node": "Supabase Upsert - ad_lifetime_performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Upsert - ad_lifetime_performance": {
+      "main": [
+        [
+          {
+            "node": "Build Slack Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Slack Status": {
+      "main": [
+        [
+          {
+            "node": "IF Sync OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Sync OK": {
+      "main": [
+        [
+          {
+            "node": "Slack Success Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack Error Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Ads searchStream - PMax Asset Groups": {
+      "main": [
+        [
+          {
+            "node": "Google Ads searchStream - PMax Asset Group Assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Ads searchStream - PMax Asset Group Assets": {
+      "main": [
+        [
+          {
+            "node": "Normalize Paid Ads Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Ads searchStream - Store Visits Daily": {
+      "main": [
+        [
+          {
+            "node": "Google Ads searchStream - Ad Lifetime",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Los_Angeles"
+  },
+  "staticData": null,
+  "pinData": {},
+  "versionId": "paid-ads-daily-performance-pb-portal-v1",
+  "triggerCount": 1,
+  "tags": []
+}

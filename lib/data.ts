@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
@@ -9,9 +10,17 @@ import type {
   DashboardQueryStatus,
   DateRange,
   DateRangeKey,
+  GbpActivityStatus,
+  GbpActivityTotals,
+  GbpReview,
   MetricTotals,
   MonthlyReport,
   ReportStatus,
+  SocialAccount,
+  SocialAccountDailyMetric,
+  SocialMediaContent,
+  SocialMediaDailyMetric,
+  SocialPaidDailyMetric,
   SeoTechnicalIssue,
   SeoTotals
 } from "@/lib/types";
@@ -24,11 +33,13 @@ const rangeLabels: Record<DateRangeKey, string> = {
   last14: "Last 14 days",
   mtd: "Month to date",
   last30: "Last 30 days",
+  last90: "Last 90 days",
   last_month: "Last month",
   custom: "Custom range"
 };
 
-const validRangeKeys: DateRangeKey[] = ["today", "yesterday", "last3", "last7", "last14", "mtd", "last30", "last_month", "custom"];
+const validRangeKeys: DateRangeKey[] = ["today", "yesterday", "last3", "last7", "last14", "mtd", "last30", "last90", "last_month", "custom"];
+const ACTIVE_CLIENT_COOKIE = "cc_active_client_id";
 
 function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -98,6 +109,10 @@ export function getDateRange(key: string | undefined, customStart?: string, cust
     start = addDays(end, -29);
     previousEnd = addDays(start, -1);
     previousStart = addDays(previousEnd, -29);
+  } else if (rangeKey === "last90") {
+    start = addDays(end, -89);
+    previousEnd = addDays(start, -1);
+    previousStart = addDays(previousEnd, -89);
   } else if (rangeKey === "last_month") {
     const thisMonthStart = startOfMonth(end);
     previousEnd = addDays(thisMonthStart, -1);
@@ -447,30 +462,35 @@ export async function getSessionProfile() {
 
 export async function getActiveClient() {
   const { supabase, profile } = await getSessionProfile();
-  const query = supabase
-    .from("clients")
-    .select("id,name,slug,industry,status,last_updated_at")
-    .order("name", { ascending: true })
-    .limit(1);
+  const cookieStore = await cookies();
+  const selectedClientId = cookieStore.get(ACTIVE_CLIENT_COOKIE)?.value ?? null;
+  const select = "id,name,slug,industry,status,last_updated_at";
 
   const { data: clients } = profile.role === "admin"
-    ? await query
+    ? await supabase
+      .from("clients")
+      .select(select)
+      .order("name", { ascending: true })
     : await supabase
       .from("client_users")
-      .select("clients(id,name,slug,industry,status,last_updated_at)")
+      .select(`clients(${select})`)
       .eq("user_id", profile.id)
-      .limit(1);
+      .order("created_at", { ascending: true });
 
   const rows = clients as any[] | null;
-  const client = Array.isArray(rows) && rows.length > 0
-    ? ("clients" in rows[0] ? rows[0].clients : rows[0])
+  const accessibleClients = (rows ?? [])
+    .map((row) => ("clients" in row ? row.clients : row))
+    .filter(Boolean) as Client[];
+  const selectedClient = profile.role === "admin" && selectedClientId
+    ? accessibleClients.find((item) => item.id === selectedClientId) ?? null
     : null;
+  const client = selectedClient ?? accessibleClients[0] ?? null;
 
   if (!client) {
-    return { supabase, profile, client: null as Client | null };
+    return { supabase, profile, client: null as Client | null, clients: accessibleClients };
   }
 
-  return { supabase, profile, client: client as Client };
+  return { supabase, profile, client: client as Client, clients: accessibleClients };
 }
 
 const monthlyReportSelect = `
@@ -500,11 +520,11 @@ const monthlyReportSelect = `
 `;
 
 export async function getReportsData() {
-  const { supabase, profile, client } = await getActiveClient();
+  const { supabase, profile, client, clients } = await getActiveClient();
   const today = isoDate(new Date());
 
   if (!client) {
-    return { profile, client, reports: [], status: queryStatus(null, 0) };
+    return { profile, client, clients, reports: [], status: queryStatus(null, 0) };
   }
 
   let query = supabase
@@ -526,6 +546,7 @@ export async function getReportsData() {
   return {
     profile,
     client,
+    clients,
     reports,
     status: queryStatus(errorMessage, reports.length)
   };
@@ -546,10 +567,24 @@ export async function getMonthlyReportData(reportId: string) {
 
   const { data, error } = await query.single();
   const errorMessage = queryErrorMessage(error);
+  const report = data ? normalizeMonthlyReport(data as Record<string, unknown>) : null;
+  let paidImpactRows: DailyPerformance[] = [];
+
+  if (report) {
+    const { data: impactData } = await supabase
+      .from("daily_performance")
+      .select("*")
+      .eq("client_id", report.client_id)
+      .lte("date", report.period_end)
+      .order("date", { ascending: true });
+
+    paidImpactRows = ((impactData ?? []) as Record<string, unknown>[]).map(normalizeDailyPerformance);
+  }
 
   return {
     profile,
-    report: data ? normalizeMonthlyReport(data as Record<string, unknown>) : null,
+    report,
+    paidImpactRows,
     status: queryStatus(errorMessage, data ? 1 : 0)
   };
 }
@@ -660,6 +695,141 @@ function emptySeoTotals(): SeoTotals {
   };
 }
 
+function emptyGbpActivityTotals(): GbpActivityTotals {
+  return {
+    newReviews: null,
+    fiveStarReviews: null,
+    averageRating: null,
+    totalReviews: null,
+    profileViews: null,
+    websiteClicks: null,
+    phoneCalls: null,
+    directionRequests: null,
+    foodOrders: null
+  };
+}
+
+function emptyGbpActivityStatus(): GbpActivityStatus {
+  return {
+    source: null,
+    status: null,
+    accessBlocker: null,
+    latestActivityAt: null
+  };
+}
+
+function normalizeGbpReview(row: Record<string, unknown>): GbpReview | null {
+  const rating = firstNullableNumber(row.latest_review_rating, row.rating);
+  const date = row.latest_review_at ?? row.date;
+  if (rating === null || !date) return null;
+
+  return {
+    date: String(date),
+    rating,
+    author: row.latest_review_author ? String(row.latest_review_author) : null,
+    text: row.latest_review_text ? String(row.latest_review_text) : null,
+    source: row.source ? String(row.source) : null
+  };
+}
+
+function gbpActivityTotalsFromRows(rows: Record<string, unknown>[]): GbpActivityTotals {
+  if (rows.length === 0) return emptyGbpActivityTotals();
+
+  let newReviews: number | null = null;
+  let fiveStarReviews: number | null = null;
+  let totalReviews: number | null = null;
+  let profileViews: number | null = null;
+  let websiteClicks: number | null = null;
+  let phoneCalls: number | null = null;
+  let directionRequests: number | null = null;
+  let foodOrders: number | null = null;
+  let weightedRatingTotal = 0;
+  let weightedRatingCount = 0;
+
+  for (const row of rows) {
+    newReviews = sumNullable(newReviews, firstNullableNumber(row.new_reviews));
+    fiveStarReviews = sumNullable(fiveStarReviews, firstNullableNumber(row.five_star_reviews));
+    profileViews = sumNullable(profileViews, gbpProfileViews(row));
+    websiteClicks = sumNullable(websiteClicks, firstNullableNumber(row.website_clicks));
+    phoneCalls = sumNullable(phoneCalls, firstNullableNumber(row.phone_calls));
+    directionRequests = sumNullable(directionRequests, firstNullableNumber(row.direction_requests));
+    foodOrders = sumNullable(foodOrders, firstNullableNumber(row.food_orders, row.order_clicks));
+
+    const rowTotalReviews = firstNullableNumber(row.total_reviews);
+    if (rowTotalReviews !== null) totalReviews = Math.max(totalReviews ?? 0, rowTotalReviews);
+
+    const averageRating = firstNullableNumber(row.average_rating);
+    if (averageRating !== null) {
+      const weight = Math.max(1, rowTotalReviews ?? firstNullableNumber(row.new_reviews) ?? 1);
+      weightedRatingTotal += averageRating * weight;
+      weightedRatingCount += weight;
+    }
+  }
+
+  return {
+    newReviews,
+    fiveStarReviews,
+    averageRating: weightedRatingCount > 0 ? weightedRatingTotal / weightedRatingCount : null,
+    totalReviews,
+    profileViews,
+    websiteClicks,
+    phoneCalls,
+    directionRequests,
+    foodOrders
+  };
+}
+
+function gbpProfileViews(row: Record<string, unknown>) {
+  const directTotal = firstNullableNumber(row.profile_views);
+  if (directTotal !== null) return directTotal;
+
+  const searchViews = firstNullableNumber(row.search_views);
+  const mapViews = firstNullableNumber(row.map_views);
+  return sumNullable(searchViews, mapViews);
+}
+
+function gbpActivityStatusFromRows(rows: Record<string, unknown>[]): GbpActivityStatus {
+  if (rows.length === 0) return emptyGbpActivityStatus();
+
+  const latest = [...rows].sort((a, b) => {
+    const aDate = new Date(String(a.updated_at ?? a.latest_review_at ?? a.date ?? 0)).getTime();
+    const bDate = new Date(String(b.updated_at ?? b.latest_review_at ?? b.date ?? 0)).getTime();
+    return bDate - aDate;
+  })[0];
+
+  return {
+    source: latest.source ? String(latest.source) : null,
+    status: latest.status ? String(latest.status) : null,
+    accessBlocker: latest.access_blocker ? String(latest.access_blocker) : null,
+    latestActivityAt: latest.updated_at ? String(latest.updated_at) : latest.latest_review_at ? String(latest.latest_review_at) : latest.date ? String(latest.date) : null
+  };
+}
+
+function fallbackGbpActivityRows(client: Client, range: DateRange): Record<string, unknown>[] {
+  const reviewDate = "2026-06-03";
+  const isPressBurger = client.slug === "press-burger" || client.name.toLowerCase() === "press burger";
+
+  if (!isPressBurger || reviewDate < range.start || reviewDate > range.end) {
+    return [];
+  }
+
+  return [{
+    date: reviewDate,
+    business_profile_name: "Press Burger",
+    source: "manual_review_log",
+    status: "blocked",
+    access_blocker: "Awaiting Google Business Profile owner/admin access before live GBP insights can be connected. Manual review entries are shown until API access is available.",
+    new_reviews: 1,
+    five_star_reviews: 1,
+    average_rating: 5,
+    latest_review_rating: 5,
+    latest_review_author: "Google reviewer",
+    latest_review_text: "New 5-star local review logged manually while GBP access is pending.",
+    latest_review_at: "2026-06-03T09:00:00-07:00",
+    updated_at: "2026-06-03T09:00:00-07:00"
+  }];
+}
+
 function seoSearchTotalsFromRows(rows: Record<string, unknown>[]): SeoTotals {
   if (rows.length === 0) return emptySeoTotals();
 
@@ -760,7 +930,7 @@ function mergeSeoTotals(primary: SeoTotals, fallback: SeoTotals): SeoTotals {
 }
 
 export async function getPaidAdsDashboardData(rangeKey?: string, customStart?: string, customEnd?: string) {
-  const { supabase, profile, client } = await getActiveClient();
+  const { supabase, profile, client, clients } = await getActiveClient();
   const range = getDateRange(rangeKey, customStart, customEnd);
 
   if (!client) {
@@ -768,6 +938,7 @@ export async function getPaidAdsDashboardData(rangeKey?: string, customStart?: s
       supabase,
       profile,
       client,
+      clients,
       range,
       daily: [],
       previousDaily: [],
@@ -794,6 +965,7 @@ export async function getPaidAdsDashboardData(rangeKey?: string, customStart?: s
     supabase,
     profile,
     client,
+    clients,
     range,
     daily: current.rows,
     previousDaily: previous.rows,
@@ -810,20 +982,35 @@ export async function getPaidAdsDashboardData(rangeKey?: string, customStart?: s
 }
 
 export async function getSeoDashboardData(rangeKey?: string, customStart?: string, customEnd?: string) {
-  const { supabase, profile, client } = await getActiveClient();
+  const { supabase, profile, client, clients } = await getActiveClient();
   const range = getDateRange(rangeKey, customStart, customEnd);
 
   if (!client) {
-    return { profile, client, range, totals: emptySeoTotals(), previousTotals: emptySeoTotals(), topQueries: [], topPages: [], technicalIssues: [], status: queryStatus(null, 0) };
+    return {
+      profile,
+      client,
+      clients,
+      range,
+      totals: emptySeoTotals(),
+      previousTotals: emptySeoTotals(),
+      topQueries: [],
+      topPages: [],
+      gbpTotals: emptyGbpActivityTotals(),
+      gbpReviews: [],
+      gbpStatus: emptyGbpActivityStatus(),
+      technicalIssues: [],
+      status: queryStatus(null, 0)
+    };
   }
 
-  const [daily, previousDaily, analytics, previousAnalytics, keywords, pages] = await Promise.all([
+  const [daily, previousDaily, analytics, previousAnalytics, keywords, pages, gbpActivity] = await Promise.all([
     supabase.from("seo_daily_performance").select("date,organic_clicks,organic_impressions,organic_sessions,organic_conversions,outbound_clicks,outbound_click_rate,average_position,indexed_pages,technical_issues").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: true }),
     supabase.from("seo_daily_performance").select("date,organic_clicks,organic_impressions,organic_sessions,organic_conversions,outbound_clicks,outbound_click_rate,average_position,indexed_pages,technical_issues").eq("client_id", client.id).gte("date", range.previousStart).lte("date", range.previousEnd).order("date", { ascending: true }),
     supabase.from("analytics_daily_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: true }),
     supabase.from("analytics_daily_performance").select("*").eq("client_id", client.id).gte("date", range.previousStart).lte("date", range.previousEnd).order("date", { ascending: true }),
     supabase.from("seo_keyword_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10),
-    supabase.from("seo_pages_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10)
+    supabase.from("seo_pages_performance").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("clicks", { ascending: false }).limit(10),
+    supabase.from("gbp_activity").select("*").eq("client_id", client.id).gte("date", range.start).lte("date", range.end).order("date", { ascending: false })
   ]);
 
   const dailyRows = (daily.data ?? []) as Record<string, unknown>[];
@@ -857,6 +1044,15 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     outboundClickRate: firstNullableNumber(row.outbound_click_rate, row.organic_outbound_click_rate, row.outbound_rate, row.action_rate)
   }));
   const topPages = aggregateSeoPages(rawTopPages).slice(0, 10);
+  const queriedGbpRows = (gbpActivity.data ?? []) as Record<string, unknown>[];
+  const gbpRows = queriedGbpRows.length > 0 ? queriedGbpRows : fallbackGbpActivityRows(client, range);
+  const gbpTotals = gbpActivityTotalsFromRows(gbpRows);
+  const gbpReviews = gbpRows
+    .map(normalizeGbpReview)
+    .filter((review): review is GbpReview => Boolean(review))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 3);
+  const gbpStatus = gbpActivityStatusFromRows(gbpRows);
   const searchTotals = seoSearchTotalsFromRows(dailyRows);
   const analyticsTotals = analyticsTotalsFromRows(analyticsRows);
   const totals = reconcileSeoOutboundTotals(mergeSeoTotals(searchTotals, analyticsTotals), topPages);
@@ -867,18 +1063,23 @@ export async function getSeoDashboardData(rangeKey?: string, customStart?: strin
     queryErrorMessage(analytics.error),
     queryErrorMessage(previousAnalytics.error),
     queryErrorMessage(keywords.error),
-    queryErrorMessage(pages.error)
+    queryErrorMessage(pages.error),
+    queryErrorMessage(gbpActivity.error)
   ].filter(Boolean).join("; ") || null;
-  const count = dailyRows.length + analyticsRows.length + topQueries.length + topPages.length;
+  const count = dailyRows.length + analyticsRows.length + topQueries.length + topPages.length + gbpRows.length;
 
   return {
     profile,
     client,
+    clients,
     range,
     totals,
     previousTotals,
     topQueries,
     topPages,
+    gbpTotals,
+    gbpReviews,
+    gbpStatus,
     technicalIssues: [],
     status: queryStatus(statusError, count)
   };
@@ -910,13 +1111,329 @@ export async function getOverviewDashboardData(rangeKey?: string, customStart?: 
   const latestDataUpdatedAt = paid.client ? await getLatestDataUpdatedAt(paid.supabase, paid.client.id) : null;
 
   return {
+    profile: paid.profile,
     client: paid.client,
+    clients: paid.clients,
     range: paid.range,
     latestDataUpdatedAt,
     paid,
     seo,
     performance: paid.totals
   };
+}
+
+export type InstagramContentSummary = SocialMediaContent & {
+  reachTotal: number | null;
+  reachOrganic: number | null;
+  reachPaid: number | null;
+  impressionsTotal: number | null;
+  impressionsOrganic: number | null;
+  impressionsPaid: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  saves: number | null;
+  totalInteractions: number | null;
+  engagementRate: number | null;
+  videoViews: number | null;
+  averageWatchTimeSeconds: number | null;
+  profileActivity: number | null;
+};
+
+export type InstagramDashboardTotals = {
+  followersTotal: number | null;
+  netFollowersGained: number | null;
+  followersGained: number | null;
+  unfollows: number | null;
+  reachTotal: number | null;
+  reachOrganic: number | null;
+  reachPaid: number | null;
+  impressionsTotal: number | null;
+  impressionsOrganic: number | null;
+  impressionsPaid: number | null;
+  accountsEngaged: number | null;
+  profileVisits: number | null;
+  websiteClicks: number | null;
+  totalInteractions: number | null;
+  engagementRate: number | null;
+  contentPublished: number | null;
+  paidSpend: number | null;
+  paidReach: number | null;
+  paidImpressions: number | null;
+  paidEngagements: number | null;
+  paidProfileVisits: number | null;
+  paidVideoViews: number | null;
+  paidWebsiteClicks: number | null;
+  paidFollowers: number | null;
+};
+
+export async function getInstagramDashboardData(rangeKey?: string, customStart?: string, customEnd?: string) {
+  const { supabase, profile, client, clients } = await getActiveClient();
+  const range = getDateRange(rangeKey, customStart, customEnd);
+
+  if (!client) {
+    const emptyTotals = emptyInstagramTotals();
+    return {
+      supabase,
+      profile,
+      client,
+      clients,
+      range,
+      account: null as SocialAccount | null,
+      daily: [] as SocialAccountDailyMetric[],
+      previousDaily: [] as SocialAccountDailyMetric[],
+      content: [] as InstagramContentSummary[],
+      paidRows: [] as SocialPaidDailyMetric[],
+      totals: emptyTotals,
+      previousTotals: emptyTotals,
+      status: queryStatus(null, 0),
+      lastUpdatedAt: null as string | null
+    };
+  }
+
+  const accountResult = await supabase
+    .from("social_accounts")
+    .select("id,client_id,platform,platform_account_id,username,display_name,profile_url,is_active,last_synced_at")
+    .eq("client_id", client.id)
+    .eq("platform", "instagram")
+    .eq("is_active", true)
+    .order("last_synced_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+
+  if (accountResult.error) {
+    const message = queryErrorMessage(accountResult.error);
+    const emptyTotals = emptyInstagramTotals();
+    return {
+      supabase,
+      profile,
+      client,
+      clients,
+      range,
+      account: null as SocialAccount | null,
+      daily: [] as SocialAccountDailyMetric[],
+      previousDaily: [] as SocialAccountDailyMetric[],
+      content: [] as InstagramContentSummary[],
+      paidRows: [] as SocialPaidDailyMetric[],
+      totals: emptyTotals,
+      previousTotals: emptyTotals,
+      status: queryStatus(message, 0),
+      lastUpdatedAt: null as string | null
+    };
+  }
+
+  const account = (accountResult.data?.[0] ?? null) as SocialAccount | null;
+  if (!account) {
+    const emptyTotals = emptyInstagramTotals();
+    return {
+      supabase,
+      profile,
+      client,
+      clients,
+      range,
+      account,
+      daily: [] as SocialAccountDailyMetric[],
+      previousDaily: [] as SocialAccountDailyMetric[],
+      content: [] as InstagramContentSummary[],
+      paidRows: [] as SocialPaidDailyMetric[],
+      totals: emptyTotals,
+      previousTotals: emptyTotals,
+      status: queryStatus(null, 0),
+      lastUpdatedAt: null as string | null
+    };
+  }
+
+  const [dailyResult, previousDailyResult, contentResult, contentMetricsResult, paidResult] = await Promise.all([
+    supabase
+      .from("social_account_daily_metrics")
+      .select("*")
+      .eq("social_account_id", account.id)
+      .gte("metric_date", range.start)
+      .lte("metric_date", range.end)
+      .order("metric_date"),
+    supabase
+      .from("social_account_daily_metrics")
+      .select("*")
+      .eq("social_account_id", account.id)
+      .gte("metric_date", range.previousStart)
+      .lte("metric_date", range.previousEnd)
+      .order("metric_date"),
+    supabase
+      .from("social_media_content")
+      .select("*")
+      .eq("social_account_id", account.id)
+      .lte("published_at", `${range.end}T23:59:59Z`)
+      .order("published_at", { ascending: false })
+      .limit(250),
+    supabase
+      .from("social_media_daily_metrics")
+      .select("*")
+      .eq("social_account_id", account.id)
+      .gte("metric_date", range.start)
+      .lte("metric_date", range.end),
+    supabase
+      .from("social_paid_daily_metrics")
+      .select("*")
+      .eq("client_id", client.id)
+      .gte("metric_date", range.start)
+      .lte("metric_date", range.end)
+      .order("metric_date")
+  ]);
+
+  const error = queryErrorMessage(dailyResult.error)
+    ?? queryErrorMessage(previousDailyResult.error)
+    ?? queryErrorMessage(contentResult.error)
+    ?? queryErrorMessage(contentMetricsResult.error)
+    ?? queryErrorMessage(paidResult.error);
+  const daily = error ? [] : (dailyResult.data ?? []) as SocialAccountDailyMetric[];
+  const previousDaily = error ? [] : (previousDailyResult.data ?? []) as SocialAccountDailyMetric[];
+  const contentRows = error ? [] : (contentResult.data ?? []) as SocialMediaContent[];
+  const contentMetricRows = error ? [] : (contentMetricsResult.data ?? []) as SocialMediaDailyMetric[];
+  const paidRows = error ? [] : (paidResult.data ?? []) as SocialPaidDailyMetric[];
+
+  const content = summarizeInstagramContent(contentRows, contentMetricRows);
+  const totals = summarizeInstagramTotals(daily, paidRows);
+  const previousTotals = summarizeInstagramTotals(previousDaily, []);
+  const lastUpdatedAt = [
+    account.last_synced_at,
+    ...daily.map((row: any) => row.updated_at),
+    ...contentRows.map((row: any) => row.updated_at),
+    ...paidRows.map((row: any) => row.updated_at)
+  ].filter(Boolean).sort().at(-1) ?? null;
+
+  return {
+    supabase,
+    profile,
+    client,
+    clients,
+    range,
+    account,
+    daily,
+    previousDaily,
+    content,
+    paidRows,
+    totals,
+    previousTotals,
+    status: queryStatus(error, daily.length + content.length + paidRows.length),
+    lastUpdatedAt
+  };
+}
+
+function emptyInstagramTotals(): InstagramDashboardTotals {
+  return {
+    followersTotal: null,
+    netFollowersGained: null,
+    followersGained: null,
+    unfollows: null,
+    reachTotal: null,
+    reachOrganic: null,
+    reachPaid: null,
+    impressionsTotal: null,
+    impressionsOrganic: null,
+    impressionsPaid: null,
+    accountsEngaged: null,
+    profileVisits: null,
+    websiteClicks: null,
+    totalInteractions: null,
+    engagementRate: null,
+    contentPublished: null,
+    paidSpend: null,
+    paidReach: null,
+    paidImpressions: null,
+    paidEngagements: null,
+    paidProfileVisits: null,
+    paidVideoViews: null,
+    paidWebsiteClicks: null,
+    paidFollowers: null
+  };
+}
+
+function sumMetricNullable<T>(rows: T[], getter: (row: T) => unknown) {
+  let found = false;
+  const total = rows.reduce((sum, row) => {
+    const value = nullableNumber(getter(row));
+    if (value === null) return sum;
+    found = true;
+    return sum + value;
+  }, 0);
+  return found ? total : null;
+}
+
+function latestMetricNullable<T>(rows: T[], getter: (row: T) => unknown) {
+  for (const row of [...rows].reverse()) {
+    const value = nullableNumber(getter(row));
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+function summarizeInstagramTotals(daily: SocialAccountDailyMetric[], paidRows: SocialPaidDailyMetric[]): InstagramDashboardTotals {
+  const followersTotal = latestMetricNullable(daily, (row) => row.followers_total);
+  const followersGained = sumMetricNullable(daily, (row) => row.followers_gained);
+  const unfollows = sumMetricNullable(daily, (row) => row.unfollows);
+  const netFromSource = sumMetricNullable(daily, (row) => row.net_follower_growth);
+  const netFollowersGained = netFromSource ?? (followersGained === null && unfollows === null ? null : (followersGained ?? 0) - (unfollows ?? 0));
+  const reachTotal = sumMetricNullable(daily, (row) => row.reach_total);
+  const totalInteractions = sumMetricNullable(daily, (row) => row.total_interactions);
+
+  return {
+    followersTotal,
+    netFollowersGained,
+    followersGained,
+    unfollows,
+    reachTotal,
+    reachOrganic: sumMetricNullable(daily, (row) => row.reach_organic),
+    reachPaid: sumMetricNullable(daily, (row) => row.reach_paid),
+    impressionsTotal: sumMetricNullable(daily, (row) => row.impressions_total),
+    impressionsOrganic: sumMetricNullable(daily, (row) => row.impressions_organic),
+    impressionsPaid: sumMetricNullable(daily, (row) => row.impressions_paid),
+    accountsEngaged: sumMetricNullable(daily, (row) => row.accounts_engaged),
+    profileVisits: sumMetricNullable(daily, (row) => row.profile_visits),
+    websiteClicks: sumMetricNullable(daily, (row) => row.website_clicks),
+    totalInteractions,
+    engagementRate: reachTotal && totalInteractions !== null ? totalInteractions / reachTotal : null,
+    contentPublished: sumMetricNullable(daily, (row) => row.content_published),
+    paidSpend: sumMetricNullable(paidRows, (row) => row.spend),
+    paidReach: sumMetricNullable(paidRows, (row) => row.reach),
+    paidImpressions: sumMetricNullable(paidRows, (row) => row.impressions),
+    paidEngagements: sumMetricNullable(paidRows, (row) => row.engagements),
+    paidProfileVisits: sumMetricNullable(paidRows, (row) => row.profile_visits),
+    paidVideoViews: sumMetricNullable(paidRows, (row) => row.video_views),
+    paidWebsiteClicks: sumMetricNullable(paidRows, (row) => row.inline_link_clicks ?? row.clicks),
+    paidFollowers: sumMetricNullable(paidRows, (row) => row.follows)
+  };
+}
+
+function summarizeInstagramContent(contentRows: SocialMediaContent[], metricRows: SocialMediaDailyMetric[]): InstagramContentSummary[] {
+  const metricsByContentId = new Map<string, SocialMediaDailyMetric[]>();
+  metricRows.forEach((row) => {
+    const rows = metricsByContentId.get(row.social_media_content_id) ?? [];
+    rows.push(row);
+    metricsByContentId.set(row.social_media_content_id, rows);
+  });
+
+  return contentRows.map((content) => {
+    const rows = metricsByContentId.get(content.id) ?? [];
+    const reachTotal = sumMetricNullable(rows, (row) => row.reach_total);
+    const totalInteractions = sumMetricNullable(rows, (row) => row.total_interactions);
+    return {
+      ...content,
+      reachTotal,
+      reachOrganic: sumMetricNullable(rows, (row) => row.reach_organic),
+      reachPaid: sumMetricNullable(rows, (row) => row.reach_paid),
+      impressionsTotal: sumMetricNullable(rows, (row) => row.impressions_total),
+      impressionsOrganic: sumMetricNullable(rows, (row) => row.impressions_organic),
+      impressionsPaid: sumMetricNullable(rows, (row) => row.impressions_paid),
+      likes: sumMetricNullable(rows, (row) => row.likes),
+      comments: sumMetricNullable(rows, (row) => row.comments),
+      shares: sumMetricNullable(rows, (row) => row.shares),
+      saves: sumMetricNullable(rows, (row) => row.saves),
+      totalInteractions,
+      engagementRate: firstNullableNumber(latestMetricNullable(rows, (row) => row.engagement_rate), reachTotal && totalInteractions !== null ? totalInteractions / reachTotal : null),
+      videoViews: sumMetricNullable(rows, (row) => row.video_views),
+      averageWatchTimeSeconds: latestMetricNullable(rows, (row) => row.average_watch_time_seconds),
+      profileActivity: sumMetricNullable(rows, (row) => row.profile_activity)
+    };
+  });
 }
 
 export async function getAdminData() {

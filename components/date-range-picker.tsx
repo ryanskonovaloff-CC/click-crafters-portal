@@ -8,11 +8,16 @@ import { cn } from "@/lib/utils";
 
 const presets: Array<{ key: DateRangeKey; label: string; compact?: string }> = [
   { key: "mtd", label: "Month to date", compact: "MTD" },
-  { key: "today", label: "Today" },
   { key: "yesterday", label: "Yesterday" },
-  { key: "last7", label: "Last 7 days", compact: "Last 7" },
+  { key: "last7", label: "Last 7 days", compact: "L7" },
+  { key: "last30", label: "Last 30 days" },
+  { key: "last90", label: "Last 90 days" },
+  { key: "last_month", label: "Last Month" },
   { key: "custom", label: "Custom range" }
 ];
+
+const quickPresetKeys = new Set<DateRangeKey>(["mtd", "yesterday", "last7", "last_month"]);
+const quickPresets = presets.filter((preset) => quickPresetKeys.has(preset.key));
 
 export function DateRangePicker({ range }: { range: DateRange }) {
   const router = useRouter();
@@ -38,6 +43,15 @@ export function DateRangePicker({ range }: { range: DateRange }) {
   function selectDraftRange(key: DateRangeKey) {
     setDraftKey(key);
     setOpen(true);
+  }
+
+  function applyQuickRange(key: DateRangeKey) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("range", key);
+    params.delete("start");
+    params.delete("end");
+    router.push(`${pathname}?${params.toString()}`);
+    setOpen(false);
   }
 
   function applyDraft() {
@@ -75,15 +89,15 @@ export function DateRangePicker({ range }: { range: DateRange }) {
           <span className="truncate">{label}</span>
           <ChevronDown size={15} className={cn("shrink-0 text-white/45 transition sm:size-4", open && "rotate-180")} />
         </button>
-        {presets.slice(0, 4).map((preset) => (
+        {quickPresets.map((preset) => (
           <button
             key={preset.key}
             type="button"
-            onClick={() => selectDraftRange(preset.key)}
+            onClick={() => applyQuickRange(preset.key)}
             className={cn(
               "border-r border-white/10 px-2.5 py-2 font-semibold text-white/48 transition last:border-r-0 hover:bg-white/[0.03] hover:text-white sm:px-3.5 sm:py-2.5",
               preset.key === "mtd" ? "basis-[58px] sm:basis-auto" : "flex-1 basis-1/3 sm:flex-none sm:basis-auto",
-              draftKey === preset.key && "bg-accent/15 text-accent"
+              range.key === preset.key && "bg-accent/15 text-accent"
             )}
           >
             {preset.compact ?? preset.label}

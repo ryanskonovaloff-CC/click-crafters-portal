@@ -1,12 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { getActiveClient, getSessionProfile } from "@/lib/data";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Role } from "@/lib/types";
 
 const clientRoles: Role[] = ["client_admin", "client_viewer"];
 const allowedRoles: Role[] = ["admin", ...clientRoles];
+const MIN_PASSWORD_LENGTH = 12;
 
 async function requireAdmin() {
   const { profile } = await getSessionProfile();
@@ -239,4 +241,36 @@ export async function removeUserAccess(formData: FormData) {
   }
 
   revalidatePath("/admin/users");
+}
+
+export async function resetUserPassword(formData: FormData) {
+  const userId = String(formData.get("userId") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+  if (!userId) {
+    throw new Error("Missing user ID.");
+  }
+
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+  }
+
+  if (password !== confirmPassword) {
+    throw new Error("Passwords do not match.");
+  }
+
+  await requireAdmin();
+
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(userId, {
+    password
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/admin/users");
+  redirect(`/admin/users?selected=${encodeURIComponent(userId)}&password=updated`);
 }

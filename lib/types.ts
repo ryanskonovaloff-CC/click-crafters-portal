@@ -75,7 +75,7 @@ export type AdLifetimePerformance = {
   source_updated_at: string | null;
 };
 
-export type DateRangeKey = "today" | "yesterday" | "last3" | "last7" | "last14" | "mtd" | "last30" | "last_month" | "custom";
+export type DateRangeKey = "today" | "yesterday" | "last3" | "last7" | "last14" | "mtd" | "last30" | "last90" | "last_month" | "custom";
 
 export type DateRange = {
   key: DateRangeKey;
@@ -107,6 +107,33 @@ export type SeoTotals = {
   technicalIssues: Array<string>;
 };
 
+export type GbpActivityTotals = {
+  newReviews: number | null;
+  fiveStarReviews: number | null;
+  averageRating: number | null;
+  totalReviews: number | null;
+  profileViews: number | null;
+  websiteClicks: number | null;
+  phoneCalls: number | null;
+  directionRequests: number | null;
+  foodOrders: number | null;
+};
+
+export type GbpReview = {
+  date: string;
+  rating: number;
+  author: string | null;
+  text: string | null;
+  source: string | null;
+};
+
+export type GbpActivityStatus = {
+  source: string | null;
+  status: string | null;
+  accessBlocker: string | null;
+  latestActivityAt: string | null;
+};
+
 export type SeoTechnicalIssue = {
   id: string;
   detected_date: string;
@@ -122,6 +149,94 @@ export type SeoTechnicalIssue = {
 export type DashboardQueryStatus = {
   error: string | null;
   isEmpty: boolean;
+};
+
+export type SocialAccount = {
+  id: string;
+  client_id: string;
+  platform: string;
+  platform_account_id: string;
+  username: string | null;
+  display_name: string | null;
+  profile_url: string | null;
+  is_active: boolean;
+  last_synced_at: string | null;
+};
+
+export type SocialAccountDailyMetric = {
+  social_account_id: string;
+  metric_date: string;
+  followers_total: number | null;
+  followers_gained: number | null;
+  unfollows: number | null;
+  net_follower_growth: number | null;
+  reach_total: number | null;
+  reach_organic: number | null;
+  reach_paid: number | null;
+  impressions_total: number | null;
+  impressions_organic: number | null;
+  impressions_paid: number | null;
+  accounts_engaged: number | null;
+  profile_visits: number | null;
+  website_clicks: number | null;
+  total_interactions: number | null;
+  content_published: number | null;
+};
+
+export type SocialMediaContent = {
+  id: string;
+  social_account_id: string;
+  platform_media_id: string;
+  media_type: string | null;
+  caption: string | null;
+  media_url: string | null;
+  thumbnail_url: string | null;
+  permalink: string | null;
+  published_at: string | null;
+};
+
+export type SocialMediaDailyMetric = {
+  social_media_content_id: string;
+  metric_date: string;
+  reach_total: number | null;
+  reach_organic: number | null;
+  reach_paid: number | null;
+  impressions_total: number | null;
+  impressions_organic: number | null;
+  impressions_paid: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  saves: number | null;
+  total_interactions: number | null;
+  engagement_rate: number | null;
+  video_views: number | null;
+  average_watch_time_seconds: number | null;
+  profile_activity: number | null;
+};
+
+export type SocialPaidDailyMetric = {
+  id: string;
+  client_id: string;
+  metric_date: string;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  adset_id: string | null;
+  adset_name: string | null;
+  ad_id: string | null;
+  ad_name: string | null;
+  placement: string | null;
+  spend: number;
+  reach: number | null;
+  impressions: number | null;
+  clicks: number | null;
+  inline_link_clicks: number | null;
+  video_views: number | null;
+  engagements: number | null;
+  profile_visits: number | null;
+  follows: number | null;
+  conversions: number | null;
+  conversion_value: number | null;
 };
 
 export type ReportStatus = "draft" | "published" | "archived";

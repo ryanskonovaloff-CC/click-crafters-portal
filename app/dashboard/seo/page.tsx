@@ -1,6 +1,8 @@
 import { DateRangePicker } from "@/components/date-range-picker";
+import { ClientSwitcher } from "@/components/client-switcher";
 import { AccentText, Badge, Card, ClientPageTitle, EmptyState, MetricGrid, StatCard, Table } from "@/components/ui";
 import { clientLogoSrc } from "@/lib/client-branding";
+import { getClientReportingConfig } from "@/lib/client-reporting-config";
 import { getSeoDashboardData, percentChange } from "@/lib/data";
 import { compact, pct } from "@/lib/utils";
 
@@ -11,19 +13,23 @@ type PageProps = {
 export default async function SeoPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const compare = params?.compare === "previous";
-  const { client, range, totals, previousTotals, topQueries, topPages, status } = await getSeoDashboardData(params?.range, params?.start, params?.end);
+  const { profile, client, clients, range, totals, previousTotals, topQueries, topPages, gbpTotals, gbpReviews, gbpStatus, status } = await getSeoDashboardData(params?.range, params?.start, params?.end);
+  const reportingConfig = getClientReportingConfig(client);
   const hasData = !status.error && !status.isEmpty;
   const tileState = status.error ? "error" : hasData ? "ready" : "empty";
   const outboundClickRate = totals.organicClicks && totals.outboundClicks !== null ? totals.outboundClicks / totals.organicClicks : null;
   const previousOutboundClickRate = previousTotals.organicClicks && previousTotals.outboundClicks !== null ? previousTotals.outboundClicks / previousTotals.organicClicks : null;
   const opportunities = organicOpportunities(topQueries, topPages);
-  const logoSrc = clientLogoSrc(client?.name);
+  const logoSrc = clientLogoSrc(client);
 
   return (
     <div className="mx-auto min-w-0 max-w-7xl space-y-4 sm:space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
-          <Badge>Organic visibility</Badge>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <Badge>Organic visibility</Badge>
+            <ClientSwitcher currentClient={client} clients={clients} profile={profile} variant="badge" />
+          </div>
           <ClientPageTitle logoSrc={logoSrc} logoAlt={client?.name ?? undefined}><AccentText>SEO</AccentText> Dashboard</ClientPageTitle>
           <p className="mt-1.5 text-xs text-white/50 sm:mt-2 sm:text-sm">{range.label}</p>
         </div>
@@ -42,6 +48,58 @@ export default async function SeoPage({ searchParams }: PageProps) {
       </MetricGrid>
 
       {status.error ? <Card className="border-red-400/30 text-sm text-red-100/80">Unable to load SEO data: {status.error}</Card> : null}
+
+      {reportingConfig.showGoogleBusinessProfile ? <Card>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold sm:text-lg"><AccentText>Local reviews</AccentText> and GBP activity</h2>
+            <p className="mt-1 text-sm leading-5 text-white/50">Google Business Profile signals for reviews, calls, directions, website clicks, and orders.</p>
+          </div>
+          {gbpStatus.status ? <Badge className={gbpStatus.status === "blocked" ? "border-amber-400/30 text-amber-100/80" : undefined}>{humanize(gbpStatus.status)}</Badge> : null}
+        </div>
+
+        <MetricGrid className="mt-4 xl:grid-cols-5">
+          <StatCard label={<AccentText>New reviews</AccentText>} value={formatNumber(gbpTotals.newReviews)} state={status.error ? "error" : gbpTotals.newReviews === null ? "empty" : "ready"} />
+          <StatCard label={<AccentText>5-star reviews</AccentText>} value={formatNumber(gbpTotals.fiveStarReviews)} state={status.error ? "error" : gbpTotals.fiveStarReviews === null ? "empty" : "ready"} />
+          <StatCard label={<AccentText>Average rating</AccentText>} value={formatRating(gbpTotals.averageRating)} state={status.error ? "error" : gbpTotals.averageRating === null ? "empty" : "ready"} />
+          <StatCard label={<AccentText>Direction requests</AccentText>} value={formatNumber(gbpTotals.directionRequests)} state={status.error ? "error" : gbpTotals.directionRequests === null ? "empty" : "ready"} />
+          <StatCard label={<AccentText>Phone calls</AccentText>} value={formatNumber(gbpTotals.phoneCalls)} state={status.error ? "error" : gbpTotals.phoneCalls === null ? "empty" : "ready"} />
+        </MetricGrid>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-white/80">Latest reviews</h3>
+            {gbpReviews.length > 0 ? (
+              <Table headers={["Date", "Rating", "Reviewer", "Review"]} rows={gbpReviews.map((review) => [
+                formatActivityDate(review.date),
+                `${review.rating.toFixed(0)} stars`,
+                review.author ?? "Google reviewer",
+                review.text ?? "Review text not available"
+              ])} />
+            ) : (
+              <EmptyState>No GBP reviews have been added for this date range yet.</EmptyState>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+            <h3 className="text-sm font-semibold text-white/80">GBP access status</h3>
+            <dl className="mt-3 space-y-3 text-sm leading-5">
+              <div>
+                <dt className="text-white/45">Source</dt>
+                <dd className="mt-1 text-white/75">{gbpStatus.source ? humanize(gbpStatus.source) : "Not connected"}</dd>
+              </div>
+              <div>
+                <dt className="text-white/45">Status</dt>
+                <dd className="mt-1 text-white/75">{gbpStatus.status ? humanize(gbpStatus.status) : "Waiting for data"}</dd>
+              </div>
+              <div>
+                <dt className="text-white/45">Blocker</dt>
+                <dd className="mt-1 text-white/75">{gbpStatus.accessBlocker ?? "No blocker recorded."}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </Card> : null}
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card>
@@ -203,6 +261,18 @@ function trendHelper(change: number | null) {
 
 function formatNumber(value: number | null) {
   return value === null ? "Not available" : compact.format(value);
+}
+
+function formatRating(value: number | null) {
+  return value === null ? "Not available" : `${value.toFixed(1)} stars`;
+}
+
+function formatActivityDate(value: string) {
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+}
+
+function humanize(value: string) {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function signalText({ clicks, impressions, ctr, position, outboundClicks, outboundRate }: {

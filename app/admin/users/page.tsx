@@ -1,17 +1,19 @@
 import Link from "next/link";
 import { AccentText, Badge, Card, Table } from "@/components/ui";
 import { getAdminData } from "@/lib/data";
-import { removeUserAccess, saveUserAccess, updateUserAccess } from "./actions";
+import { removeUserAccess, resetUserPassword, saveUserAccess, updateUserAccess } from "./actions";
 import { ConfirmRemoveButton } from "./confirm-remove-button";
+import { ResetPasswordButton } from "./reset-password-button";
 
 type PageProps = {
-  searchParams?: Promise<{ selected?: string }>;
+  searchParams?: Promise<{ selected?: string; password?: string }>;
 };
 
 export default async function AdminUsersPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const { profiles, clients, clientUsers, authUsers, profile: currentProfile } = await getAdminData();
   const selectedUserId = params?.selected ?? null;
+  const passwordUpdated = params?.password === "updated";
   const authById = authUsers.reduce<Record<string, any>>((acc: Record<string, any>, user: any) => {
     acc[user.id] = user;
     return acc;
@@ -75,6 +77,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
           clients={clients}
           isSelf={currentProfile.id === selectedProfile.id}
           canManagePortalAdmins={currentProfile.role === "admin"}
+          passwordUpdated={passwordUpdated}
         />
       ) : null}
 
@@ -104,13 +107,14 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   );
 }
 
-function ManageUserCard({ profile, authUser, assignments, clients, isSelf, canManagePortalAdmins }: {
+function ManageUserCard({ profile, authUser, assignments, clients, isSelf, canManagePortalAdmins, passwordUpdated }: {
   profile: any;
   authUser: any;
   assignments: Array<{ id: string; name: string }>;
   clients: any[];
   isSelf: boolean;
   canManagePortalAdmins: boolean;
+  passwordUpdated: boolean;
 }) {
   const selectedClientId = assignments[0]?.id ?? "";
 
@@ -122,6 +126,7 @@ function ManageUserCard({ profile, authUser, assignments, clients, isSelf, canMa
           <h2 className="mt-2 text-xl font-semibold">{profile.full_name ?? profile.email}</h2>
           <p className="mt-1 text-sm text-white/50">{profile.email}</p>
           <p className="mt-2 text-xs text-white/45">Last visited: {formatDateTime(profile.last_seen_at)} · Last login: {formatDateTime(authUser?.last_sign_in_at)}</p>
+          {passwordUpdated ? <p className="mt-3 rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-100/80">Password reset successfully.</p> : null}
         </div>
         <Link href="/admin/users" className="text-sm text-white/50 transition hover:text-white">Clear selection</Link>
       </div>
@@ -155,6 +160,26 @@ function ManageUserCard({ profile, authUser, assignments, clients, isSelf, canMa
           <ConfirmRemoveButton disabled={isSelf} userLabel={profile.full_name ?? profile.email} />
         </form>
       </div>
+
+      {canManagePortalAdmins ? (
+        <form action={resetUserPassword} className="mt-5 border-t border-white/10 pt-5">
+          <input type="hidden" name="userId" value={profile.id} />
+          <div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
+            <label className="space-y-1.5">
+              <span className="text-xs uppercase tracking-[0.08em] text-white/45">Temporary password</span>
+              <input name="password" type="password" minLength={12} required className="h-11 w-full rounded-lg border border-border bg-black/25 px-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-accent/70" placeholder="Minimum 12 characters" />
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-xs uppercase tracking-[0.08em] text-white/45">Confirm password</span>
+              <input name="confirmPassword" type="password" minLength={12} required className="h-11 w-full rounded-lg border border-border bg-black/25 px-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-accent/70" placeholder="Re-enter password" />
+            </label>
+            <div className="flex items-end">
+              <ResetPasswordButton userLabel={profile.full_name ?? profile.email} />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-white/45">This sets a new password directly in Supabase Auth. Share it securely and have the user change it after signing in.</p>
+        </form>
+      ) : null}
     </Card>
   );
 }

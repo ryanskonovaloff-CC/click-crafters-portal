@@ -1,0 +1,481 @@
+{
+  "name": "Google Business Profile Activity - Press Burger Portal",
+  "nodes": [
+    {
+      "id": "3b5c37d5-3fbf-420b-9797-2b412741ca70",
+      "name": "Schedule Trigger - Daily 7 AM Pacific",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        360
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ac9882db-6c3c-4a28-b636-22a9fc802e68",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        560
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "b9382bf0-d74e-4fd4-9dde-a4920d401e31",
+      "name": "Pipeline Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        460
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e88634be-9cc3-465e-b3cd-c13b17695569",
+              "name": "client_id",
+              "type": "string",
+              "value": "11111111-1111-4111-8111-111111111111"
+            },
+            {
+              "id": "0965b3fc-4901-4387-a5a1-e7cbf374e5cf",
+              "name": "client_name",
+              "type": "string",
+              "value": "Press Burger"
+            },
+            {
+              "id": "edc21caf-8a94-46d9-b3b7-eebe35c9468f",
+              "name": "location_match_text",
+              "type": "string",
+              "value": "press burger"
+            },
+            {
+              "id": "8165c0ac-410b-41f0-a7f2-f14f7c03dcb9",
+              "name": "timezone",
+              "type": "string",
+              "value": "America/Los_Angeles"
+            },
+            {
+              "id": "42bb0354-47f5-4f50-bd6b-aab311dc3968",
+              "name": "sync_lag_days",
+              "type": "number",
+              "value": 1
+            },
+            {
+              "id": "ced05533-c908-4364-836e-dc09e29df644",
+              "name": "supabase_url",
+              "type": "string",
+              "value": "https://kzeriuptbrjcplflzyaz.supabase.co"
+            },
+            {
+              "id": "0dae4c3f-9765-488f-a67f-6afefc612a73",
+              "name": "supabase_service_role_key",
+              "type": "string",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "0e9a8309-eeae-4d38-8654-9a7f25b4cba8",
+      "name": "Calculate Sync Date",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        460
+      ],
+      "parameters": {
+        "jsCode": "const cfg = { ...$json };\nconst zone = cfg.timezone || 'America/Los_Angeles';\nconst lagDays = Number(cfg.sync_lag_days ?? 1);\nconst target = $now.setZone(zone).minus({ days: lagDays });\nreturn [{\n  json: {\n    ...cfg,\n    target_date: target.toFormat('yyyy-MM-dd'),\n    target_year: Number(target.toFormat('yyyy')),\n    target_month: Number(target.toFormat('M')),\n    target_day: Number(target.toFormat('d')),\n    updated_at: new Date().toISOString()\n  }\n}];"
+      }
+    },
+    {
+      "id": "252a88bb-5feb-49d3-b1fe-42c07aee484b",
+      "name": "GBP - List Accounts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        460
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "REPLACE_WITH_GOOGLE_GBP_OAUTH2_CREDENTIAL_ID",
+          "name": "Google Business Profile OAuth2"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "378a7da6-4f48-4bbc-b417-b04e0f2f584b",
+      "name": "Build Location Requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        460
+      ],
+      "parameters": {
+        "jsCode": "const cfg = $('Calculate Sync Date').first().json;\nconst accounts = $json.accounts || [];\nif (!accounts.length) {\n  return [{ json: { ...cfg, error: 'No Google Business Profile accounts returned for this OAuth user.' } }];\n}\nreturn accounts.map((account) => ({\n  json: {\n    ...cfg,\n    account_name: account.name,\n    account_id: String(account.name || '').replace('accounts/', ''),\n    account_display_name: account.accountName || account.name,\n    locations_url: 'https://mybusinessbusinessinformation.googleapis.com/v1/' + account.name + '/locations?readMask=name,title,storeCode,metadata,phoneNumbers,websiteUri&filter=openInfo.status=OPEN'\n  }\n}));"
+      }
+    },
+    {
+      "id": "5692e93d-6845-487a-93cf-c93d06143acb",
+      "name": "GBP - List Locations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        460
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "REPLACE_WITH_GOOGLE_GBP_OAUTH2_CREDENTIAL_ID",
+          "name": "Google Business Profile OAuth2"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.locations_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "b6cf407c-652a-4f8f-b966-0658af5c7c31",
+      "name": "Select Press Burger Location",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        460
+      ],
+      "parameters": {
+        "jsCode": "const accountItems = $('Build Location Requests').all();\nconst locationItems = $input.all();\nconst cfg = $('Calculate Sync Date').first().json;\nconst needle = String(cfg.location_match_text || cfg.client_name || '').toLowerCase();\nconst candidates = [];\nfor (let i = 0; i < locationItems.length; i++) {\n  const source = accountItems[i]?.json || {};\n  const locations = locationItems[i].json.locations || [];\n  for (const location of locations) {\n    const title = String(location.title || '').toLowerCase();\n    const storeCode = String(location.storeCode || '').toLowerCase();\n    if (!needle || title.includes(needle) || storeCode.includes(needle)) {\n      candidates.push({ source, location });\n    }\n  }\n}\nif (!candidates.length) {\n  return [{ json: { ...cfg, error: 'No GBP location matched ' + needle + '. Confirm the OAuth user has manager access to Press Burger.' } }];\n}\nconst { source, location } = candidates[0];\nconst locationName = location.name;\nconst locationId = String(locationName || '').replace('locations/', '');\nreturn [{\n  json: {\n    ...cfg,\n    account_name: source.account_name,\n    account_id: source.account_id,\n    account_display_name: source.account_display_name,\n    location_name: locationName,\n    location_id: locationId,\n    business_profile_name: location.title || cfg.client_name,\n    reviews_url: 'https://mybusiness.googleapis.com/v4/' + source.account_name + '/' + locationName + '/reviews?pageSize=50&orderBy=updateTime%20desc',\n    performance_url: 'https://businessprofileperformance.googleapis.com/v1/' + locationName + ':fetchMultiDailyMetricsTimeSeries'\n      + '?dailyMetrics=BUSINESS_IMPRESSIONS_DESKTOP_MAPS'\n      + '&dailyMetrics=BUSINESS_IMPRESSIONS_DESKTOP_SEARCH'\n      + '&dailyMetrics=BUSINESS_IMPRESSIONS_MOBILE_MAPS'\n      + '&dailyMetrics=BUSINESS_IMPRESSIONS_MOBILE_SEARCH'\n      + '&dailyMetrics=BUSINESS_DIRECTION_REQUESTS'\n      + '&dailyMetrics=CALL_CLICKS'\n      + '&dailyMetrics=WEBSITE_CLICKS'\n      + '&dailyMetrics=BUSINESS_FOOD_ORDERS'\n      + '&dailyRange.start_date.year=' + cfg.target_year\n      + '&dailyRange.start_date.month=' + cfg.target_month\n      + '&dailyRange.start_date.day=' + cfg.target_day\n      + '&dailyRange.end_date.year=' + cfg.target_year\n      + '&dailyRange.end_date.month=' + cfg.target_month\n      + '&dailyRange.end_date.day=' + cfg.target_day\n  }\n}];"
+      }
+    },
+    {
+      "id": "b174884c-5bdd-43bc-9ffa-d7242dc1eec2",
+      "name": "GBP - Fetch Reviews",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        340
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "REPLACE_WITH_GOOGLE_GBP_OAUTH2_CREDENTIAL_ID",
+          "name": "Google Business Profile OAuth2"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.reviews_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ed65fabb-1330-4997-9e52-f1cddec37b41",
+      "name": "GBP - Fetch Performance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        580
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "REPLACE_WITH_GOOGLE_GBP_OAUTH2_CREDENTIAL_ID",
+          "name": "Google Business Profile OAuth2"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.performance_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "c87a6463-7b51-4e10-9393-a5ca0270e14a",
+      "name": "Normalize GBP Activity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        460
+      ],
+      "parameters": {
+        "jsCode": "const ctx = $('Select Press Burger Location').first().json;\nif (ctx.error) return [{ json: { ...ctx, ok: false, errors: [ctx.error] } }];\nconst reviewsResponse = $('GBP - Fetch Reviews').first().json || {};\nconst performanceResponse = $('GBP - Fetch Performance').first().json || {};\nconst targetDate = ctx.target_date;\nconst reviews = reviewsResponse.reviews || [];\nconst ratingMap = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };\nfunction ratingValue(value) {\n  if (typeof value === 'number') return value;\n  return ratingMap[String(value || '').toUpperCase()] || null;\n}\nfunction dateOnly(value) {\n  return value ? String(value).slice(0, 10) : null;\n}\nconst targetReviews = reviews.filter((review) => dateOnly(review.createTime || review.updateTime) === targetDate);\nconst fiveStarReviews = targetReviews.filter((review) => ratingValue(review.starRating) === 5).length;\nconst latestReview = reviews[0] || null;\nfunction metricValue(metric) {\n  const groups = performanceResponse.multiDailyMetricTimeSeries || [];\n  let total = 0;\n  let found = false;\n  for (const group of groups) {\n    const seriesList = group.dailyMetricTimeSeries || [];\n    for (const series of seriesList) {\n      if (series.dailyMetric !== metric) continue;\n      const datedValues = series.timeSeries?.datedValues || series.timeSeries?.dated_values || [];\n      for (const point of datedValues) {\n        const pointDate = point.date ? [point.date.year, String(point.date.month).padStart(2, '0'), String(point.date.day).padStart(2, '0')].join('-') : null;\n        if (pointDate && pointDate !== targetDate) continue;\n        const value = Number(point.value || 0);\n        if (Number.isFinite(value)) {\n          total += value;\n          found = true;\n        }\n      }\n    }\n  }\n  return found ? total : null;\n}\nconst desktopMaps = metricValue('BUSINESS_IMPRESSIONS_DESKTOP_MAPS');\nconst desktopSearch = metricValue('BUSINESS_IMPRESSIONS_DESKTOP_SEARCH');\nconst mobileMaps = metricValue('BUSINESS_IMPRESSIONS_MOBILE_MAPS');\nconst mobileSearch = metricValue('BUSINESS_IMPRESSIONS_MOBILE_SEARCH');\nconst searchViews = [desktopSearch, mobileSearch].some((v) => v !== null) ? Number(desktopSearch || 0) + Number(mobileSearch || 0) : null;\nconst mapViews = [desktopMaps, mobileMaps].some((v) => v !== null) ? Number(desktopMaps || 0) + Number(mobileMaps || 0) : null;\nconst profileViews = [searchViews, mapViews].some((v) => v !== null) ? Number(searchViews || 0) + Number(mapViews || 0) : null;\nconst row = {\n  client_id: ctx.client_id,\n  date: targetDate,\n  business_profile_name: ctx.business_profile_name,\n  source: 'google_business_profile_api',\n  status: 'live',\n  access_blocker: null,\n  new_reviews: targetReviews.length,\n  five_star_reviews: fiveStarReviews,\n  total_reviews: reviewsResponse.totalReviewCount ?? null,\n  average_rating: reviewsResponse.averageRating ?? null,\n  profile_views: profileViews,\n  search_views: searchViews,\n  map_views: mapViews,\n  website_clicks: metricValue('WEBSITE_CLICKS'),\n  phone_calls: metricValue('CALL_CLICKS'),\n  direction_requests: metricValue('BUSINESS_DIRECTION_REQUESTS'),\n  food_orders: metricValue('BUSINESS_FOOD_ORDERS'),\n  latest_review_rating: latestReview ? ratingValue(latestReview.starRating) : null,\n  latest_review_author: latestReview?.reviewer?.displayName || null,\n  latest_review_text: latestReview?.comment || null,\n  latest_review_at: latestReview?.updateTime || latestReview?.createTime || null,\n  notes: 'Synced from Google Business Profile API by n8n.',\n  raw_payload: {\n    account_name: ctx.account_name,\n    location_name: ctx.location_name,\n    location_id: ctx.location_id,\n    reviews_sample_count: reviews.length,\n    performance: performanceResponse\n  },\n  updated_at: ctx.updated_at\n};\nreturn [{ json: { ...ctx, ok: true, row } }];"
+      }
+    },
+    {
+      "id": "0194d797-cdbd-4194-b9b8-8f0e89070028",
+      "name": "Supabase Upsert - gbp_activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2340,
+        460
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Calculate Sync Date').first().json.supabase_url + '/rest/v1/gbp_activity?on_conflict=client_id,date,business_profile_name' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Calculate Sync Date').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Calculate Sync Date').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ [$(\"Normalize GBP Activity\").first().json.row] }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ead953a1-0dfc-4bd7-9d01-8dfa94f84bb7",
+      "name": "Build Run Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2600,
+        460
+      ],
+      "parameters": {
+        "jsCode": "const data = $('Normalize GBP Activity').first().json;\nconst upsert = $('Supabase Upsert - gbp_activity').first().json;\nreturn [{ json: {\n  ok: true,\n  client_name: data.client_name,\n  date: data.target_date,\n  location: data.business_profile_name,\n  row: data.row,\n  supabase_response: upsert,\n  message: 'GBP activity sync completed for ' + data.client_name + ' on ' + data.target_date\n} }];"
+      }
+    },
+    {
+      "id": "abb5547c-27c7-4e70-b78a-968faee456b2",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        520,
+        40
+      ],
+      "parameters": {
+        "width": 780,
+        "height": 220,
+        "content": "Workflow: Google Business Profile Activity - Press Burger Portal\n\nBefore activating:\n1. Apply supabase/migrations/20260603000100_create_gbp_activity.sql in Supabase.\n2. Create an n8n generic OAuth2 credential named Google Business Profile OAuth2.\n3. OAuth scope: https://www.googleapis.com/auth/business.manage\n4. Redirect URI in Google Cloud must match your n8n OAuth callback URL.\n5. The Google user authorizing OAuth must be Manager/Owner on Press Burger GBP."
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - Daily 7 AM Pacific": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pipeline Config": {
+      "main": [
+        [
+          {
+            "node": "Calculate Sync Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Sync Date": {
+      "main": [
+        [
+          {
+            "node": "GBP - List Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GBP - List Accounts": {
+      "main": [
+        [
+          {
+            "node": "Build Location Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Location Requests": {
+      "main": [
+        [
+          {
+            "node": "GBP - List Locations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GBP - List Locations": {
+      "main": [
+        [
+          {
+            "node": "Select Press Burger Location",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Press Burger Location": {
+      "main": [
+        [
+          {
+            "node": "GBP - Fetch Reviews",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GBP - Fetch Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GBP - Fetch Reviews": {
+      "main": [
+        [
+          {
+            "node": "Normalize GBP Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GBP - Fetch Performance": {
+      "main": [
+        [
+          {
+            "node": "Normalize GBP Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize GBP Activity": {
+      "main": [
+        [
+          {
+            "node": "Supabase Upsert - gbp_activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Upsert - gbp_activity": {
+      "main": [
+        [
+          {
+            "node": "Build Run Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Los_Angeles"
+  },
+  "staticData": null,
+  "tags": []
+}
