@@ -74,14 +74,22 @@ export function MetricGrid({ children, className }: { children: ReactNode; class
   );
 }
 
-export function Table({ headers, rows }: { headers: string[]; rows: Array<Array<ReactNode>> }) {
+export function Table({ headers, rows, stickyHeader = false }: { headers: string[]; rows: Array<Array<ReactNode>>; stickyHeader?: boolean }) {
   return (
     <div className="w-full max-w-full overflow-x-auto">
       <table className="w-full min-w-[560px] border-collapse text-left text-sm sm:min-w-[680px]">
         <thead>
           <tr className="border-b border-border text-xs uppercase tracking-[0.08em] text-white/50">
             {headers.map((header) => (
-              <th key={header} className="py-3 pr-4 font-medium">{header}</th>
+              <th
+                key={header}
+                className={cn(
+                  "py-3 pr-4 font-medium",
+                  stickyHeader && "sticky top-0 z-10 bg-[#1a1715] shadow-[0_1px_0_rgba(255,255,255,0.1)]"
+                )}
+              >
+                {header}
+              </th>
             ))}
           </tr>
         </thead>

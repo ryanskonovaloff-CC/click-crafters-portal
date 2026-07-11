@@ -146,6 +146,104 @@ export type SeoTechnicalIssue = {
   source: string | null;
 };
 
+export type SocialAccount = {
+  id: string;
+  client_id: string;
+  platform: "instagram";
+  platform_account_id: string;
+  username: string | null;
+  display_name: string | null;
+  profile_url: string | null;
+  is_active: boolean;
+  last_synced_at: string | null;
+};
+
+export type SocialAccountDailyMetric = {
+  id: string;
+  social_account_id: string;
+  client_id: string;
+  metric_date: string;
+  followers_total: number | null;
+  followers_gained: number | null;
+  unfollows: number | null;
+  net_follower_growth: number | null;
+  reach_total: number | null;
+  reach_organic: number | null;
+  reach_paid: number | null;
+  impressions_total: number | null;
+  impressions_organic: number | null;
+  impressions_paid: number | null;
+  accounts_engaged: number | null;
+  profile_visits: number | null;
+  website_clicks: number | null;
+  total_interactions: number | null;
+  content_published: number | null;
+};
+
+export type SocialMediaContent = {
+  id: string;
+  social_account_id: string;
+  client_id: string;
+  platform_media_id: string;
+  media_type: string | null;
+  caption: string | null;
+  media_url: string | null;
+  thumbnail_url: string | null;
+  permalink: string | null;
+  published_at: string | null;
+};
+
+export type SocialMediaDailyMetric = {
+  id: string;
+  social_media_content_id: string;
+  social_account_id: string;
+  client_id: string;
+  metric_date: string;
+  reach_total: number | null;
+  reach_organic: number | null;
+  reach_paid: number | null;
+  impressions_total: number | null;
+  impressions_organic: number | null;
+  impressions_paid: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  saves: number | null;
+  total_interactions: number | null;
+  engagement_rate: number | null;
+  video_views: number | null;
+  average_watch_time_seconds: number | null;
+  profile_activity: number | null;
+};
+
+export type SocialPaidDailyMetric = {
+  id: string;
+  client_id: string;
+  metric_date: string;
+  source_platform: string;
+  publisher_platform: string;
+  platform_position: string | null;
+  placement: string | null;
+  placement_key: string;
+  campaign_id: string;
+  campaign_name: string | null;
+  adset_id: string;
+  adset_name: string | null;
+  ad_id: string;
+  ad_name: string | null;
+  spend: number;
+  reach: number | null;
+  impressions: number | null;
+  clicks: number | null;
+  inline_link_clicks: number | null;
+  video_views: number | null;
+  engagements: number | null;
+  profile_visits: number | null;
+  follows: number | null;
+  conversions: number | null;
+  conversion_value: number | null;
+};
+
 export type DashboardQueryStatus = {
   error: string | null;
   isEmpty: boolean;

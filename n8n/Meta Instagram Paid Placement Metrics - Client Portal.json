@@ -1,0 +1,319 @@
+{
+  "name": "Meta Instagram Paid Placement Metrics - Client Portal",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger-18e5e8a2",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "20 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger-daily-6-20-am-p-71351988",
+      "name": "Schedule Trigger - Daily 6:20 AM Pacific",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -260,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "content": "META INSTAGRAM PAID PLACEMENT METRICS\n\n1. Replace Pipeline Config placeholders.\n2. Use a valid Meta ad account ID like act_123.\n3. This stores only publisher_platform=instagram rows into social_paid_daily_metrics.\n4. Run manually first, then activate once rows appear in Supabase.",
+        "height": 260,
+        "width": 520,
+        "color": 4
+      },
+      "id": "setup-notes-50203ce2",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "client_id",
+              "name": "client_id",
+              "value": "11111111-1111-4111-8111-111111111111",
+              "type": "string"
+            },
+            {
+              "id": "client_name",
+              "name": "client_name",
+              "value": "Press Burger",
+              "type": "string"
+            },
+            {
+              "id": "timezone",
+              "name": "timezone",
+              "value": "America/Los_Angeles",
+              "type": "string"
+            },
+            {
+              "id": "date_start",
+              "name": "date_start",
+              "value": "={{ $now.setZone('America/Los_Angeles').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}",
+              "type": "string"
+            },
+            {
+              "id": "date_end",
+              "name": "date_end",
+              "value": "={{ $now.setZone('America/Los_Angeles').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}",
+              "type": "string"
+            },
+            {
+              "id": "supabase_url",
+              "name": "supabase_url",
+              "value": "REPLACE_WITH_SUPABASE_URL",
+              "type": "string"
+            },
+            {
+              "id": "supabase_service_role_key",
+              "name": "supabase_service_role_key",
+              "value": "REPLACE_WITH_SUPABASE_SERVICE_ROLE_KEY",
+              "type": "string"
+            },
+            {
+              "id": "graph_api_version",
+              "name": "graph_api_version",
+              "value": "v25.0",
+              "type": "string"
+            },
+            {
+              "id": "meta_access_token",
+              "name": "meta_access_token",
+              "value": "REPLACE_WITH_META_ACCESS_TOKEN",
+              "type": "string"
+            },
+            {
+              "id": "instagram_business_account_id",
+              "name": "instagram_business_account_id",
+              "value": "REPLACE_WITH_INSTAGRAM_BUSINESS_ACCOUNT_ID",
+              "type": "string"
+            },
+            {
+              "id": "meta_ad_account_id",
+              "name": "meta_ad_account_id",
+              "value": "act_REPLACE_WITH_META_AD_ACCOUNT_ID",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "pipeline-config-1bc8f580",
+      "name": "Pipeline Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        170
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://graph.facebook.com/' + $('Pipeline Config').first().json.graph_api_version + '/' + $('Pipeline Config').first().json.meta_ad_account_id + '/insights' }}",
+        "authentication": "none",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "date_start,date_stop,campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,reach,impressions,clicks,inline_link_clicks,actions,action_values"
+            },
+            {
+              "name": "level",
+              "value": "ad"
+            },
+            {
+              "name": "time_increment",
+              "value": "1"
+            },
+            {
+              "name": "breakdowns",
+              "value": "publisher_platform,platform_position"
+            },
+            {
+              "name": "time_range",
+              "value": "={{ JSON.stringify({ since: $('Pipeline Config').first().json.date_start, until: $('Pipeline Config').first().json.date_end }) }}"
+            },
+            {
+              "name": "limit",
+              "value": "500"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $('Pipeline Config').first().json.meta_access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "meta-insights-instagram-paid-dai-4d097510",
+      "name": "Meta Insights - Instagram Paid Daily",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        170
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Pipeline Config').first().json;\nconst payload = $input.first().json || {};\nconst now = new Date().toISOString();\nfunction num(v) { const n = Number(v || 0); return Number.isFinite(n) ? n : 0; }\nfunction actionValue(actions, names) {\n  if (!Array.isArray(actions)) return 0;\n  return actions.filter((a) => names.includes(a.action_type)).reduce((sum, a) => sum + num(a.value), 0);\n}\nconst rows = (payload.data || [])\n  .filter((row) => (row.publisher_platform || '').toLowerCase() === 'instagram')\n  .map((row) => {\n    const actions = row.actions || [];\n    const actionValues = row.action_values || [];\n    const videoViews = actionValue(actions, ['video_view', 'onsite_conversion.video_view']);\n    const conversions = actionValue(actions, ['purchase','omni_purchase','offsite_conversion.fb_pixel_purchase','onsite_web_purchase']);\n    const conversionValue = actionValue(actionValues, ['purchase','omni_purchase','offsite_conversion.fb_pixel_purchase','onsite_web_purchase']);\n    const placementKey = 'instagram:' + (row.platform_position || 'unknown');\n    return {\n      client_id: config.client_id,\n      metric_date: row.date_start || config.date_end,\n      source_platform: 'Meta Ads',\n      publisher_platform: 'instagram',\n      platform_position: row.platform_position || null,\n      placement: row.platform_position ? 'Instagram ' + row.platform_position : 'Instagram',\n      placement_key: placementKey,\n      campaign_id: String(row.campaign_id || 'unknown'),\n      campaign_name: row.campaign_name || null,\n      adset_id: String(row.adset_id || 'unknown'),\n      adset_name: row.adset_name || null,\n      ad_id: String(row.ad_id || 'unknown'),\n      ad_name: row.ad_name || null,\n      spend: num(row.spend),\n      reach: row.reach != null ? num(row.reach) : null,\n      impressions: row.impressions != null ? num(row.impressions) : null,\n      clicks: row.clicks != null ? num(row.clicks) : null,\n      inline_link_clicks: row.inline_link_clicks != null ? num(row.inline_link_clicks) : null,\n      video_views: videoViews,\n      engagements: actionValue(actions, ['post_engagement','page_engagement','like','comment','post_reaction','post','onsite_conversion.post_save']),\n      profile_visits: actionValue(actions, ['profile_visit','onsite_conversion.messaging_conversation_started_7d']),\n      follows: actionValue(actions, ['onsite_conversion.follow','follow']),\n      conversions,\n      conversion_value: conversionValue,\n      raw_payload: row,\n      updated_at: now\n    };\n  });\nreturn [{ json: { rows } }];"
+      },
+      "id": "normalize-instagram-paid-placeme-4d143935",
+      "name": "Normalize Instagram Paid Placement Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        170
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pipeline Config').first().json.supabase_url + '/rest/v1/social_paid_daily_metrics' }}",
+        "authentication": "none",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "client_id,metric_date,campaign_id,adset_id,ad_id,placement_key"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.rows) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "supabase-upsert-social-paid-dail-371e5954",
+      "name": "Supabase Upsert - social_paid_daily_metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        170
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger - Daily 6:20 AM Pacific": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pipeline Config": {
+      "main": [
+        [
+          {
+            "node": "Meta Insights - Instagram Paid Daily",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meta Insights - Instagram Paid Daily": {
+      "main": [
+        [
+          {
+            "node": "Normalize Instagram Paid Placement Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Instagram Paid Placement Metrics": {
+      "main": [
+        [
+          {
+            "node": "Supabase Upsert - social_paid_daily_metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "094a5e74-fa9d-4c59-b826-ca22e13c838b"
+}
