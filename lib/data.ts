@@ -19,7 +19,12 @@ import type {
   MonthlyReport,
   ReportStatus,
   SeoTechnicalIssue,
-  SeoTotals
+  SeoTotals,
+  SocialAccount,
+  SocialAccountDailyMetric,
+  SocialMediaContent,
+  SocialMediaDailyMetric,
+  SocialPaidDailyMetric
 } from "@/lib/types";
 
 const rangeLabels: Record<DateRangeKey, string> = {
@@ -1143,6 +1148,318 @@ export async function getOverviewDashboardData(rangeKey?: string, customStart?: 
     seo,
     performance: paid.totals
   };
+}
+
+export type InstagramContentSummary = SocialMediaContent & {
+  reachTotal: number | null;
+  reachOrganic: number | null;
+  reachPaid: number | null;
+  impressionsTotal: number | null;
+  impressionsOrganic: number | null;
+  impressionsPaid: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  saves: number | null;
+  totalInteractions: number | null;
+  engagementRate: number | null;
+  videoViews: number | null;
+  averageWatchTimeSeconds: number | null;
+  profileActivity: number | null;
+};
+
+export type InstagramDashboardTotals = {
+  followersTotal: number | null;
+  netFollowersGained: number | null;
+  followersGained: number | null;
+  unfollows: number | null;
+  reachTotal: number | null;
+  reachOrganic: number | null;
+  reachPaid: number | null;
+  impressionsTotal: number | null;
+  impressionsOrganic: number | null;
+  impressionsPaid: number | null;
+  accountsEngaged: number | null;
+  profileVisits: number | null;
+  websiteClicks: number | null;
+  totalInteractions: number | null;
+  engagementRate: number | null;
+  contentPublished: number | null;
+  paidSpend: number | null;
+  paidReach: number | null;
+  paidImpressions: number | null;
+  paidEngagements: number | null;
+  paidProfileVisits: number | null;
+  paidVideoViews: number | null;
+  paidWebsiteClicks: number | null;
+  paidFollowers: number | null;
+};
+
+export async function getInstagramDashboardData(rangeKey?: string, customStart?: string, customEnd?: string) {
+  const { supabase, profile, client } = await getActiveClient();
+  const range = getDateRange(rangeKey, customStart, customEnd);
+  const emptyTotals = emptyInstagramTotals();
+
+  if (!client) {
+    return {
+      supabase,
+      profile,
+      client,
+      range,
+      account: null as SocialAccount | null,
+      daily: [] as SocialAccountDailyMetric[],
+      previousDaily: [] as SocialAccountDailyMetric[],
+      content: [] as InstagramContentSummary[],
+      paidRows: [] as SocialPaidDailyMetric[],
+      totals: emptyTotals,
+      previousTotals: emptyTotals,
+      status: queryStatus(null, 0),
+      lastUpdatedAt: null as string | null
+    };
+  }
+
+  const accountResult = await supabase
+    .from("social_accounts")
+    .select("id,client_id,platform,platform_account_id,username,display_name,profile_url,is_active,last_synced_at")
+    .eq("client_id", client.id)
+    .eq("platform", "instagram")
+    .eq("is_active", true)
+    .order("last_synced_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+
+  if (accountResult.error) {
+    return {
+      supabase,
+      profile,
+      client,
+      range,
+      account: null as SocialAccount | null,
+      daily: [] as SocialAccountDailyMetric[],
+      previousDaily: [] as SocialAccountDailyMetric[],
+      content: [] as InstagramContentSummary[],
+      paidRows: [] as SocialPaidDailyMetric[],
+      totals: emptyTotals,
+      previousTotals: emptyTotals,
+      status: queryStatus(queryErrorMessage(accountResult.error), 0),
+      lastUpdatedAt: null as string | null
+    };
+  }
+
+  const account = (accountResult.data?.[0] ?? null) as SocialAccount | null;
+  if (!account) {
+    return {
+      supabase,
+      profile,
+      client,
+      range,
+      account,
+      daily: [] as SocialAccountDailyMetric[],
+      previousDaily: [] as SocialAccountDailyMetric[],
+      content: [] as InstagramContentSummary[],
+      paidRows: [] as SocialPaidDailyMetric[],
+      totals: emptyTotals,
+      previousTotals: emptyTotals,
+      status: queryStatus(null, 0),
+      lastUpdatedAt: null as string | null
+    };
+  }
+
+  const [dailyResult, previousDailyResult, contentResult, contentMetricsResult, paidResult] = await Promise.all([
+    supabase
+      .from("social_account_daily_metrics")
+      .select("*")
+      .eq("client_id", client.id)
+      .eq("social_account_id", account.id)
+      .gte("metric_date", range.start)
+      .lte("metric_date", range.end)
+      .order("metric_date"),
+    supabase
+      .from("social_account_daily_metrics")
+      .select("*")
+      .eq("client_id", client.id)
+      .eq("social_account_id", account.id)
+      .gte("metric_date", range.previousStart)
+      .lte("metric_date", range.previousEnd)
+      .order("metric_date"),
+    supabase
+      .from("social_media_content")
+      .select("*")
+      .eq("client_id", client.id)
+      .eq("social_account_id", account.id)
+      .gte("published_at", `${range.start}T00:00:00Z`)
+      .lte("published_at", `${range.end}T23:59:59Z`)
+      .order("published_at", { ascending: false })
+      .limit(250),
+    supabase
+      .from("social_media_daily_metrics")
+      .select("*")
+      .eq("client_id", client.id)
+      .eq("social_account_id", account.id)
+      .gte("metric_date", range.start)
+      .lte("metric_date", range.end),
+    supabase
+      .from("social_paid_daily_metrics")
+      .select("*")
+      .eq("client_id", client.id)
+      .gte("metric_date", range.start)
+      .lte("metric_date", range.end)
+      .order("metric_date")
+  ]);
+
+  const error = queryErrorMessage(dailyResult.error)
+    ?? queryErrorMessage(previousDailyResult.error)
+    ?? queryErrorMessage(contentResult.error)
+    ?? queryErrorMessage(contentMetricsResult.error)
+    ?? queryErrorMessage(paidResult.error);
+  const daily = error ? [] : (dailyResult.data ?? []) as SocialAccountDailyMetric[];
+  const previousDaily = error ? [] : (previousDailyResult.data ?? []) as SocialAccountDailyMetric[];
+  const contentRows = error ? [] : (contentResult.data ?? []) as SocialMediaContent[];
+  const contentMetricRows = error ? [] : (contentMetricsResult.data ?? []) as SocialMediaDailyMetric[];
+  const paidRows = error ? [] : (paidResult.data ?? []) as SocialPaidDailyMetric[];
+  const content = summarizeInstagramContent(contentRows, contentMetricRows);
+  const totals = summarizeInstagramTotals(daily, paidRows);
+  const previousTotals = summarizeInstagramTotals(previousDaily, []);
+  const lastUpdatedAt = [
+    account.last_synced_at,
+    ...daily.map((row: any) => row.updated_at),
+    ...contentRows.map((row: any) => row.updated_at),
+    ...paidRows.map((row: any) => row.updated_at)
+  ].filter(Boolean).sort().at(-1) ?? null;
+
+  return {
+    supabase,
+    profile,
+    client,
+    range,
+    account,
+    daily,
+    previousDaily,
+    content,
+    paidRows,
+    totals,
+    previousTotals,
+    status: queryStatus(error, daily.length + content.length + paidRows.length),
+    lastUpdatedAt
+  };
+}
+
+function emptyInstagramTotals(): InstagramDashboardTotals {
+  return {
+    followersTotal: null,
+    netFollowersGained: null,
+    followersGained: null,
+    unfollows: null,
+    reachTotal: null,
+    reachOrganic: null,
+    reachPaid: null,
+    impressionsTotal: null,
+    impressionsOrganic: null,
+    impressionsPaid: null,
+    accountsEngaged: null,
+    profileVisits: null,
+    websiteClicks: null,
+    totalInteractions: null,
+    engagementRate: null,
+    contentPublished: null,
+    paidSpend: null,
+    paidReach: null,
+    paidImpressions: null,
+    paidEngagements: null,
+    paidProfileVisits: null,
+    paidVideoViews: null,
+    paidWebsiteClicks: null,
+    paidFollowers: null
+  };
+}
+
+function sumMetricNullable<T>(rows: T[], getter: (row: T) => unknown) {
+  let found = false;
+  const total = rows.reduce((sum, row) => {
+    const value = nullableNumber(getter(row));
+    if (value === null) return sum;
+    found = true;
+    return sum + value;
+  }, 0);
+  return found ? total : null;
+}
+
+function latestMetricNullable<T>(rows: T[], getter: (row: T) => unknown) {
+  for (const row of [...rows].reverse()) {
+    const value = nullableNumber(getter(row));
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+function summarizeInstagramTotals(daily: SocialAccountDailyMetric[], paidRows: SocialPaidDailyMetric[]): InstagramDashboardTotals {
+  const followersTotal = latestMetricNullable(daily, (row) => row.followers_total);
+  const followersGained = sumMetricNullable(daily, (row) => row.followers_gained);
+  const unfollows = sumMetricNullable(daily, (row) => row.unfollows);
+  const netFromSource = sumMetricNullable(daily, (row) => row.net_follower_growth);
+  const netFollowersGained = netFromSource ?? (followersGained === null && unfollows === null ? null : (followersGained ?? 0) - (unfollows ?? 0));
+  const reachTotal = sumMetricNullable(daily, (row) => row.reach_total);
+  const totalInteractions = sumMetricNullable(daily, (row) => row.total_interactions);
+
+  return {
+    followersTotal,
+    netFollowersGained,
+    followersGained,
+    unfollows,
+    reachTotal,
+    reachOrganic: sumMetricNullable(daily, (row) => row.reach_organic),
+    reachPaid: sumMetricNullable(daily, (row) => row.reach_paid),
+    impressionsTotal: sumMetricNullable(daily, (row) => row.impressions_total),
+    impressionsOrganic: sumMetricNullable(daily, (row) => row.impressions_organic),
+    impressionsPaid: sumMetricNullable(daily, (row) => row.impressions_paid),
+    accountsEngaged: sumMetricNullable(daily, (row) => row.accounts_engaged),
+    profileVisits: sumMetricNullable(daily, (row) => row.profile_visits),
+    websiteClicks: sumMetricNullable(daily, (row) => row.website_clicks),
+    totalInteractions,
+    engagementRate: reachTotal && totalInteractions !== null ? totalInteractions / reachTotal : null,
+    contentPublished: sumMetricNullable(daily, (row) => row.content_published),
+    paidSpend: sumMetricNullable(paidRows, (row) => row.spend),
+    paidReach: sumMetricNullable(paidRows, (row) => row.reach),
+    paidImpressions: sumMetricNullable(paidRows, (row) => row.impressions),
+    paidEngagements: sumMetricNullable(paidRows, (row) => row.engagements),
+    paidProfileVisits: sumMetricNullable(paidRows, (row) => row.profile_visits),
+    paidVideoViews: sumMetricNullable(paidRows, (row) => row.video_views),
+    paidWebsiteClicks: sumMetricNullable(paidRows, (row) => row.inline_link_clicks ?? row.clicks),
+    paidFollowers: sumMetricNullable(paidRows, (row) => row.follows)
+  };
+}
+
+function summarizeInstagramContent(contentRows: SocialMediaContent[], metricRows: SocialMediaDailyMetric[]): InstagramContentSummary[] {
+  const metricsByContentId = new Map<string, SocialMediaDailyMetric[]>();
+  metricRows.forEach((row) => {
+    const rows = metricsByContentId.get(row.social_media_content_id) ?? [];
+    rows.push(row);
+    metricsByContentId.set(row.social_media_content_id, rows);
+  });
+
+  return contentRows.map((content) => {
+    const rows = metricsByContentId.get(content.id) ?? [];
+    const reachTotal = sumMetricNullable(rows, (row) => row.reach_total);
+    const totalInteractions = sumMetricNullable(rows, (row) => row.total_interactions);
+
+    return {
+      ...content,
+      reachTotal,
+      reachOrganic: sumMetricNullable(rows, (row) => row.reach_organic),
+      reachPaid: sumMetricNullable(rows, (row) => row.reach_paid),
+      impressionsTotal: sumMetricNullable(rows, (row) => row.impressions_total),
+      impressionsOrganic: sumMetricNullable(rows, (row) => row.impressions_organic),
+      impressionsPaid: sumMetricNullable(rows, (row) => row.impressions_paid),
+      likes: sumMetricNullable(rows, (row) => row.likes),
+      comments: sumMetricNullable(rows, (row) => row.comments),
+      shares: sumMetricNullable(rows, (row) => row.shares),
+      saves: sumMetricNullable(rows, (row) => row.saves),
+      totalInteractions,
+      engagementRate: firstNullableNumber(latestMetricNullable(rows, (row) => row.engagement_rate), reachTotal && totalInteractions !== null ? totalInteractions / reachTotal : null),
+      videoViews: sumMetricNullable(rows, (row) => row.video_views),
+      averageWatchTimeSeconds: latestMetricNullable(rows, (row) => row.average_watch_time_seconds),
+      profileActivity: sumMetricNullable(rows, (row) => row.profile_activity)
+    };
+  });
 }
 
 export async function getAdminData() {

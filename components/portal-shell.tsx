@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { BarChart3, Building2, FileText, Gauge, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, Users } from "lucide-react";
+import { BarChart3, Building2, FileText, Gauge, Instagram, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, Users } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import type { Profile } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 const nav = [
   { href: "/dashboard", label: "Overview", eyebrow: "Start here", icon: Gauge },
   { href: "/dashboard/paid-ads", label: "Paid Ads", eyebrow: "Media", icon: BarChart3 },
+  { href: "/dashboard/social", label: "Social", eyebrow: "Instagram", icon: Instagram },
   { href: "/dashboard/seo", label: "SEO", eyebrow: "Organic", icon: Search },
   { href: "/dashboard/reports", label: "Reports", eyebrow: "Proof", icon: FileText },
   { href: "/dashboard/settings", label: "Settings", eyebrow: "Account", icon: Settings }
@@ -156,6 +157,6 @@ function isActive(pathname: string, href: string) {
 
 function withDashboardQuery(href: string, query: string) {
   if (!query) return href;
-  if (!["/dashboard", "/dashboard/paid-ads", "/dashboard/seo"].includes(href)) return href;
+  if (!["/dashboard", "/dashboard/paid-ads", "/dashboard/social", "/dashboard/seo"].includes(href)) return href;
   return `${href}?${query}`;
 }
