@@ -4,6 +4,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  ComposedChart,
   Legend,
   Line,
   LineChart,
@@ -34,21 +35,23 @@ export function FollowerGrowthChart({ data }: { data: SocialAccountDailyMetric[]
     unfollows: row.unfollows,
     net: row.net_follower_growth ?? ((row.followers_gained ?? 0) - (row.unfollows ?? 0))
   }));
+  const showDots = rows.length <= 2;
 
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer>
-        <LineChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+        <ComposedChart data={rows} margin={{ top: 8, right: 4, bottom: 8, left: 0 }}>
           <CartesianGrid stroke={gridColor} vertical={false} />
           <XAxis dataKey="date" tick={axisStyle} tickLine={false} axisLine={false} />
-          <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={48} />
+          <YAxis yAxisId="followers" tick={axisStyle} tickLine={false} axisLine={false} width={48} />
+          <YAxis yAxisId="change" orientation="right" tick={axisStyle} tickLine={false} axisLine={false} width={36} allowDecimals={false} />
           <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: "#fff", fontWeight: 700 }} />
           <Legend wrapperStyle={{ color: "rgba(255,255,255,0.72)", fontSize: 12 }} />
-          <Line type="monotone" dataKey="followers" name="Followers" stroke="#f7f2e8" strokeWidth={2.5} dot={false} connectNulls />
-          <Line type="monotone" dataKey="gained" name="Gained" stroke="#ff6a1a" strokeWidth={2} dot={false} connectNulls />
-          <Line type="monotone" dataKey="unfollows" name="Unfollows" stroke="#a7a7a7" strokeWidth={2} dot={false} connectNulls />
-          <Line type="monotone" dataKey="net" name="Net" stroke="#7dd3fc" strokeWidth={2} dot={false} connectNulls />
-        </LineChart>
+          <Bar yAxisId="change" dataKey="gained" name="Gained" fill="#ff6a1a" radius={[5, 5, 0, 0]} maxBarSize={18} />
+          <Bar yAxisId="change" dataKey="unfollows" name="Unfollows" fill="#a7a7a7" radius={[5, 5, 0, 0]} maxBarSize={18} />
+          <Line yAxisId="followers" type="monotone" dataKey="followers" name="Followers" stroke="#f7f2e8" strokeWidth={2.5} dot={showDots ? { r: 3 } : false} activeDot={{ r: 4 }} connectNulls />
+          <Line yAxisId="change" type="monotone" dataKey="net" name="Net" stroke="#7dd3fc" strokeWidth={2} dot={showDots ? { r: 3 } : false} activeDot={{ r: 4 }} connectNulls />
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
@@ -63,6 +66,11 @@ export function ReachEngagementChart({ data }: { data: SocialAccountDailyMetric[
     engaged: row.accounts_engaged,
     interactions: row.total_interactions
   }));
+  const valueRows = rows.filter((row) =>
+    [row.totalReach, row.organicReach, row.paidReach, row.engaged, row.interactions].some((value) => value !== null && value !== undefined)
+  );
+  const showDots = valueRows.length <= 2;
+  const dot = showDots ? { r: 3 } : false;
 
   return (
     <div className="h-72 w-full">
@@ -73,11 +81,11 @@ export function ReachEngagementChart({ data }: { data: SocialAccountDailyMetric[
           <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={48} />
           <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: "#fff", fontWeight: 700 }} />
           <Legend wrapperStyle={{ color: "rgba(255,255,255,0.72)", fontSize: 12 }} />
-          <Line type="monotone" dataKey="totalReach" name="Total reach" stroke="#f7f2e8" strokeWidth={2.5} dot={false} connectNulls />
-          <Line type="monotone" dataKey="organicReach" name="Organic reach" stroke="#ff6a1a" strokeWidth={2} dot={false} connectNulls />
-          <Line type="monotone" dataKey="paidReach" name="Paid reach" stroke="#f59e0b" strokeWidth={2} dot={false} connectNulls />
-          <Line type="monotone" dataKey="engaged" name="Accounts engaged" stroke="#7dd3fc" strokeWidth={2} dot={false} connectNulls />
-          <Line type="monotone" dataKey="interactions" name="Interactions" stroke="#a7a7a7" strokeWidth={2} dot={false} connectNulls />
+          <Line type="monotone" dataKey="totalReach" name="Total reach" stroke="#f7f2e8" strokeWidth={2.5} dot={dot} activeDot={{ r: 4 }} connectNulls />
+          <Line type="monotone" dataKey="organicReach" name="Organic reach" stroke="#ff6a1a" strokeWidth={2} dot={dot} activeDot={{ r: 4 }} connectNulls />
+          <Line type="monotone" dataKey="paidReach" name="Paid reach" stroke="#f59e0b" strokeWidth={2} dot={dot} activeDot={{ r: 4 }} connectNulls />
+          <Line type="monotone" dataKey="engaged" name="Accounts engaged" stroke="#7dd3fc" strokeWidth={2} dot={dot} activeDot={{ r: 4 }} connectNulls />
+          <Line type="monotone" dataKey="interactions" name="Interactions" stroke="#a7a7a7" strokeWidth={2} dot={dot} activeDot={{ r: 4 }} connectNulls />
         </LineChart>
       </ResponsiveContainer>
     </div>

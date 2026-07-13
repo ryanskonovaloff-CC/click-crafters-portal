@@ -66,6 +66,41 @@ export function TrendChart({ data, metric, previousData = [], compare = false }:
   );
 }
 
+export function PlatformCpaChart({ data, previousData = [], compare = false }: { data: DailyPerformance[]; previousData?: DailyPerformance[]; compare?: boolean }) {
+  const height = useMobileChartHeight();
+  const currentPoints = buildPlatformCpaPoints(data);
+  const previousPoints = buildPlatformCpaPoints(previousData);
+  const chartData = currentPoints.map((point, index) => ({
+    ...point,
+    previous_google_cpa: previousPoints[index]?.google_cpa ?? null,
+    previous_meta_cpa: previousPoints[index]?.meta_cpa ?? null
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <LineChart data={chartData}>
+        <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+        <XAxis dataKey="label" tickLine={false} axisLine={false} />
+        <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => currency.format(Number(value))} />
+        <Tooltip
+          contentStyle={tooltipStyle()}
+          cursor={{ stroke: "rgba(247,242,232,0.22)", strokeWidth: 1 }}
+          formatter={(value, name) => {
+            const numericValue = Number(value);
+            if (value === null || Number.isNaN(numericValue)) return ["Unavailable", name];
+            return [currency.format(numericValue), name];
+          }}
+        />
+        <Line type="monotone" dataKey="google_cpa" name="Google CPA" stroke="#ff6a1a" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls />
+        <Line type="monotone" dataKey="meta_cpa" name="Meta CPA" stroke="#f7f2e8" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls />
+        {compare ? <Line type="monotone" dataKey="previous_google_cpa" name="Prev. Google CPA" stroke="#ff6a1a" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls /> : null}
+        {compare ? <Line type="monotone" dataKey="previous_meta_cpa" name="Prev. Meta CPA" stroke="#f7f2e8" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls /> : null}
+        <Legend content={<LineLegend />} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
 function LineLegend({ payload }: { payload?: Array<{ value?: string; color?: string; dataKey?: string | number }> }) {
   if (!payload?.length) return null;
   return (
@@ -82,6 +117,31 @@ function LineLegend({ payload }: { payload?: Array<{ value?: string; color?: str
       })}
     </div>
   );
+}
+
+function buildPlatformCpaPoints(data: DailyPerformance[]) {
+  const byDate = data.reduce<Record<string, { date: string; label: string; googleSpend: number; googleOrders: number; metaSpend: number; metaOrders: number }>>((acc, row) => {
+    acc[row.date] ??= { date: row.date, label: row.date.slice(5), googleSpend: 0, googleOrders: 0, metaSpend: 0, metaOrders: 0 };
+    const platform = row.platform.toLowerCase();
+    const onlineOrders = row.conversions;
+
+    if (platform.includes("google")) {
+      acc[row.date].googleSpend += row.spend;
+      acc[row.date].googleOrders += onlineOrders;
+    } else if (platform.includes("meta") || platform.includes("facebook") || platform.includes("instagram")) {
+      acc[row.date].metaSpend += row.spend;
+      acc[row.date].metaOrders += onlineOrders;
+    }
+
+    return acc;
+  }, {});
+
+  return Object.values(byDate).map((row) => ({
+    date: row.date,
+    label: row.label,
+    google_cpa: row.googleOrders > 0 ? row.googleSpend / row.googleOrders : null,
+    meta_cpa: row.metaOrders > 0 ? row.metaSpend / row.metaOrders : null
+  }));
 }
 
 function metricLabel(metric: "spend" | "conversions" | "store_visits" | "cpa" | "roas") {
