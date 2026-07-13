@@ -1,5 +1,5 @@
 import { ExternalLink } from "lucide-react";
-import { PlatformBreakdown, TrendChart } from "@/components/charts";
+import { PlatformBreakdown, PlatformCpaChart, TrendChart } from "@/components/charts";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { AccentText, Badge, Card, ClientPageTitle, EmptyState, HoverNote, MetricGrid, StatCard, Table } from "@/components/ui";
 import { getPaidAdsDashboardData, metricRatios, percentChange } from "@/lib/data";
@@ -98,7 +98,7 @@ export default async function PaidAdsPage({ searchParams }: PageProps) {
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Online orders</AccentText> over time</h2>{hasData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="conversions" /> : <EmptyState />}</Card>
         <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Store visits</AccentText> over time</h2>{hasStoreVisitData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="store_visits" /> : <EmptyState>Store visit data is not available yet.</EmptyState>}</Card>
-        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>CPA</AccentText> over time</h2>{hasData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="cpa" /> : <EmptyState />}</Card>
+        <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>CPA</AccentText> over time</h2>{hasData ? <PlatformCpaChart data={daily} previousData={previousDaily} compare={compare} /> : <EmptyState />}</Card>
         <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>ROAS</AccentText> over time</h2>{hasData ? <TrendChart data={daily} previousData={previousDaily} compare={compare} metric="roas" /> : <EmptyState />}</Card>
         <Card><h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-lg"><AccentText>Platform</AccentText> breakdown</h2>{hasData ? <PlatformBreakdown data={daily} /> : <EmptyState />}</Card>
         <Card>

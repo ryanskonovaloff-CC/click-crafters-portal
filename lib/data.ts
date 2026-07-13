@@ -1264,13 +1264,16 @@ export async function getInstagramDashboardData(rangeKey?: string, customStart?:
     };
   }
 
+  const dailyBaselineStart = isoDate(addDays(new Date(`${range.start}T00:00:00Z`), -1));
+  const previousDailyBaselineStart = isoDate(addDays(new Date(`${range.previousStart}T00:00:00Z`), -1));
+
   const [dailyResult, previousDailyResult, contentResult, contentMetricsResult, paidResult] = await Promise.all([
     supabase
       .from("social_account_daily_metrics")
       .select("*")
       .eq("client_id", client.id)
       .eq("social_account_id", account.id)
-      .gte("metric_date", range.start)
+      .gte("metric_date", dailyBaselineStart)
       .lte("metric_date", range.end)
       .order("metric_date"),
     supabase
@@ -1278,7 +1281,7 @@ export async function getInstagramDashboardData(rangeKey?: string, customStart?:
       .select("*")
       .eq("client_id", client.id)
       .eq("social_account_id", account.id)
-      .gte("metric_date", range.previousStart)
+      .gte("metric_date", previousDailyBaselineStart)
       .lte("metric_date", range.previousEnd)
       .order("metric_date"),
     supabase
@@ -1311,12 +1314,15 @@ export async function getInstagramDashboardData(rangeKey?: string, customStart?:
     ?? queryErrorMessage(contentResult.error)
     ?? queryErrorMessage(contentMetricsResult.error)
     ?? queryErrorMessage(paidResult.error);
-  const daily = error ? [] : (dailyResult.data ?? []) as SocialAccountDailyMetric[];
-  const previousDaily = error ? [] : (previousDailyResult.data ?? []) as SocialAccountDailyMetric[];
+  const rawDaily = error ? [] : (dailyResult.data ?? []) as SocialAccountDailyMetric[];
+  const rawPreviousDaily = error ? [] : (previousDailyResult.data ?? []) as SocialAccountDailyMetric[];
   const contentRows = error ? [] : (contentResult.data ?? []) as SocialMediaContent[];
   const contentMetricRows = error ? [] : (contentMetricsResult.data ?? []) as SocialMediaDailyMetric[];
-  const paidRows = error ? [] : (paidResult.data ?? []) as SocialPaidDailyMetric[];
+  const paidRows = (error ? [] : (paidResult.data ?? []) as SocialPaidDailyMetric[])
+    .filter((row) => row.campaign_name?.includes("IG |"));
   const content = summarizeInstagramContent(contentRows, contentMetricRows);
+  const daily = applyContentMetricFallbacks(deriveSocialAccountDailyMetrics(rawDaily, range.start, range.end), contentMetricRows);
+  const previousDaily = deriveSocialAccountDailyMetrics(rawPreviousDaily, range.previousStart, range.previousEnd);
   const totals = summarizeInstagramTotals(daily, paidRows);
   const previousTotals = summarizeInstagramTotals(previousDaily, []);
   const lastUpdatedAt = [
@@ -1426,6 +1432,83 @@ function summarizeInstagramTotals(daily: SocialAccountDailyMetric[], paidRows: S
     paidWebsiteClicks: sumMetricNullable(paidRows, (row) => row.inline_link_clicks ?? row.clicks),
     paidFollowers: sumMetricNullable(paidRows, (row) => row.follows)
   };
+}
+
+function deriveSocialAccountDailyMetrics(rows: SocialAccountDailyMetric[], start: string, end: string) {
+  const sorted = [...rows].sort((a, b) => a.metric_date.localeCompare(b.metric_date));
+  let previousFollowers: number | null = null;
+
+  return sorted
+    .map((row) => {
+      const followersTotal = nullableNumber(row.followers_total);
+      const followerDelta = followersTotal !== null && previousFollowers !== null ? followersTotal - previousFollowers : null;
+      const sourceGained = nullableNumber(row.followers_gained);
+      const sourceUnfollows = nullableNumber(row.unfollows);
+      const sourceNet = nullableNumber(row.net_follower_growth);
+      const sourceHasDelta = sourceGained !== null || sourceUnfollows !== null || sourceNet !== null;
+      const sourceLooksEmpty = (sourceGained ?? 0) === 0 && (sourceUnfollows ?? 0) === 0 && (sourceNet ?? 0) === 0;
+      const shouldDeriveDelta = followerDelta !== null && (!sourceHasDelta || (sourceLooksEmpty && followerDelta !== 0));
+      const followersGained = shouldDeriveDelta ? Math.max(followerDelta, 0) : sourceGained;
+      const unfollows = shouldDeriveDelta ? Math.max(-followerDelta, 0) : sourceUnfollows;
+      const netFollowerGrowth = shouldDeriveDelta ? followerDelta : (sourceNet ?? (followersGained === null && unfollows === null ? null : (followersGained ?? 0) - (unfollows ?? 0)));
+
+      if (followersTotal !== null) previousFollowers = followersTotal;
+
+      return {
+        ...row,
+        followers_gained: followersGained,
+        unfollows,
+        net_follower_growth: netFollowerGrowth
+      };
+    })
+    .filter((row) => row.metric_date >= start && row.metric_date <= end);
+}
+
+function applyContentMetricFallbacks(daily: SocialAccountDailyMetric[], contentMetricRows: SocialMediaDailyMetric[]) {
+  const contentByDate = new Map<string, {
+    reachTotal: number | null;
+    reachOrganic: number | null;
+    reachPaid: number | null;
+    impressionsTotal: number | null;
+    impressionsOrganic: number | null;
+    impressionsPaid: number | null;
+    totalInteractions: number | null;
+  }>();
+
+  const grouped = new Map<string, SocialMediaDailyMetric[]>();
+  contentMetricRows.forEach((row) => {
+    const rows = grouped.get(row.metric_date) ?? [];
+    rows.push(row);
+    grouped.set(row.metric_date, rows);
+  });
+
+  grouped.forEach((rows, date) => {
+    contentByDate.set(date, {
+      reachTotal: sumMetricNullable(rows, (row) => row.reach_total),
+      reachOrganic: sumMetricNullable(rows, (row) => row.reach_organic),
+      reachPaid: sumMetricNullable(rows, (row) => row.reach_paid),
+      impressionsTotal: sumMetricNullable(rows, (row) => row.impressions_total),
+      impressionsOrganic: sumMetricNullable(rows, (row) => row.impressions_organic),
+      impressionsPaid: sumMetricNullable(rows, (row) => row.impressions_paid),
+      totalInteractions: sumMetricNullable(rows, (row) => row.total_interactions)
+    });
+  });
+
+  return daily.map((row) => {
+    const fallback = contentByDate.get(row.metric_date);
+    if (!fallback) return row;
+
+    return {
+      ...row,
+      reach_total: firstNullableNumber(row.reach_total, fallback.reachTotal),
+      reach_organic: firstNullableNumber(row.reach_organic, fallback.reachOrganic),
+      reach_paid: firstNullableNumber(row.reach_paid, fallback.reachPaid),
+      impressions_total: firstNullableNumber(row.impressions_total, fallback.impressionsTotal),
+      impressions_organic: firstNullableNumber(row.impressions_organic, fallback.impressionsOrganic),
+      impressions_paid: firstNullableNumber(row.impressions_paid, fallback.impressionsPaid),
+      total_interactions: firstNullableNumber(row.total_interactions, fallback.totalInteractions)
+    };
+  });
 }
 
 function summarizeInstagramContent(contentRows: SocialMediaContent[], metricRows: SocialMediaDailyMetric[]): InstagramContentSummary[] {
