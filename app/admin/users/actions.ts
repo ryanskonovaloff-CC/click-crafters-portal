@@ -8,16 +8,6 @@ import type { Role } from "@/lib/types";
 const clientRoles: Role[] = ["client_admin", "client_viewer"];
 const allowedRoles: Role[] = ["admin", ...clientRoles];
 
-async function requireAdmin() {
-  const { profile } = await getSessionProfile();
-
-  if (profile.role !== "admin") {
-    throw new Error("You do not have permission to manage users.");
-  }
-
-  return profile;
-}
-
 async function requireUserManager() {
   const { supabase, profile, client } = await getActiveClient();
 
@@ -206,6 +196,40 @@ export async function updateUserAccess(formData: FormData) {
     clientId: scoped.clientId || null,
     requireExistingAssignment: currentProfile.role !== "admin"
   });
+
+  revalidatePath("/admin/users");
+}
+
+export async function sendUserPasswordReset(formData: FormData) {
+  const userId = String(formData.get("userId") ?? "").trim();
+
+  if (!userId) {
+    throw new Error("Missing user ID.");
+  }
+
+  const { profile: currentProfile, client } = await requireUserManager();
+  const admin = createAdminClient();
+  await assertManagedClientUser(admin, currentProfile.role, userId, client?.id);
+
+  const { data, error: lookupError } = await admin.auth.admin.getUserById(userId);
+
+  if (lookupError) {
+    throw new Error(lookupError.message);
+  }
+
+  const email = data.user?.email;
+
+  if (!email) {
+    throw new Error("This user does not have an email address.");
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://portal.clickcrafters.click";
+  const redirectTo = `${siteUrl.replace(/\/$/, "")}/auth/callback?next=/update-password`;
+  const { error } = await admin.auth.resetPasswordForEmail(email, { redirectTo });
+
+  if (error) {
+    throw new Error(error.message);
+  }
 
   revalidatePath("/admin/users");
 }

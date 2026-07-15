@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { AccentText, Badge, Card, Table } from "@/components/ui";
 import { getAdminData } from "@/lib/data";
-import { removeUserAccess, saveUserAccess, updateUserAccess } from "./actions";
+import { removeUserAccess, saveUserAccess, sendUserPasswordReset, updateUserAccess } from "./actions";
 import { ConfirmRemoveButton } from "./confirm-remove-button";
+import { ResetPasswordButton } from "./reset-password-button";
 
 type PageProps = {
   searchParams?: Promise<{ selected?: string }>;
@@ -126,7 +127,7 @@ function ManageUserCard({ profile, authUser, assignments, clients, isSelf, canMa
         <Link href="/admin/users" className="text-sm text-white/50 transition hover:text-white">Clear selection</Link>
       </div>
 
-      <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto]">
+      <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto_auto]">
         <form action={updateUserAccess} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
           <input type="hidden" name="userId" value={profile.id} />
           <label className="space-y-1.5">
@@ -149,6 +150,10 @@ function ManageUserCard({ profile, authUser, assignments, clients, isSelf, canMa
               Save changes
             </button>
           </div>
+        </form>
+        <form action={sendUserPasswordReset} className="flex items-end">
+          <input type="hidden" name="userId" value={profile.id} />
+          <ResetPasswordButton userLabel={profile.full_name ?? profile.email} />
         </form>
         <form action={removeUserAccess} className="flex items-end">
           <input type="hidden" name="userId" value={profile.id} />
