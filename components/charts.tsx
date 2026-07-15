@@ -101,6 +101,41 @@ export function PlatformCpaChart({ data, previousData = [], compare = false }: {
   );
 }
 
+export function PlatformRoasChart({ data, previousData = [], compare = false }: { data: DailyPerformance[]; previousData?: DailyPerformance[]; compare?: boolean }) {
+  const height = useMobileChartHeight();
+  const currentPoints = buildPlatformRoasPoints(data);
+  const previousPoints = buildPlatformRoasPoints(previousData);
+  const chartData = currentPoints.map((point, index) => ({
+    ...point,
+    previous_google_roas: previousPoints[index]?.google_roas ?? null,
+    previous_meta_roas: previousPoints[index]?.meta_roas ?? null
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <LineChart data={chartData}>
+        <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+        <XAxis dataKey="label" tickLine={false} axisLine={false} />
+        <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `${Number(value).toFixed(0)}x`} />
+        <Tooltip
+          contentStyle={tooltipStyle()}
+          cursor={{ stroke: "rgba(247,242,232,0.22)", strokeWidth: 1 }}
+          formatter={(value, name) => {
+            const numericValue = Number(value);
+            if (value === null || Number.isNaN(numericValue)) return ["Unavailable", name];
+            return [`${numericValue.toFixed(2)}x`, name];
+          }}
+        />
+        <Line type="monotone" dataKey="google_roas" name="Google ROAS" stroke="#ff6a1a" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls />
+        <Line type="monotone" dataKey="meta_roas" name="Meta ROAS" stroke="#f7f2e8" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls />
+        {compare ? <Line type="monotone" dataKey="previous_google_roas" name="Prev. Google ROAS" stroke="#ff6a1a" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls /> : null}
+        {compare ? <Line type="monotone" dataKey="previous_meta_roas" name="Prev. Meta ROAS" stroke="#f7f2e8" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls /> : null}
+        <Legend content={<LineLegend />} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
 function LineLegend({ payload }: { payload?: Array<{ value?: string; color?: string; dataKey?: string | number }> }) {
   if (!payload?.length) return null;
   return (
@@ -141,6 +176,32 @@ function buildPlatformCpaPoints(data: DailyPerformance[]) {
     label: row.label,
     google_cpa: row.googleOrders > 0 ? row.googleSpend / row.googleOrders : null,
     meta_cpa: row.metaOrders > 0 ? row.metaSpend / row.metaOrders : null
+  }));
+}
+
+function buildPlatformRoasPoints(data: DailyPerformance[]) {
+  const byDate = data.reduce<Record<string, { date: string; label: string; googleSpend: number; googleRevenue: number; metaSpend: number; metaRevenue: number }>>((acc, row) => {
+    acc[row.date] ??= { date: row.date, label: row.date.slice(5), googleSpend: 0, googleRevenue: 0, metaSpend: 0, metaRevenue: 0 };
+    const platform = row.platform.toLowerCase();
+
+    if (platform.includes("google")) {
+      if (row.date >= ONLINE_ORDER_TRACKING_START) {
+        acc[row.date].googleSpend += row.spend;
+        acc[row.date].googleRevenue += row.revenue;
+      }
+    } else if (platform.includes("meta") || platform.includes("facebook") || platform.includes("instagram")) {
+      acc[row.date].metaSpend += row.spend;
+      acc[row.date].metaRevenue += row.revenue;
+    }
+
+    return acc;
+  }, {});
+
+  return Object.values(byDate).map((row) => ({
+    date: row.date,
+    label: row.label,
+    google_roas: row.googleSpend > 0 ? row.googleRevenue / row.googleSpend : null,
+    meta_roas: row.metaSpend > 0 ? row.metaRevenue / row.metaSpend : null
   }));
 }
 
