@@ -108,7 +108,8 @@ export function PlatformRoasChart({ data, previousData = [], compare = false }: 
   const chartData = currentPoints.map((point, index) => ({
     ...point,
     previous_google_roas: previousPoints[index]?.google_roas ?? null,
-    previous_meta_roas: previousPoints[index]?.meta_roas ?? null
+    previous_meta_roas: previousPoints[index]?.meta_roas ?? null,
+    previous_blended_roas: previousPoints[index]?.blended_roas ?? null
   }));
 
   return (
@@ -126,8 +127,10 @@ export function PlatformRoasChart({ data, previousData = [], compare = false }: 
             return [`${numericValue.toFixed(2)}x`, name];
           }}
         />
+        <Line type="monotone" dataKey="blended_roas" name="Total est. blended ROAS" stroke="#7dd3fc" strokeWidth={2.75} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls />
         <Line type="monotone" dataKey="google_roas" name="Google ROAS" stroke="#ff6a1a" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls />
         <Line type="monotone" dataKey="meta_roas" name="Meta ROAS" stroke="#f7f2e8" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2 }} connectNulls />
+        {compare ? <Line type="monotone" dataKey="previous_blended_roas" name="Prev. total est. blended ROAS" stroke="#7dd3fc" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls /> : null}
         {compare ? <Line type="monotone" dataKey="previous_google_roas" name="Prev. Google ROAS" stroke="#ff6a1a" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls /> : null}
         {compare ? <Line type="monotone" dataKey="previous_meta_roas" name="Prev. Meta ROAS" stroke="#f7f2e8" strokeWidth={2} dot={false} strokeDasharray="6 5" opacity={0.75} connectNulls /> : null}
         <Legend content={<LineLegend />} />
@@ -180,9 +183,12 @@ function buildPlatformCpaPoints(data: DailyPerformance[]) {
 }
 
 function buildPlatformRoasPoints(data: DailyPerformance[]) {
-  const byDate = data.reduce<Record<string, { date: string; label: string; googleSpend: number; googleRevenue: number; metaSpend: number; metaRevenue: number }>>((acc, row) => {
-    acc[row.date] ??= { date: row.date, label: row.date.slice(5), googleSpend: 0, googleRevenue: 0, metaSpend: 0, metaRevenue: 0 };
+  const byDate = data.reduce<Record<string, { date: string; label: string; googleSpend: number; googleRevenue: number; metaSpend: number; metaRevenue: number; totalSpend: number; totalRevenue: number; rows: DailyPerformance[] }>>((acc, row) => {
+    acc[row.date] ??= { date: row.date, label: row.date.slice(5), googleSpend: 0, googleRevenue: 0, metaSpend: 0, metaRevenue: 0, totalSpend: 0, totalRevenue: 0, rows: [] };
     const platform = row.platform.toLowerCase();
+    acc[row.date].totalSpend += row.spend;
+    acc[row.date].totalRevenue += row.revenue;
+    acc[row.date].rows.push(row);
 
     if (platform.includes("google")) {
       if (row.date >= ONLINE_ORDER_TRACKING_START) {
@@ -197,12 +203,18 @@ function buildPlatformRoasPoints(data: DailyPerformance[]) {
     return acc;
   }, {});
 
-  return Object.values(byDate).map((row) => ({
-    date: row.date,
-    label: row.label,
-    google_roas: row.googleSpend > 0 ? row.googleRevenue / row.googleSpend : null,
-    meta_roas: row.metaSpend > 0 ? row.metaRevenue / row.metaSpend : null
-  }));
+  return Object.values(byDate).map((row) => {
+    const estimatedInStorePurchases = estimatedInStorePurchasesForRows(row.rows);
+    const estimatedTotalRevenue = row.totalRevenue + (estimatedInStorePurchases ?? 0) * IN_STORE_AOV;
+
+    return {
+      date: row.date,
+      label: row.label,
+      google_roas: row.googleSpend > 0 ? row.googleRevenue / row.googleSpend : null,
+      meta_roas: row.metaSpend > 0 ? row.metaRevenue / row.metaSpend : null,
+      blended_roas: estimatedInStorePurchases !== null && row.totalSpend > 0 ? estimatedTotalRevenue / row.totalSpend : null
+    };
+  });
 }
 
 function metricLabel(metric: "spend" | "conversions" | "store_visits" | "cpa" | "roas") {
