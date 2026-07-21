@@ -27,6 +27,58 @@ const tooltipStyle = {
 const axisStyle = { fill: "rgba(255,255,255,0.65)", fontSize: 12 };
 const gridColor = "rgba(255,255,255,0.08)";
 
+type FollowerChartRow = {
+  date: string;
+  followers: number | null;
+  gained: number | null;
+  unfollows: number | null;
+  net: number | null;
+};
+
+type ReachChartRow = {
+  date: string;
+  totalReach: number | null;
+  organicReach: number | null;
+  paidReach: number | null;
+  engaged: number | null;
+  interactions: number | null;
+};
+
+function formatMetric(value: number | null | undefined) {
+  return value === null || value === undefined ? "Unavailable" : value.toLocaleString();
+}
+
+function FollowerTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ payload?: FollowerChartRow }>; label?: string }) {
+  const row = payload?.[0]?.payload;
+  if (!active || !row) return null;
+
+  return (
+    <div style={tooltipStyle} className="space-y-1 px-3 py-2 text-sm">
+      <p className="font-semibold text-white">{label}</p>
+      <p className="text-white">Total followers: {formatMetric(row.followers)}</p>
+      <p className="text-[#ff6a1a]">Gained: {formatMetric(row.gained)}</p>
+      <p className="text-white/70">Unfollows: {formatMetric(row.unfollows)}</p>
+      <p className="text-[#7dd3fc]">Net: {formatMetric(row.net)}</p>
+    </div>
+  );
+}
+
+function ReachTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ payload?: ReachChartRow }>; label?: string }) {
+  const row = payload?.[0]?.payload;
+  if (!active || !row) return null;
+
+  return (
+    <div style={tooltipStyle} className="space-y-1 px-3 py-2 text-sm">
+      <p className="font-semibold text-white">{label}</p>
+      <p className="text-white">Total reach: {formatMetric(row.totalReach)}</p>
+      <p className="text-[#ff6a1a]">Organic reach: {formatMetric(row.organicReach)}</p>
+      <p className="text-[#f59e0b]">Paid reach: {formatMetric(row.paidReach)}</p>
+      <p className="text-[#7dd3fc]">Accounts engaged: {formatMetric(row.engaged)}</p>
+      <p className="text-white/70">Interactions: {formatMetric(row.interactions)}</p>
+    </div>
+  );
+}
+
 export function FollowerGrowthChart({ data }: { data: SocialAccountDailyMetric[] }) {
   const rows = data.map((row) => ({
     date: row.metric_date.slice(5),
@@ -43,13 +95,11 @@ export function FollowerGrowthChart({ data }: { data: SocialAccountDailyMetric[]
         <ComposedChart data={rows} margin={{ top: 8, right: 4, bottom: 8, left: 0 }}>
           <CartesianGrid stroke={gridColor} vertical={false} />
           <XAxis dataKey="date" tick={axisStyle} tickLine={false} axisLine={false} />
-          <YAxis yAxisId="followers" tick={axisStyle} tickLine={false} axisLine={false} width={48} />
-          <YAxis yAxisId="change" orientation="right" tick={axisStyle} tickLine={false} axisLine={false} width={36} allowDecimals={false} />
-          <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: "#fff", fontWeight: 700 }} />
+          <YAxis yAxisId="change" tick={axisStyle} tickLine={false} axisLine={false} width={48} allowDecimals={false} />
+          <Tooltip content={<FollowerTooltip />} />
           <Legend wrapperStyle={{ color: "rgba(255,255,255,0.72)", fontSize: 12 }} />
           <Bar yAxisId="change" dataKey="gained" name="Gained" fill="#ff6a1a" radius={[5, 5, 0, 0]} maxBarSize={18} />
           <Bar yAxisId="change" dataKey="unfollows" name="Unfollows" fill="#a7a7a7" radius={[5, 5, 0, 0]} maxBarSize={18} />
-          <Line yAxisId="followers" type="monotone" dataKey="followers" name="Followers" stroke="#f7f2e8" strokeWidth={2.5} dot={showDots ? { r: 3 } : false} activeDot={{ r: 4 }} connectNulls />
           <Line yAxisId="change" type="monotone" dataKey="net" name="Net" stroke="#7dd3fc" strokeWidth={2} dot={showDots ? { r: 3 } : false} activeDot={{ r: 4 }} connectNulls />
         </ComposedChart>
       </ResponsiveContainer>
@@ -79,9 +129,8 @@ export function ReachEngagementChart({ data }: { data: SocialAccountDailyMetric[
           <CartesianGrid stroke={gridColor} vertical={false} />
           <XAxis dataKey="date" tick={axisStyle} tickLine={false} axisLine={false} />
           <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={48} />
-          <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: "#fff", fontWeight: 700 }} />
+          <Tooltip content={<ReachTooltip />} />
           <Legend wrapperStyle={{ color: "rgba(255,255,255,0.72)", fontSize: 12 }} />
-          <Line type="monotone" dataKey="totalReach" name="Total reach" stroke="#f7f2e8" strokeWidth={2.5} dot={dot} activeDot={{ r: 4 }} connectNulls />
           <Line type="monotone" dataKey="organicReach" name="Organic reach" stroke="#ff6a1a" strokeWidth={2} dot={dot} activeDot={{ r: 4 }} connectNulls />
           <Line type="monotone" dataKey="paidReach" name="Paid reach" stroke="#f59e0b" strokeWidth={2} dot={dot} activeDot={{ r: 4 }} connectNulls />
           <Line type="monotone" dataKey="engaged" name="Accounts engaged" stroke="#7dd3fc" strokeWidth={2} dot={dot} activeDot={{ r: 4 }} connectNulls />

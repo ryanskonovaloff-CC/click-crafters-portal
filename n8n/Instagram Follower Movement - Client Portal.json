@@ -1,0 +1,278 @@
+{
+  "name": "Instagram Follower Movement - Client Portal",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c723079c-8eaf-452b-951c-2d8ce27ceb72",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -440,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "35 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "81d39755-21a9-4473-90d5-d75949a2ae26",
+      "name": "Schedule Trigger - Daily 6:35 AM Pacific",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -440,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "af3b4d97-c16d-4637-93f3-c47910a36c1d",
+              "name": "client_id",
+              "value": "11111111-1111-4111-8111-111111111111",
+              "type": "string"
+            },
+            {
+              "id": "d97d5d13-5311-47ec-b217-95693f960ffd",
+              "name": "supabase_url",
+              "value": "https://YOUR_PROJECT.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "a7e5378a-0f74-4552-b2b5-3f9563169c40",
+              "name": "supabase_service_role_key",
+              "value": "REPLACE_WITH_SUPABASE_SERVICE_ROLE_KEY",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e14dddc7-5cee-47e7-ab3a-e8fed3b94545",
+      "name": "Pipeline Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -180,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Pipeline Config').first().json.supabase_url + '/rest/v1/social_account_daily_metrics' }}",
+        "authentication": "none",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,client_id,social_account_id,metric_date,followers_total"
+            },
+            {
+              "name": "client_id",
+              "value": "={{ 'eq.' + $('Pipeline Config').first().json.client_id }}"
+            },
+            {
+              "name": "followers_total",
+              "value": "not.is.null"
+            },
+            {
+              "name": "order",
+              "value": "social_account_id.asc,metric_date.asc"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "8132f39e-ecf5-4aa1-9e41-18463751cff0",
+      "name": "Load Follower Snapshots",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        80,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Pipeline Config').first().json;\nconst inputItems = $input.all().map((item) => item.json);\nconst snapshots = inputItems.flatMap((item) =>\n  Array.isArray(item) ? item : Array.isArray(item.data) ? item.data : [item]\n);\nconst ordered = [...snapshots].sort((a, b) => {\n  const account = String(a.social_account_id).localeCompare(String(b.social_account_id));\n  return account || String(a.metric_date).localeCompare(String(b.metric_date));\n});\n\nconst priorFollowerTotal = new Map();\nconst updatedAt = new Date().toISOString();\nconst rows = [];\n\nfor (const snapshot of ordered) {\n  const followersTotal = Number(snapshot.followers_total);\n  if (!snapshot.social_account_id || !snapshot.metric_date || !Number.isFinite(followersTotal)) continue;\n\n  const prior = priorFollowerTotal.get(snapshot.social_account_id);\n  if (prior !== undefined) {\n    const netFollowerGrowth = followersTotal - prior;\n    rows.push({\n      client_id: config.client_id,\n      social_account_id: snapshot.social_account_id,\n      metric_date: snapshot.metric_date,\n      followers_total: followersTotal,\n      followers_gained: Math.max(netFollowerGrowth, 0),\n      unfollows: Math.max(-netFollowerGrowth, 0),\n      net_follower_growth: netFollowerGrowth,\n      updated_at: updatedAt\n    });\n  }\n\n  priorFollowerTotal.set(snapshot.social_account_id, followersTotal);\n}\n\nreturn [{ json: { rows, processed_snapshots: ordered.length, updated_metrics: rows.length } }];"
+      },
+      "id": "642f4412-4529-4dc2-9f4a-0a8087f82aed",
+      "name": "Derive Follower Movement",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        340,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pipeline Config').first().json.supabase_url + '/rest/v1/social_account_daily_metrics' }}",
+        "authentication": "none",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "social_account_id,metric_date"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Pipeline Config').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.rows) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "08e2610e-05e4-4c01-8a1a-63f3f8792d55",
+      "name": "Supabase Upsert - Follower Movement",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Follower movement\n\nRun after the Instagram Account Daily Metrics workflow. It derives daily movement from the stored follower-total snapshots:\n\n- gained = positive day-over-day difference\n- unfollows = negative day-over-day difference\n- net = current total minus prior total\n\nThis is an inferred net movement signal. Instagram does not expose authoritative daily gross follows and unfollows through this workflow. The first snapshot for an account has no prior-day comparison and is left unchanged.",
+        "height": 300,
+        "width": 460,
+        "color": 5
+      },
+      "id": "bf2b898a-d345-4221-95d3-676389cf508b",
+      "name": "Follower Movement Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        40,
+        -120
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger - Daily 6:35 AM Pacific": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pipeline Config": {
+      "main": [
+        [
+          {
+            "node": "Load Follower Snapshots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Follower Snapshots": {
+      "main": [
+        [
+          {
+            "node": "Derive Follower Movement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Derive Follower Movement": {
+      "main": [
+        [
+          {
+            "node": "Supabase Upsert - Follower Movement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Los_Angeles"
+  },
+  "versionId": "e8ca19fc-7bd9-4b14-84a6-65583b6bc29d",
+  "meta": null,
+  "tags": []
+}
